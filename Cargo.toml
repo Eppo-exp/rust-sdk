@@ -1,0 +1,12 @@
+[package]
+name = "eppo"
+version = "0.1.0"
+edition = "2021"
+description = "Eppo SDK for Rust"
+homepage = "https://docs.geteppo.com/sdks/server-sdks/rust"
+repository = "https://github.com/Eppo-exp/rust-sdk"
+license = "MIT"
+keywords = ["eppo", "feature-flags"]
+categories = ["config"]
+
+[dependencies]
