@@ -8,6 +8,7 @@
 mod assignment_logger;
 mod client;
 mod config;
+mod ufc;
 
 pub use assignment_logger::{AssignmentEvent, AssignmentLogger};
 pub use client::{EppoClient, SubjectAttributes};
