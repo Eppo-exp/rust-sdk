@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use derive_more::From;
 use serde::{Deserialize, Serialize};
 
 use crate::Config;
@@ -39,13 +40,18 @@ impl<'a> EppoClient<'a> {
     }
 }
 
-pub type SubjectAttributes = HashMap<String, Attribute>;
+pub type SubjectAttributes = HashMap<String, AttributeValue>;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd)]
-pub enum Attribute {
+#[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd, From)]
+pub enum AttributeValue {
     String(String),
     Number(f64),
     Boolean(bool),
+}
+impl From<&str> for AttributeValue {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_owned())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq)]

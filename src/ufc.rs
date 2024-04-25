@@ -1,6 +1,9 @@
 use std::collections::HashMap;
 
+use derive_more::From;
 use serde::{Deserialize, Serialize};
+
+use crate::rules::Rule;
 
 /// Universal Flag Configuration.
 #[derive(Debug, Serialize, Deserialize)]
@@ -64,21 +67,20 @@ pub enum VariationType {
 ///
 /// Unlike [`AssignmentValue`], `Value` is untagged, so we don't know the exact type until we
 /// combine it with [`VariationType`].
-#[derive(Debug, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, From)]
 #[serde(untagged)]
 pub enum Value {
     Boolean(bool),
     /// Number maps to either [`AssignmentValue::Integer`] or [`AssignmentValue::Numeric`].
-    Number(serde_json::Number),
+    Number(f64),
     /// String maps to either [`AssignmentValue::String`] or [`AssignmentValue::Json`].
     String(String),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(untagged)]
-pub enum ConditionValue {
-    Multiple(Vec<Value>),
-    Single(Value),
+impl From<&str> for Value {
+    fn from(value: &str) -> Self {
+        Self::String(value.to_owned())
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -109,34 +111,6 @@ fn default_do_log() -> bool {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Timestamp(String);
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Rule {
-    conditions: Vec<Condition>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Condition {
-    operator: Operator,
-    attribute: String,
-    value: ConditionValue,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum Operator {
-    Matches,
-    NotMatches,
-    Gte,
-    Gt,
-    Lte,
-    Lt,
-    OneOf,
-    NotOneOf,
-    IsNull,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
