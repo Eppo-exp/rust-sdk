@@ -9,6 +9,7 @@ mod assignment_logger;
 mod client;
 mod config;
 mod rules;
+mod sharder;
 mod ufc;
 
 pub use assignment_logger::{AssignmentEvent, AssignmentLogger};
