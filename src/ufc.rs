@@ -3,12 +3,14 @@ use std::collections::HashMap;
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
-use crate::rules::Rule;
+use crate::{client::AssignmentValue, rules::Rule};
 
 /// Universal Flag Configuration.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Ufc {
+    // Value is wrapped in `TryParse` so that if we fail to parse one flag (e.g., new server
+    // format), we can still serve other flags.
     flags: HashMap<String, TryParse<Flag>>,
 }
 
@@ -40,20 +42,20 @@ impl<'a, T> From<&'a TryParse<T>> for Option<&'a T> {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Flag {
-    key: String,
-    enabled: bool,
-    variation_type: VariationType,
-    variations: HashMap<String, Variation>,
-    allocations: Vec<Allocation>,
+    pub key: String,
+    pub enabled: bool,
+    pub variation_type: VariationType,
+    pub variations: HashMap<String, Variation>,
+    pub allocations: Vec<Allocation>,
     #[serde(default = "default_total_shards")]
-    total_shards: u64,
+    pub total_shards: u64,
 }
 
 fn default_total_shards() -> u64 {
     10_000
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum VariationType {
     String,
@@ -77,6 +79,54 @@ pub enum Value {
     String(String),
 }
 
+impl Value {
+    pub fn to_assignment_value(&self, ty: VariationType) -> Option<AssignmentValue> {
+        Some(match ty {
+            VariationType::String => AssignmentValue::String(self.as_string()?.to_owned()),
+            VariationType::Integer => AssignmentValue::Integer(self.as_integer()?),
+            VariationType::Numeric => AssignmentValue::Numeric(self.as_number()?),
+            VariationType::Boolean => AssignmentValue::Boolean(self.as_boolean()?),
+            VariationType::Json => AssignmentValue::Json(self.as_json()?),
+        })
+    }
+
+    pub fn as_boolean(&self) -> Option<bool> {
+        match self {
+            Self::Boolean(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    pub fn as_number(&self) -> Option<f64> {
+        match self {
+            Self::Number(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    fn as_integer(&self) -> Option<i64> {
+        let f = self.as_number()?;
+        let i = f as i64;
+        if i as f64 == f {
+            Some(i)
+        } else {
+            None
+        }
+    }
+
+    pub fn as_string(&self) -> Option<&str> {
+        match self {
+            Self::String(value) => Some(value),
+            _ => None,
+        }
+    }
+
+    pub fn as_json(&self) -> Option<serde_json::Value> {
+        let s = self.as_string()?;
+        serde_json::from_str(s).ok()?
+    }
+}
+
 impl From<&str> for Value {
     fn from(value: &str) -> Self {
         Self::String(value.to_owned())
@@ -86,62 +136,64 @@ impl From<&str> for Value {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Variation {
-    key: String,
-    value: Value,
+    pub key: String,
+    pub value: Value,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Allocation {
-    key: String,
+    pub key: String,
     #[serde(default)]
-    rules: Vec<Rule>,
+    pub rules: Vec<Rule>,
     #[serde(default)]
-    start_at: Option<Timestamp>,
+    pub start_at: Option<Timestamp>,
     #[serde(default)]
-    end_at: Option<Timestamp>,
-    splits: Vec<Split>,
+    pub end_at: Option<Timestamp>,
+    pub splits: Vec<Split>,
     #[serde(default = "default_do_log")]
-    do_log: bool,
+    pub do_log: bool,
 }
 
 fn default_do_log() -> bool {
     true
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct Timestamp(String);
+pub type Timestamp = chrono::DateTime<chrono::Utc>;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Split {
-    shards: Vec<Shard>,
-    variation_key: String,
+    pub shards: Vec<Shard>,
+    pub variation_key: String,
     #[serde(default = "HashMap::new")]
-    extra_logging: HashMap<String, String>,
+    pub extra_logging: HashMap<String, String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Shard {
-    salt: String,
-    ranges: Vec<Range>,
+    pub salt: String,
+    pub ranges: Vec<Range>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Range {
-    start: u64,
-    end: u64,
+    pub start: u64,
+    pub end: u64,
+}
+impl Range {
+    pub fn contains(&self, v: u64) -> bool {
+        self.start <= v && v < self.end
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::{fs::File, io::BufReader};
 
-    use crate::ufc::{Flag, TryParse};
-
-    use super::Ufc;
+    use super::{TryParse, Ufc};
 
     #[test]
     fn parse_flags_v1() {

@@ -8,6 +8,7 @@
 mod assignment_logger;
 mod client;
 mod config;
+mod eval;
 mod rules;
 mod sharder;
 mod ufc;

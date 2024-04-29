@@ -10,6 +10,7 @@ keywords = ["eppo", "feature-flags"]
 categories = ["config"]
 
 [dependencies]
+chrono = { version = "0.4.38", features = ["serde"] }
 derive_more = "0.99.17"
 md5 = "0.7.0"
 regex = "1.10.4"

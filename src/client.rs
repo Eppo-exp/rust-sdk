@@ -42,7 +42,7 @@ impl<'a> EppoClient<'a> {
 
 pub type SubjectAttributes = HashMap<String, AttributeValue>;
 
-#[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd, From)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd, From, Clone)]
 pub enum AttributeValue {
     String(String),
     Number(f64),
