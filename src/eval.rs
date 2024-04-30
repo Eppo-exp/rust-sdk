@@ -121,3 +121,87 @@ impl Shard {
         self.ranges.iter().any(|range| range.contains(h))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::fs::{self, File};
+
+    use serde::{Deserialize, Serialize};
+
+    use crate::{
+        sharder::Md5Sharder,
+        ufc::{Flag, TryParse, Ufc, Value, VariationType},
+        SubjectAttributes,
+    };
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct TestFile {
+        flag: String,
+        variation_type: VariationType,
+        default_value: TryParse<Value>,
+        subjects: Vec<TestSubject>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct TestSubject {
+        subject_key: String,
+        subject_attributes: SubjectAttributes,
+        assignment: TryParse<Value>,
+    }
+
+    // Test files have different representation of Value for JSON. Whereas server returns a string
+    // that has to be further parsed, test files embed the JSON object directly.
+    //
+    // Therefore, if we failed to parse "assignment" field as one of the values, we fallback to
+    // AttributeValue::Json.
+    fn to_value(try_parse: TryParse<Value>) -> Value {
+        match try_parse {
+            TryParse::Parsed(v) => v,
+            TryParse::ParseFailed(json) => Value::String(serde_json::to_string(&json).unwrap()),
+        }
+    }
+
+    #[test]
+    fn evaluation_sdk_test_data() {
+        let config: Ufc =
+            serde_json::from_reader(File::open("tests/data/ufc/flags-v1.json").unwrap()).unwrap();
+
+        for entry in fs::read_dir("tests/data/ufc/tests/").unwrap() {
+            let entry = entry.unwrap();
+            println!("Processing test file: {:?}", entry.path());
+
+            let f = File::open(entry.path()).unwrap();
+            let test_file: TestFile = serde_json::from_reader(f).unwrap();
+
+            let flag: Option<&Flag> = config.flags.get(&test_file.flag).and_then(|x| x.into());
+
+            let default_assignment = to_value(test_file.default_value)
+                .to_assignment_value(test_file.variation_type)
+                .unwrap();
+
+            for subject in test_file.subjects {
+                print!("test subject {:?} ... ", subject.subject_key);
+                let result = flag.and_then(|f| {
+                    f.eval(
+                        &subject.subject_key,
+                        &subject.subject_attributes,
+                        &Md5Sharder,
+                    )
+                });
+
+                let result_assingment = result
+                    .as_ref()
+                    .map(|(value, _event)| value)
+                    .unwrap_or(&default_assignment);
+                let expected_assignment = to_value(subject.assignment)
+                    .to_assignment_value(test_file.variation_type)
+                    .unwrap();
+
+                assert_eq!(result_assingment, &expected_assignment);
+                println!("ok");
+            }
+        }
+    }
+}

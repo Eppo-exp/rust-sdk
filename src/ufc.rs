@@ -11,7 +11,7 @@ use crate::{client::AssignmentValue, rules::Rule};
 pub struct Ufc {
     // Value is wrapped in `TryParse` so that if we fail to parse one flag (e.g., new server
     // format), we can still serve other flags.
-    flags: HashMap<String, TryParse<Flag>>,
+    pub flags: HashMap<String, TryParse<Flag>>,
 }
 
 /// `TryParse` allows the subfield to fail parsing without failing the parsing of the whole
@@ -21,6 +21,14 @@ pub struct Ufc {
 pub enum TryParse<T> {
     Parsed(T),
     ParseFailed(serde_json::Value),
+}
+impl<T> From<TryParse<T>> for Result<T, serde_json::Value> {
+    fn from(value: TryParse<T>) -> Self {
+        match value {
+            TryParse::Parsed(v) => Ok(v),
+            TryParse::ParseFailed(v) => Err(v),
+        }
+    }
 }
 impl<T> From<TryParse<T>> for Option<T> {
     fn from(value: TryParse<T>) -> Self {
