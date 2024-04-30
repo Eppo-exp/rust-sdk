@@ -5,14 +5,26 @@ use chrono::Utc;
 use crate::{
     client::AssignmentValue,
     sharder::Sharder,
-    ufc::{Allocation, Flag, Shard, Split, Timestamp},
+    ufc::{Allocation, Flag, Shard, Split, Timestamp, Ufc},
     AssignmentEvent, SubjectAttributes,
 };
 
+impl Ufc {
+    pub fn eval_flag(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &SubjectAttributes,
+        sharder: &impl Sharder,
+    ) -> Option<(AssignmentValue, Option<AssignmentEvent>)> {
+        let flag: &Flag = self.flags.get(flag_key).and_then(|x| x.into())?;
+        flag.eval(subject_key, subject_attributes, sharder)
+    }
+}
+
 impl Flag {
-    #[allow(dead_code)]
-    pub fn eval<'a>(
-        self: &'a Flag,
+    pub fn eval(
+        &self,
         subject_key: &str,
         subject_attributes: &SubjectAttributes,
         sharder: &impl Sharder,
@@ -175,7 +187,7 @@ mod tests {
             let f = File::open(entry.path()).unwrap();
             let test_file: TestFile = serde_json::from_reader(f).unwrap();
 
-            let flag: Option<&Flag> = config.flags.get(&test_file.flag).and_then(|x| x.into());
+            // let flag: Option<&Flag> = config.flags.get(&test_file.flag).and_then(|x| x.into());
 
             let default_assignment = to_value(test_file.default_value)
                 .to_assignment_value(test_file.variation_type)
@@ -183,13 +195,12 @@ mod tests {
 
             for subject in test_file.subjects {
                 print!("test subject {:?} ... ", subject.subject_key);
-                let result = flag.and_then(|f| {
-                    f.eval(
-                        &subject.subject_key,
-                        &subject.subject_attributes,
-                        &Md5Sharder,
-                    )
-                });
+                let result = config.eval_flag(
+                    &test_file.flag,
+                    &subject.subject_key,
+                    &subject.subject_attributes,
+                    &Md5Sharder,
+                );
 
                 let result_assingment = result
                     .as_ref()
