@@ -3,7 +3,12 @@ use std::{collections::HashMap, sync::Arc};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
-use crate::{configuration_store::ConfigurationStore, sharder::Md5Sharder, ClientConfig};
+use crate::{
+    configuration_store::ConfigurationStore,
+    poller::{PollerThread, PollerThreadConfig},
+    sharder::Md5Sharder,
+    ClientConfig,
+};
 
 /// A client for Eppo API.
 ///
@@ -60,6 +65,15 @@ impl<'a> EppoClient<'a> {
         }
 
         Some(value)
+    }
+
+    /// Start a poller thread to fetch configuration from the server.
+    pub fn start_poller_thread(&mut self) -> PollerThread {
+        PollerThread::start(PollerThreadConfig {
+            store: self.configuration_store.clone(),
+            base_url: self.config.base_url.clone(),
+            api_key: self.config.api_key.clone(),
+        })
     }
 }
 
