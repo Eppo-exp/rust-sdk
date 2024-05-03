@@ -8,7 +8,7 @@ use crate::{client::AssignmentValue, rules::Rule};
 /// Universal Flag Configuration.
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Ufc {
+pub struct UniversalFlagConfig {
     // Value is wrapped in `TryParse` so that if we fail to parse one flag (e.g., new server
     // format), we can still serve other flags.
     pub flags: HashMap<String, TryParse<Flag>>,
@@ -201,18 +201,18 @@ impl Range {
 mod tests {
     use std::{fs::File, io::BufReader};
 
-    use super::{TryParse, Ufc};
+    use super::{TryParse, UniversalFlagConfig};
 
     #[test]
     fn parse_flags_v1() {
         let f = File::open("tests/data/ufc/flags-v1.json")
             .expect("Failed to open tests/data/ufc/flags-v1.json");
-        let _ufc: Ufc = serde_json::from_reader(BufReader::new(f)).unwrap();
+        let _ufc: UniversalFlagConfig = serde_json::from_reader(BufReader::new(f)).unwrap();
     }
 
     #[test]
     fn parse_partially_if_unexpected() {
-        let ufc: Ufc = serde_json::from_str(
+        let ufc: UniversalFlagConfig = serde_json::from_str(
             &r#"
               {
                 "flags": {

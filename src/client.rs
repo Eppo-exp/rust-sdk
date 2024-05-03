@@ -147,7 +147,7 @@ mod tests {
     use crate::{
         client::AssignmentValue,
         configuration_store::ConfigurationStore,
-        ufc::{Allocation, Flag, Split, TryParse, Ufc, Variation, VariationType},
+        ufc::{Allocation, Flag, Split, TryParse, UniversalFlagConfig, Variation, VariationType},
         ClientConfig, EppoClient,
     };
 
@@ -174,7 +174,7 @@ mod tests {
         );
 
         // updating configuration after client is created
-        configuration_store.set_configuration(Ufc {
+        configuration_store.set_configuration(UniversalFlagConfig {
             flags: [(
                 "flag".to_owned(),
                 TryParse::Parsed(Flag {

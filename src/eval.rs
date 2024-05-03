@@ -5,11 +5,11 @@ use chrono::Utc;
 use crate::{
     client::AssignmentValue,
     sharder::Sharder,
-    ufc::{Allocation, Flag, Shard, Split, Timestamp, Ufc},
+    ufc::{Allocation, Flag, Shard, Split, Timestamp, UniversalFlagConfig},
     AssignmentEvent, SubjectAttributes,
 };
 
-impl Ufc {
+impl UniversalFlagConfig {
     pub fn eval_flag(
         &self,
         flag_key: &str,
@@ -142,7 +142,7 @@ mod tests {
 
     use crate::{
         sharder::Md5Sharder,
-        ufc::{Flag, TryParse, Ufc, Value, VariationType},
+        ufc::{Flag, TryParse, UniversalFlagConfig, Value, VariationType},
         SubjectAttributes,
     };
 
@@ -177,7 +177,7 @@ mod tests {
 
     #[test]
     fn evaluation_sdk_test_data() {
-        let config: Ufc =
+        let config: UniversalFlagConfig =
             serde_json::from_reader(File::open("tests/data/ufc/flags-v1.json").unwrap()).unwrap();
 
         for entry in fs::read_dir("tests/data/ufc/tests/").unwrap() {
