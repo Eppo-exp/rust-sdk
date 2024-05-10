@@ -7,7 +7,7 @@ use crate::{
     configuration_store::ConfigurationStore,
     poller::{PollerThread, PollerThreadConfig},
     sharder::Md5Sharder,
-    ClientConfig,
+    ClientConfig, Result,
 };
 
 /// A client for Eppo API.
@@ -55,20 +55,48 @@ impl<'a> EppoClient<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &SubjectAttributes,
-    ) -> Option<AssignmentValue> {
-        let configuration = self.configuration_store.get_configuration()?;
-        let (value, event) =
-            configuration.eval_flag(flag_key, subject_key, subject_attributes, &Md5Sharder)?;
+    ) -> Result<Option<AssignmentValue>> {
+        let Some(configuration) = self.configuration_store.get_configuration() else {
+            log::warn!(target: "eppo", flag_key, subject_key; "evaluating a flag before Eppo configuration has been fetched");
+            // We treat missing configuration (the poller has not fetched config) as a normal
+            // scenario (at least for now).
+            return Ok(None);
+        };
+
+        let evaluation = configuration
+            .eval_flag(flag_key, subject_key, subject_attributes, &Md5Sharder)
+            .inspect_err(|err| {
+                log::warn!(target: "eppo",
+                    flag_key,
+                    subject_key,
+                    subject_attributes:serde;
+                    "error occurred while evaluating a flag: {:?}", err,
+                );
+            })?;
+
+        log::trace!(target: "eppo",
+                    flag_key,
+                    subject_key,
+                    subject_attributes:serde,
+                    assignment:serde = evaluation.as_ref().map(|(value, _event)| value);
+                    "evaluated a flag");
+
+        let Some((value, event)) = evaluation else {
+            return Ok(None);
+        };
 
         if let Some(event) = event {
+            log::trace!(target: "eppo",
+                        event:serde;
+                        "logging assignment");
             self.config.assignment_logger.log_assignment(event);
         }
 
-        Some(value)
+        Ok(Some(value))
     }
 
     /// Start a poller thread to fetch configuration from the server.
-    pub fn start_poller_thread(&mut self) -> PollerThread {
+    pub fn start_poller_thread(&mut self) -> Result<PollerThread> {
         PollerThread::start(PollerThreadConfig {
             store: self.configuration_store.clone(),
             base_url: self.config.base_url.clone(),
@@ -174,7 +202,9 @@ mod tests {
         );
 
         assert_eq!(
-            client.get_assignment("flag", "subject", &HashMap::new()),
+            client
+                .get_assignment("flag", "subject", &HashMap::new())
+                .unwrap(),
             None
         );
     }
@@ -222,7 +252,9 @@ mod tests {
         });
 
         assert_eq!(
-            client.get_assignment("flag", "subject", &HashMap::new()),
+            client
+                .get_assignment("flag", "subject", &HashMap::new())
+                .unwrap(),
             Some(AssignmentValue::Boolean(true))
         );
     }

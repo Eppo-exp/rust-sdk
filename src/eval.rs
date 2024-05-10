@@ -5,8 +5,8 @@ use chrono::Utc;
 use crate::{
     client::AssignmentValue,
     sharder::Sharder,
-    ufc::{Allocation, Flag, Shard, Split, Timestamp, UniversalFlagConfig},
-    AssignmentEvent, SubjectAttributes,
+    ufc::{Allocation, Flag, Shard, Split, Timestamp, TryParse, UniversalFlagConfig},
+    AssignmentEvent, Error, Result, SubjectAttributes,
 };
 
 impl UniversalFlagConfig {
@@ -16,9 +16,13 @@ impl UniversalFlagConfig {
         subject_key: &str,
         subject_attributes: &SubjectAttributes,
         sharder: &impl Sharder,
-    ) -> Option<(AssignmentValue, Option<AssignmentEvent>)> {
-        let flag: &Flag = self.flags.get(flag_key).and_then(|x| x.into())?;
-        flag.eval(subject_key, subject_attributes, sharder)
+    ) -> Result<Option<(AssignmentValue, Option<AssignmentEvent>)>> {
+        let flag = self.flags.get(flag_key).ok_or(Error::FlagNotFound)?;
+
+        match flag {
+            TryParse::Parsed(flag) => flag.eval(subject_key, subject_attributes, sharder),
+            TryParse::ParseFailed(_) => Err(Error::ConfigurationParseError),
+        }
     }
 }
 
@@ -28,9 +32,9 @@ impl Flag {
         subject_key: &str,
         subject_attributes: &SubjectAttributes,
         sharder: &impl Sharder,
-    ) -> Option<(AssignmentValue, Option<AssignmentEvent>)> {
+    ) -> Result<Option<(AssignmentValue, Option<AssignmentEvent>)>> {
         if !self.enabled {
-            return None;
+            return Ok(None);
         }
 
         let now = Utc::now();
@@ -42,7 +46,7 @@ impl Flag {
             sa
         };
 
-        let (allocation, split) = self.allocations.iter().find_map(|allocation| {
+        let Some((allocation, split)) = self.allocations.iter().find_map(|allocation| {
             allocation
                 .get_matching_split(
                     subject_key,
@@ -52,10 +56,31 @@ impl Flag {
                     now,
                 )
                 .map(|split| (allocation, split))
+        }) else {
+            return Ok(None);
+        };
+
+        let variation = self.variations.get(&split.variation_key).ok_or_else(|| {
+            log::warn!(target: "eppo",
+                       flag_key:display = self.key,
+                       subject_key,
+                       variation_key:display = split.variation_key;
+                       "internal: unable to find variation");
+            Error::ConfigurationError
         })?;
 
-        let variation = self.variations.get(&split.variation_key)?;
-        let assignment_value = variation.value.to_assignment_value(self.variation_type)?;
+        let assignment_value = variation
+            .value
+            .to_assignment_value(self.variation_type)
+            .ok_or_else(|| {
+                log::warn!(target: "eppo",
+                           flag_key:display = self.key,
+                           subject_key,
+                           variation_key:display = split.variation_key;
+                           "internal: unable to convert Value to AssignmentValue");
+                Error::ConfigurationError
+            })?;
+
         let event = if allocation.do_log {
             Some(AssignmentEvent {
                 feature_flag: self.key.clone(),
@@ -78,7 +103,7 @@ impl Flag {
             None
         };
 
-        Some((assignment_value, event))
+        Ok(Some((assignment_value, event)))
     }
 }
 
@@ -142,7 +167,7 @@ mod tests {
 
     use crate::{
         sharder::Md5Sharder,
-        ufc::{Flag, TryParse, UniversalFlagConfig, Value, VariationType},
+        ufc::{TryParse, UniversalFlagConfig, Value, VariationType},
         SubjectAttributes,
     };
 
@@ -187,20 +212,20 @@ mod tests {
             let f = File::open(entry.path()).unwrap();
             let test_file: TestFile = serde_json::from_reader(f).unwrap();
 
-            // let flag: Option<&Flag> = config.flags.get(&test_file.flag).and_then(|x| x.into());
-
             let default_assignment = to_value(test_file.default_value)
                 .to_assignment_value(test_file.variation_type)
                 .unwrap();
 
             for subject in test_file.subjects {
                 print!("test subject {:?} ... ", subject.subject_key);
-                let result = config.eval_flag(
-                    &test_file.flag,
-                    &subject.subject_key,
-                    &subject.subject_attributes,
-                    &Md5Sharder,
-                );
+                let result = config
+                    .eval_flag(
+                        &test_file.flag,
+                        &subject.subject_key,
+                        &subject.subject_attributes,
+                        &Md5Sharder,
+                    )
+                    .unwrap_or(None);
 
                 let result_assingment = result
                     .as_ref()
