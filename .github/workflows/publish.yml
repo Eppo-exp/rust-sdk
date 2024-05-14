@@ -3,7 +3,7 @@ name: Publish Crate
 on:
   push:
     tags:
-        - '*'  # Trigger when a tag is created
+      - '*'  # Trigger when a tag is created
 
 env:
   CARGO_TERM_COLOR: always
