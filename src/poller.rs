@@ -9,14 +9,19 @@ use reqwest::{StatusCode, Url};
 use crate::{configuration_store::ConfigurationStore, Error, Result};
 
 pub(crate) struct PollerThreadConfig {
-    pub store: Arc<ConfigurationStore>,
-    pub base_url: String,
-    pub api_key: String,
+    pub(crate) store: Arc<ConfigurationStore>,
+    pub(crate) base_url: String,
+    pub(crate) api_key: String,
 }
 
 /// A configuration poller thread.
 ///
-/// Use [`Client.start_poller_thread`] to get an instance of it.
+/// The poller thread polls the server periodically to fetch the latest configuration.
+///
+/// Use [`Client::start_poller_thread`][crate::Client::start_poller_thread] to get an instance.
+///
+/// The Client returns `None` for assignments before the first configuration is fetched. So it is
+/// recommended to call [`PollerThread::wait_for_configuration`] before requesting assignments.
 pub struct PollerThread {
     join_handle: std::thread::JoinHandle<()>,
 
@@ -35,6 +40,24 @@ const POLL_INTERVAL: Duration = Duration::from_secs(5 * 60);
 const POLL_JITTER: Duration = Duration::from_secs(30);
 
 impl PollerThread {
+    /// Starts the configuration poller thread.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - A [`PollerThreadConfig`] containing configuration details.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` with the `PollerThread` instance if successful, or an `Error` if an issue occurs.
+    ///
+    /// # Errors
+    ///
+    /// This method can return the following errors:
+    ///
+    /// - [`Error::InvalidBaseUrl`] if the base URL configuration is invalid.
+    /// - [`Error::Unauthorized`] if the request is unauthorized, possibly due to an invalid API key.
+    /// - [`Error::PollerThreadPanicked`] if an unexpected panic occurs in the poller thread.
+    /// - [`Error::Io`] for any I/O related errors.
     pub(crate) fn start(config: PollerThreadConfig) -> Result<PollerThread> {
         let (stop_sender, stop_receiver) = std::sync::mpsc::channel::<()>();
 
@@ -126,7 +149,33 @@ impl PollerThread {
         })
     }
 
-    /// Block waiting for the first configuration to get fetched.
+    /// Waits for the configuration to be fetched.
+    ///
+    /// This method blocks until the poller thread has fetched the configuration.
+    ///
+    /// # Returns
+    ///
+    /// Returns `Result<()>` where `Ok(())` indicates successful configuration fetch and any
+    /// error that occurred during the process.
+    ///
+    /// # Errors
+    ///
+    /// This method can fail with the following errors:
+    ///
+    /// - [`Error::PollerThreadPanicked`]: If the poller thread panicked while waiting for
+    /// configuration.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # fn test(mut client: eppo::Client) {
+    /// let poller = client.start_poller_thread().unwrap();
+    /// match poller.wait_for_configuration() {
+    ///     Ok(()) => println!("Configuration fetched successfully."),
+    ///     Err(err) => eprintln!("Error fetching configuration: {:?}", err),
+    /// }
+    /// # }
+    /// ```
     pub fn wait_for_configuration(&self) -> Result<()> {
         let mut lock = self
             .result
@@ -163,7 +212,22 @@ impl PollerThread {
 
     /// Stop the poller thread and block waiting for it to exit.
     ///
-    /// If you don't need to wait for the thread to exit, use [`PollerThread.stop`] instead.
+    /// If you don't need to wait for the thread to exit, use [`PollerThread::stop`] instead.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error of type [`Error`] in the following cases:
+    ///
+    /// - [`Error::PollerThreadPanicked`] if the thread has panicked.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use eppo::PollerThread;
+    /// # fn test(poller_thread: eppo::PollerThread) {
+    /// poller_thread.shutdown().expect("Failed to shut down the poller thread");
+    /// # }
+    /// ```
     pub fn shutdown(self) -> Result<()> {
         // Send stop signal in case it wasn't sent before.
         self.stop();

@@ -2,7 +2,7 @@ use std::sync::{Arc, RwLock};
 
 use crate::ufc::UniversalFlagConfig;
 
-/// `ConfigurationStore` provides a Sync storage for feature flags configuration that allows
+/// `ConfigurationStore` provides a `Sync` storage for feature flags configuration that allows
 /// concurrent access for readers and writers.
 pub struct ConfigurationStore {
     configuration: RwLock<Option<Arc<UniversalFlagConfig>>>,
