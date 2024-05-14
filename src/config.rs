@@ -1,6 +1,16 @@
-use crate::{assignment_logger::NoopAssignmentLogger, AssignmentLogger, EppoClient};
+use crate::{assignment_logger::NoopAssignmentLogger, AssignmentLogger, Client};
 
-/// Configuration for [`EppoClient`].
+/// Configuration for [`Client`].
+///
+/// # Examples
+/// ```
+/// # use eppo::ClientConfig;
+/// let client = ClientConfig::from_api_key("api-key")
+///     .assignment_logger(|event| {
+///         println!("{:?}", event);
+///     })
+///     .to_client();
+/// ```
 pub struct ClientConfig<'a> {
     pub(crate) api_key: String,
     pub(crate) base_url: String,
@@ -22,7 +32,7 @@ impl<'a> ClientConfig<'a> {
         }
     }
 
-    /// Set assignment logger to pass variation assignments to your data warehouse.
+    /// Set assignment logger to store variation assignments to your data warehouse.
     ///
     /// ```
     /// # use eppo::ClientConfig;
@@ -31,9 +41,9 @@ impl<'a> ClientConfig<'a> {
     /// });
     /// ```
     pub fn assignment_logger(
-        &mut self,
+        mut self,
         assignment_logger: impl AssignmentLogger + Send + Sync + 'a,
-    ) -> &mut Self {
+    ) -> Self {
         self.assignment_logger = Box::new(assignment_logger);
         self
     }
@@ -42,18 +52,18 @@ impl<'a> ClientConfig<'a> {
     pub const DEFAULT_BASE_URL: &'static str = "https://fscdn.eppo.cloud/api";
 
     /// Override base URL for API calls. Clients should use the default setting in most cases.
-    pub fn base_url(&mut self, base_url: impl Into<String>) -> &mut Self {
+    pub fn base_url(mut self, base_url: impl Into<String>) -> Self {
         self.base_url = base_url.into();
         self
     }
 
-    /// Create a new [`EppoClient`] using the specified configuration.
+    /// Create a new [`Client`] using the specified configuration.
     ///
     /// ```
-    /// # use eppo::{ClientConfig, EppoClient};
-    /// let client: EppoClient = ClientConfig::from_api_key("api-key").to_client();
+    /// # use eppo::{ClientConfig, Client};
+    /// let client: Client = ClientConfig::from_api_key("api-key").to_client();
     /// ```
-    pub fn to_client(self) -> EppoClient<'a> {
-        EppoClient::new(self)
+    pub fn to_client(self) -> Client<'a> {
+        Client::new(self)
     }
 }
