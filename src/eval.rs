@@ -126,8 +126,8 @@ impl Allocation {
     }
 
     fn is_allowed_by_time(&self, now: Timestamp) -> bool {
-        let forbidden =
-            self.start_at.is_some_and(|t| now < t) || self.end_at.is_some_and(|t| now > t);
+        let forbidden = matches!(self.start_at, Some(t) if now < t)
+            || matches!(self.end_at, Some(t) if now > t);
         !forbidden
     }
 
