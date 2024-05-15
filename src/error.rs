@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use crate::ufc::VariationType;
+
 /// Represents a result type for operations in the Eppo SDK.
 ///
 /// This type alias is used throughout the SDK to indicate the result of operations that may return
@@ -16,6 +18,15 @@ pub enum Error {
     /// The requested flag configuration was not found.
     #[error("flag not found")]
     FlagNotFound,
+
+    /// Requested flag has invalid type.
+    #[error("invalid flag type (expected: {expected:?}, found: {found:?})")]
+    InvalidType {
+        /// Expected type of the flag.
+        expected: VariationType,
+        /// Actual type of the flag.
+        found: VariationType,
+    },
 
     /// An error occurred while parsing the configuration (server sent unexpected response). It is
     /// recommended to upgrade the Eppo SDK.

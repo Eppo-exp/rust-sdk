@@ -5,7 +5,9 @@ use chrono::Utc;
 use crate::{
     client::AssignmentValue,
     sharder::Sharder,
-    ufc::{Allocation, Flag, Shard, Split, Timestamp, TryParse, UniversalFlagConfig},
+    ufc::{
+        Allocation, Flag, Shard, Split, Timestamp, TryParse, UniversalFlagConfig, VariationType,
+    },
     AssignmentEvent, Error, Result, SubjectAttributes,
 };
 
@@ -16,17 +18,39 @@ impl UniversalFlagConfig {
         subject_key: &str,
         subject_attributes: &SubjectAttributes,
         sharder: &impl Sharder,
+        expected_type: Option<VariationType>,
     ) -> Result<Option<(AssignmentValue, Option<AssignmentEvent>)>> {
+        let flag = self.get_flag(flag_key)?;
+
+        if let Some(ty) = expected_type {
+            flag.verify_type(ty)?;
+        }
+
+        flag.eval(subject_key, subject_attributes, sharder)
+    }
+
+    pub fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag> {
         let flag = self.flags.get(flag_key).ok_or(Error::FlagNotFound)?;
 
         match flag {
-            TryParse::Parsed(flag) => flag.eval(subject_key, subject_attributes, sharder),
+            TryParse::Parsed(flag) => Ok(flag),
             TryParse::ParseFailed(_) => Err(Error::ConfigurationParseError),
         }
     }
 }
 
 impl Flag {
+    pub fn verify_type(&self, ty: VariationType) -> Result<()> {
+        if self.variation_type == ty {
+            Ok(())
+        } else {
+            Err(Error::InvalidType {
+                expected: ty,
+                found: self.variation_type,
+            })
+        }
+    }
+
     pub fn eval(
         &self,
         subject_key: &str,
@@ -224,6 +248,7 @@ mod tests {
                         &subject.subject_key,
                         &subject.subject_attributes,
                         &Md5Sharder,
+                        Some(test_file.variation_type),
                     )
                     .unwrap_or(None);
 
