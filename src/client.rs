@@ -110,16 +110,19 @@ impl<'a> Client<'a> {
             return Ok(None);
         };
 
-        let evaluation = configuration
-            .eval_flag(flag_key, subject_key, subject_attributes, &Md5Sharder)
-            .inspect_err(|err| {
-                log::warn!(target: "eppo",
-                    flag_key,
-                    subject_key,
-                    subject_attributes:serde;
-                    "error occurred while evaluating a flag: {:?}", err,
-                );
-            })?;
+        let evaluation = match configuration
+            .eval_flag(flag_key, subject_key, subject_attributes, &Md5Sharder) {
+                Ok(result) => result,
+                Err(err) => {
+                    log::warn!(target: "eppo",
+                               flag_key,
+                               subject_key,
+                               subject_attributes:serde;
+                               "error occurred while evaluating a flag: {:?}", err,
+                    );
+                    return Err(err);
+                },
+            };
 
         log::trace!(target: "eppo",
                     flag_key,
