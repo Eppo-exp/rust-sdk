@@ -128,7 +128,7 @@ impl Operator {
 
             Self::IsNull => {
                 let is_null =
-                    attribute.is_none() || attribute.is_some_and(|v| v == &AttributeValue::Null);
+                    attribute.is_none() || matches!(attribute, Some(&AttributeValue::Null));
                 match condition_value {
                     ConditionValue::Single(Value::Boolean(true)) => Some(is_null),
                     ConditionValue::Single(Value::Boolean(false)) => Some(!is_null),
