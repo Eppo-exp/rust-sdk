@@ -1,9 +1,8 @@
 name: Publish Crate
 
 on:
-  push:
-    tags:
-      - '*'  # Trigger when a tag is created
+  release:
+    types: [published]
 
 env:
   CARGO_TERM_COLOR: always
