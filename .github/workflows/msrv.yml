@@ -2,6 +2,8 @@ name: Verify MSRV version
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 env:
