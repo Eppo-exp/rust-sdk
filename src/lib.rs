@@ -2,13 +2,36 @@
 //!
 //! # Overview
 //!
-//! The SDK revolves around a [`Client`] that evaluates feature flag values for `subjects`, where each
+//! The SDK revolves around a [`Client`] that evaluates feature flag values for "subjects", where each
 //! subject has a unique key and key-value attributes associated with it. Feature flag evaluation
 //! results in an [`AssignmentValue`] being returned, representing a specific feature flag value assigned
 //! to the subject.
 //!
+//! # Typed assignments
+//!
+//! Every Eppo flag has a return type that is set once on creation in the dashboard. Once a flag is
+//! created, assignments in code should be made using the corresponding typed function:
+//! - [`Client::get_string_assignment()`]
+//! - [`Client::get_integer_assignment()`]
+//! - [`Client::get_numeric_assignment()`]
+//! - [`Client::get_boolean_assignment()`]
+//! - [`Client::get_json_assignment()`]
+//!
+//! These functions provide additional type safety over [`Client::get_assignment()`] as they can
+//! detect type mismatch even before evaluating the feature, so the error is returned even if
+//! subject is otherwise uneligible (`get_assignment()` return `Ok(None)` in that case).
+//!
+//! # Assignment logger
+//!
 //! An [`AssignmentLogger`] should be provided to save assignment events to your storage,
 //! facilitating tracking of which user received which feature flag values.
+//!
+//! ```
+//! # use eppo::ClientConfig;
+//! let config = ClientConfig::from_api_key("api-key").assignment_logger(|assignment| {
+//!   println!("{:?}", assignment);
+//! });
+//! ```
 //!
 //! # Error Handling
 //!
