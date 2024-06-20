@@ -1,6 +1,10 @@
 # Eppo Rust SDK
 
+![Crates.io Version](https://img.shields.io/crates/v/eppo) ![Crates.io MSRV](https://img.shields.io/crates/msrv/eppo) ![docs.rs](https://img.shields.io/docsrs/eppo)
+
 [Eppo](https://www.geteppo.com/) is a modular flagging and experimentation analysis tool. Eppo's Rust SDK is designed to facilitate assignments in multi-user server-side contexts. You will need an Eppo account before proceeding.
+
+Refer to [SDK documentation](https://docs.geteppo.com/feature-flags/sdks/rust) for how to install and use the SDK.
 
 ## Features
 
