@@ -3,21 +3,30 @@ use std::collections::HashMap;
 use chrono::Utc;
 
 use crate::{
-    client::AssignmentValue,
-    sharder::Sharder,
-    ufc::{
-        Allocation, Flag, Shard, Split, Timestamp, TryParse, UniversalFlagConfig, VariationType,
-    },
-    AssignmentEvent, Error, Result, SubjectAttributes,
+    sharder::{Md5Sharder, Sharder},
+    Attributes, Error, Result,
+};
+
+use super::{
+    Allocation, AssignmentEvent, AssignmentValue, Flag, Shard, Split, Timestamp, TryParse,
+    UniversalFlagConfig, VariationType,
 };
 
 impl UniversalFlagConfig {
+    /// Evaluate the flag for the given subject, expecting `expected_type` type.
+    ///
+    /// # Errors
+    ///
+    /// This method may return the following errors:
+    /// - [`Error::FlagNotFound`]
+    /// - [`Error::InvalidType`]
+    /// - [`Error::ConfigurationError`]
+    /// - [`Error::ConfigurationParseError`]
     pub fn eval_flag(
         &self,
         flag_key: &str,
         subject_key: &str,
-        subject_attributes: &SubjectAttributes,
-        sharder: &impl Sharder,
+        subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
     ) -> Result<Option<(AssignmentValue, Option<AssignmentEvent>)>> {
         let flag = self.get_flag(flag_key)?;
@@ -26,10 +35,10 @@ impl UniversalFlagConfig {
             flag.verify_type(ty)?;
         }
 
-        flag.eval(subject_key, subject_attributes, sharder)
+        flag.eval(subject_key, subject_attributes, &Md5Sharder)
     }
 
-    pub fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag> {
+    fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag> {
         let flag = self.flags.get(flag_key).ok_or(Error::FlagNotFound)?;
 
         match flag {
@@ -40,7 +49,7 @@ impl UniversalFlagConfig {
 }
 
 impl Flag {
-    pub fn verify_type(&self, ty: VariationType) -> Result<()> {
+    fn verify_type(&self, ty: VariationType) -> Result<()> {
         if self.variation_type == ty {
             Ok(())
         } else {
@@ -51,10 +60,10 @@ impl Flag {
         }
     }
 
-    pub fn eval(
+    fn eval(
         &self,
         subject_key: &str,
-        subject_attributes: &SubjectAttributes,
+        subject_attributes: &Attributes,
         sharder: &impl Sharder,
     ) -> Result<Option<(AssignmentValue, Option<AssignmentEvent>)>> {
         if !self.enabled {
@@ -64,7 +73,7 @@ impl Flag {
         let now = Utc::now();
 
         // Augmenting subject_attributes with id, so that subject_key can be used in the rules.
-        let augmented_subject_attributes = {
+        let subject_attributes_with_id = {
             let mut sa = subject_attributes.clone();
             sa.entry("id".into()).or_insert_with(|| subject_key.into());
             sa
@@ -74,7 +83,7 @@ impl Flag {
             allocation
                 .get_matching_split(
                     subject_key,
-                    &augmented_subject_attributes,
+                    &subject_attributes_with_id,
                     sharder,
                     self.total_shards,
                     now,
@@ -114,13 +123,10 @@ impl Flag {
                 subject: subject_key.to_owned(),
                 subject_attributes: subject_attributes.clone(),
                 timestamp: now.to_rfc3339(),
-                meta_data: HashMap::from([
-                    ("sdkLanguage".to_owned(), "rust".to_owned()),
-                    (
-                        "sdkVersion".to_owned(),
-                        env!("CARGO_PKG_VERSION").to_owned(),
-                    ),
-                ]),
+                meta_data: HashMap::from([(
+                    "eppoCoreVersion".to_owned(),
+                    env!("CARGO_PKG_VERSION").to_owned(),
+                )]),
                 extra_logging: split.extra_logging.clone(),
             })
         } else {
@@ -132,15 +138,15 @@ impl Flag {
 }
 
 impl Allocation {
-    pub fn get_matching_split(
+    fn get_matching_split(
         &self,
         subject_key: &str,
-        augmented_subject_attributes: &SubjectAttributes,
+        subject_attributes_with_id: &Attributes,
         sharder: &impl Sharder,
         total_shards: u64,
         now: Timestamp,
     ) -> Option<&Split> {
-        if self.is_allowed_by_time(now) && self.is_allowed_by_rules(augmented_subject_attributes) {
+        if self.is_allowed_by_time(now) && self.is_allowed_by_rules(subject_attributes_with_id) {
             self.splits
                 .iter()
                 .find(|split| split.matches(subject_key, sharder, total_shards))
@@ -155,12 +161,12 @@ impl Allocation {
         !forbidden
     }
 
-    fn is_allowed_by_rules(&self, augmented_subject_attributes: &SubjectAttributes) -> bool {
+    fn is_allowed_by_rules(&self, subject_attributes_with_id: &Attributes) -> bool {
         self.rules.is_empty()
             || self
                 .rules
                 .iter()
-                .any(|rule| rule.eval(augmented_subject_attributes))
+                .any(|rule| rule.eval(subject_attributes_with_id))
     }
 }
 
@@ -190,9 +196,8 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        sharder::Md5Sharder,
         ufc::{TryParse, UniversalFlagConfig, Value, VariationType},
-        SubjectAttributes,
+        Attributes,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -208,7 +213,7 @@ mod tests {
     #[serde(rename_all = "camelCase")]
     struct TestSubject {
         subject_key: String,
-        subject_attributes: SubjectAttributes,
+        subject_attributes: Attributes,
         assignment: TryParse<Value>,
     }
 
@@ -247,7 +252,6 @@ mod tests {
                         &test_file.flag,
                         &subject.subject_key,
                         &subject.subject_attributes,
-                        &Md5Sharder,
                         Some(test_file.variation_type),
                     )
                     .unwrap_or(None);

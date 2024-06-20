@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+  "eppo_core",
   "rust-sdk",
   "./ruby-sdk/ext/eppo_rb",
 ]
