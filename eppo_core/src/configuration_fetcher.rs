@@ -78,6 +78,10 @@ impl ConfigurationFetcher {
             }
         })?;
 
-        Ok(response.json()?)
+        let configuration = response.json()?;
+
+        log::debug!(target: "eppo", "successfully fetched UFC configuration");
+
+        Ok(configuration)
     }
 }

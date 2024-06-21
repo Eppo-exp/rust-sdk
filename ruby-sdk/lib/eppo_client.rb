@@ -1,9 +1,13 @@
 # frozen_string_literal: true
 
+require_relative "eppo_client/client"
 require_relative "eppo_client/version"
-require_relative "eppo_client/eppo_rb"
 
 module EppoClient
-  class Error < StandardError; end
-  # Your code goes here...
+  def init(config)
+    client = EppoClient::Client.instance
+    client.init(config)
+  end
+
+  module_function :init
 end

@@ -6,6 +6,7 @@ use crate::Attributes;
 
 /// Enum representing values assigned to a subject as a result of feature flag evaluation.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AssignmentValue {
     /// A string value.
     String(String),
