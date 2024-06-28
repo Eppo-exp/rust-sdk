@@ -32,4 +32,6 @@ jobs:
     - name: Install dependencies
       run: bundle install
     - name: Run the default task
+      env:
+        EPPO_API_KEY: ${{ secrets.EPPO_API_KEY }}
       run: bundle exec rake
