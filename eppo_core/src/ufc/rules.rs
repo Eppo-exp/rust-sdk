@@ -37,14 +37,15 @@ impl ConditionOperator {
         match self {
             Self::Matches | Self::NotMatches => {
                 let s = match attribute {
-                    Some(AttributeValue::String(s)) => s,
+                    Some(AttributeValue::String(s)) => s.clone(),
+                    Some(AttributeValue::Boolean(b)) => b.to_string(),
                     _ => return None,
                 };
                 let regex = match condition_value {
                     ConditionValue::Single(Value::String(s)) => Regex::new(s).ok()?,
                     _ => return None,
                 };
-                let matches = regex.is_match(s);
+                let matches = regex.is_match(&s);
                 Some(if matches!(self, Self::Matches) {
                     matches
                 } else {
