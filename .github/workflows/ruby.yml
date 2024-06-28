@@ -25,5 +25,7 @@ jobs:
         bundler-cache: true
         cargo-cache: true
         rubygems: '3.5.11'
+    - name: Change to project directory
+      run: cd ruby-sdk
     - name: Run the default task
       run: bundle exec rake
