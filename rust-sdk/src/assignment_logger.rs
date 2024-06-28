@@ -1,35 +1,4 @@
-use std::collections::HashMap;
-
-use serde::{Deserialize, Serialize};
-
-use crate::SubjectAttributes;
-
-/// Represents an event capturing the assignment of a feature flag to a subject and its logging
-/// details.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AssignmentEvent {
-    /// The key of the feature flag being assigned.
-    pub feature_flag: String,
-    /// The key of the allocation that the subject was assigned to.
-    pub allocation: String,
-    /// The key of the experiment associated with the assignment.
-    pub experiment: String,
-    /// The specific variation assigned to the subject.
-    pub variation: String,
-    /// The key identifying the subject receiving the assignment.
-    pub subject: String,
-    /// Custom attributes of the subject relevant to the assignment.
-    pub subject_attributes: SubjectAttributes,
-    /// The timestamp indicating when the assignment event occurred.
-    pub timestamp: String,
-    /// Additional metadata such as SDK language and version.
-    pub meta_data: HashMap<String, String>,
-    /// Additional user-defined logging fields for capturing extra information related to the
-    /// assignment.
-    #[serde(flatten)]
-    pub extra_logging: HashMap<String, String>,
-}
+use crate::AssignmentEvent;
 
 /// A trait for logging assignment events to your storage system. Implementations should handle
 /// persisting assignment events for analytics and tracking purposes.

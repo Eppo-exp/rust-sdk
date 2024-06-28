@@ -36,4 +36,8 @@ jobs:
           then
               cargo install cargo-msrv --locked
           fi
-      - run: cargo msrv verify
+      - name: Verify MSRV for each package
+        run: |
+          for dir in eppo_core rust-sdk ruby-sdk/ext/eppo_rb; do
+            (cd $dir && cargo msrv verify)
+          done

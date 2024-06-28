@@ -3,23 +3,33 @@ use std::collections::HashMap;
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
-use crate::{client::AssignmentValue, rules::Rule};
+use super::AssignmentValue;
 
-/// Universal Flag Configuration.
-#[derive(Debug, Serialize, Deserialize)]
+#[allow(missing_docs)]
+pub type Timestamp = chrono::DateTime<chrono::Utc>;
+
+/// Universal Flag Configuration. This the response format from the UFC endpoint.
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UniversalFlagConfig {
-    // Value is wrapped in `TryParse` so that if we fail to parse one flag (e.g., new server
-    // format), we can still serve other flags.
+    /// Flags configuration.
+    ///
+    /// Value is wrapped in `TryParse` so that if we fail to parse one flag (e.g., new server
+    /// format), we can still serve other flags.
     pub flags: HashMap<String, TryParse<Flag>>,
 }
 
 /// `TryParse` allows the subfield to fail parsing without failing the parsing of the whole
 /// structure.
-#[derive(Debug, Serialize, Deserialize)]
+///
+/// This can be helpful to isolate errors in a subtree. e.g., if configuration for one flag parses,
+/// the rest of the flags are still usable.
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(untagged)]
 pub enum TryParse<T> {
+    /// Successfully parsed.
     Parsed(T),
+    /// Parsing failed.
     ParseFailed(serde_json::Value),
 }
 impl<T> From<TryParse<T>> for Result<T, serde_json::Value> {
@@ -47,24 +57,22 @@ impl<'a, T> From<&'a TryParse<T>> for Option<&'a T> {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
 pub struct Flag {
     pub key: String,
     pub enabled: bool,
     pub variation_type: VariationType,
     pub variations: HashMap<String, Variation>,
     pub allocations: Vec<Allocation>,
-    #[serde(default = "default_total_shards")]
     pub total_shards: u64,
 }
 
-fn default_total_shards() -> u64 {
-    10_000
-}
-
+/// Type of the variation.
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[allow(missing_docs)]
 pub enum VariationType {
     String,
     Integer,
@@ -76,10 +84,11 @@ pub enum VariationType {
 /// Subset of [`serde_json::Value`].
 ///
 /// Unlike [`AssignmentValue`], `Value` is untagged, so we don't know the exact type until we
-/// combine it with [`VariationType`].
-#[derive(Debug, Serialize, Deserialize, PartialEq, From)]
+/// combine it with [`VariationType`] from the flag level.
+#[derive(Debug, Serialize, Deserialize, PartialEq, From, Clone)]
 #[serde(untagged)]
 pub enum Value {
+    /// Boolean maps to [`AssignmentValue::Boolean`].
     Boolean(bool),
     /// Number maps to either [`AssignmentValue::Integer`] or [`AssignmentValue::Numeric`].
     Number(f64),
@@ -88,24 +97,25 @@ pub enum Value {
 }
 
 impl Value {
-    pub fn to_assignment_value(&self, ty: VariationType) -> Option<AssignmentValue> {
+    /// Try to convert `Value` to [`AssignmentValue`] under the given [`VariationType`].
+    pub(crate) fn to_assignment_value(&self, ty: VariationType) -> Option<AssignmentValue> {
         Some(match ty {
             VariationType::String => AssignmentValue::String(self.as_string()?.to_owned()),
             VariationType::Integer => AssignmentValue::Integer(self.as_integer()?),
             VariationType::Numeric => AssignmentValue::Numeric(self.as_number()?),
             VariationType::Boolean => AssignmentValue::Boolean(self.as_boolean()?),
-            VariationType::Json => AssignmentValue::Json(self.as_json()?),
+            VariationType::Json => AssignmentValue::Json(self.to_json()?),
         })
     }
 
-    pub fn as_boolean(&self) -> Option<bool> {
+    fn as_boolean(&self) -> Option<bool> {
         match self {
             Self::Boolean(value) => Some(*value),
             _ => None,
         }
     }
 
-    pub fn as_number(&self) -> Option<f64> {
+    fn as_number(&self) -> Option<f64> {
         match self {
             Self::Number(value) => Some(*value),
             _ => None,
@@ -122,14 +132,14 @@ impl Value {
         }
     }
 
-    pub fn as_string(&self) -> Option<&str> {
+    fn as_string(&self) -> Option<&str> {
         match self {
             Self::String(value) => Some(value),
             _ => None,
         }
     }
 
-    pub fn as_json(&self) -> Option<serde_json::Value> {
+    fn to_json(&self) -> Option<serde_json::Value> {
         let s = self.as_string()?;
         serde_json::from_str(s).ok()?
     }
@@ -141,15 +151,17 @@ impl From<&str> for Value {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
 pub struct Variation {
     pub key: String,
     pub value: Value,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
 pub struct Allocation {
     pub key: String,
     #[serde(default)]
@@ -167,32 +179,102 @@ fn default_do_log() -> bool {
     true
 }
 
-pub type Timestamp = chrono::DateTime<chrono::Utc>;
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, From, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
+pub struct Rule {
+    pub conditions: Vec<Condition>,
+}
+
+/// `Condition` is a check that given user `attribute` matches the condition `value` under the given
+/// `operator`.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
+pub struct Condition {
+    pub operator: ConditionOperator,
+    pub attribute: String,
+    pub value: ConditionValue,
+}
+
+/// Possible condition types.
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ConditionOperator {
+    /// Matches regex. Condition value must be a regex string.
+    Matches,
+    /// Regex does not match. Condition value must be a regex string.
+    NotMatches,
+    /// Greater than or equal. Attribute and condition value must either be numbers or semver
+    /// string.
+    Gte,
+    /// Greater than. Attribute and condition value must either be numbers or semver string.
+    Gt,
+    /// Less than or equal. Attribute and condition value must either be numbers or semver string.
+    Lte,
+    /// Less than. Attribute and condition value must either be numbers or semver string.
+    Lt,
+    /// One of values. Condition value must be a list of strings. Match is case-sensitive.
+    OneOf,
+    /// Not one of values. Condition value must be a list of strings. Match is case-sensitive.
+    ///
+    /// Null/absent attributes fail this condition automatically. (i.e., `null NOT_ONE_OF ["hello"]`
+    /// is `false`)
+    NotOneOf,
+    /// Null check.
+    ///
+    /// Condition value must be a boolean. If it's `true`, this is a null check. If it's `false`,
+    /// this is a not null check.
+    IsNull,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+#[allow(missing_docs)]
+pub enum ConditionValue {
+    Single(Value),
+    // Only string arrays are currently supported.
+    Multiple(Vec<String>),
+}
+
+impl<T: Into<Value>> From<T> for ConditionValue {
+    fn from(value: T) -> Self {
+        Self::Single(value.into())
+    }
+}
+impl From<Vec<String>> for ConditionValue {
+    fn from(value: Vec<String>) -> Self {
+        Self::Multiple(value)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
 pub struct Split {
     pub shards: Vec<Shard>,
     pub variation_key: String,
-    #[serde(default = "HashMap::new")]
+    #[serde(default)]
     pub extra_logging: HashMap<String, String>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(missing_docs)]
 pub struct Shard {
     pub salt: String,
-    pub ranges: Vec<Range>,
+    pub ranges: Vec<ShardRange>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
-pub struct Range {
+#[allow(missing_docs)]
+pub struct ShardRange {
     pub start: u64,
     pub end: u64,
 }
-impl Range {
-    pub fn contains(&self, v: u64) -> bool {
+impl ShardRange {
+    pub(crate) fn contains(&self, v: u64) -> bool {
         self.start <= v && v < self.end
     }
 }
@@ -221,27 +303,34 @@ mod tests {
                     "enabled": true,
                     "variationType": "BOOLEAN",
                     "variations": {},
-                    "allocations": []
+                    "allocations": [],
+                    "totalShards": 10000
                   },
                   "fail_parsing": {
                     "key": "fail_parsing",
                     "enabled": true,
                     "variationType": "NEW_TYPE",
                     "variations": {},
-                    "allocations": []
+                    "allocations": [],
+                    "totalShards": 10000
                   }
                 }
               }
             "#,
         )
         .unwrap();
-        assert!(matches!(
-            ufc.flags.get("success").unwrap(),
-            TryParse::Parsed(_)
-        ));
-        assert!(matches!(
-            ufc.flags.get("fail_parsing").unwrap(),
-            TryParse::ParseFailed(_)
-        ));
+        assert!(
+            matches!(ufc.flags.get("success").unwrap(), TryParse::Parsed(_)),
+            "{:?} should match TryParse::Parsed(_)",
+            ufc.flags.get("success").unwrap()
+        );
+        assert!(
+            matches!(
+                ufc.flags.get("fail_parsing").unwrap(),
+                TryParse::ParseFailed(_)
+            ),
+            "{:?} should match TryParse::ParseFailed(_)",
+            ufc.flags.get("fail_parsing").unwrap()
+        );
     }
 }

@@ -12,6 +12,7 @@ use crate::ufc::VariationType;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Enum representing possible errors that can occur in the Eppo SDK.
+// TODO: split the error into `EvaluationError` and the rest.
 #[derive(thiserror::Error, Debug, Clone)]
 #[non_exhaustive]
 pub enum Error {
@@ -54,10 +55,20 @@ pub enum Error {
     #[error(transparent)]
     // std::io::Error is not clonable, so we're wrapping it in an Arc.
     Io(Arc<std::io::Error>),
+
+    /// Network error.
+    #[error(transparent)]
+    Network(Arc<reqwest::Error>),
 }
 
 impl From<std::io::Error> for Error {
     fn from(value: std::io::Error) -> Self {
         Self::Io(Arc::new(value))
+    }
+}
+
+impl From<reqwest::Error> for Error {
+    fn from(value: reqwest::Error) -> Self {
+        Error::Network(Arc::new(value.without_url()))
     }
 }
