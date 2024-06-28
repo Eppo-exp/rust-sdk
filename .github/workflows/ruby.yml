@@ -16,6 +16,10 @@ jobs:
         ruby:
           - '3.3.2'
 
+    defaults:
+      run:
+        working-directory: ruby-sdk
+
     steps:
     - uses: actions/checkout@v4
     - name: Set up Ruby & Rust
@@ -25,7 +29,5 @@ jobs:
         bundler-cache: true
         cargo-cache: true
         rubygems: '3.5.11'
-    - name: Change to project directory
-      run: cd ruby-sdk
     - name: Run the default task
       run: bundle exec rake
