@@ -43,6 +43,7 @@ module EppoClient
       get_assignment_inner(flag_key, subject_key, subject_attributes, "JSON", default_value)
     end
 
+    # rubocop:disable Metrics/MethodLength
     def get_assignment_inner(flag_key, subject_key, subject_attributes, expected_type, default_value)
       logger = Logger.new($stdout)
       begin
@@ -71,6 +72,7 @@ module EppoClient
         default_value
       end
     end
+    # rubocop:enable Metrics/MethodLength
 
     private :get_assignment_inner
   end
