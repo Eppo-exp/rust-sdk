@@ -15,11 +15,11 @@ Gem::Specification.new do |spec|
   spec.required_rubygems_version = ">= 3.3.11"
 
   spec.metadata = {
-    'bug_tracker_uri' => 'https://github.com/Eppo-exp/ruby-sdk/issues',
-    'documentation_uri' => 'https://docs.geteppo.com/feature-flags/sdks/server-sdks/ruby/',
-    'homepage_uri' => 'https://geteppo.com/',
-    'source_code_uri' => 'https://github.com/Eppo-exp/ruby-sdk',
-    'wiki_uri' => 'https://github.com/Eppo-exp/ruby-sdk/wiki'
+    "bug_tracker_uri" => "https://github.com/Eppo-exp/ruby-sdk/issues",
+    "documentation_uri" => "https://docs.geteppo.com/feature-flags/sdks/server-sdks/ruby/",
+    "homepage_uri" => "https://geteppo.com/",
+    "source_code_uri" => "https://github.com/Eppo-exp/ruby-sdk",
+    "wiki_uri" => "https://github.com/Eppo-exp/ruby-sdk/wiki"
   }
 
   # Specify which files should be added to the gem when it is released.

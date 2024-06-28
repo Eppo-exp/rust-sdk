@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
-require_relative 'validation'
-require_relative 'assignment_logger'
+require_relative "validation"
+require_relative "assignment_logger"
 
 module EppoClient
   # The class for configuring the Eppo client singleton
@@ -15,7 +15,7 @@ module EppoClient
     end
 
     def validate
-      EppoClient.validate_not_blank('api_key', @api_key)
+      EppoClient.validate_not_blank("api_key", @api_key)
     end
 
     # Hide instance variables (specifically api_key) from logs
