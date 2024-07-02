@@ -2,6 +2,8 @@ name: Test
 
 on:
   push:
+    branches:
+      - main
   pull_request:
 
 env:
@@ -41,6 +43,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - run: make test-data
 
       - name: Set up Ruby & Rust
         uses: oxidize-rb/actions/setup-ruby-and-rust@v1

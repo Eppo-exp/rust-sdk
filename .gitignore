@@ -14,3 +14,4 @@ Cargo.lock
 *.pdb
 
 /rust-sdk/tests/data
+ruby-sdk/eppo-server-sdk-0.3.0.gem
