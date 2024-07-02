@@ -1,4 +1,4 @@
-name: Cargo Build & Test
+name: Test
 
 on:
   push:
@@ -8,8 +8,8 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build_and_test:
-    name: Build & Test
+  cargo_build_and_test:
+    name: Cargo Build & Test
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -22,3 +22,42 @@ jobs:
       - run: cargo build --verbose
       - run: cargo test --verbose
       - run: cargo doc --verbose
+
+
+  ruby_test:
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu, macos]
+        ruby: [3.0, 3.1, 3.2]
+
+    defaults:
+      run:
+        working-directory: ruby-sdk
+        
+    env:
+      EPPO_API_KEY: ${{ secrets.EPPO_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby & Rust
+        uses: oxidize-rb/actions/setup-ruby-and-rust@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+          cargo-cache: true
+          rubygems: '3.5.11'
+
+      - name: Install dependencies
+        run: bundle install
+
+      - name: Build
+        run: bundle exec rake build
+
+      - name: Load test data
+        run: bundle exec rake test_refreshed_data
+
+      - name: Run tests
+        run: bundle exec rspec
