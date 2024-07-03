@@ -174,13 +174,12 @@ impl BanditModelData {
                     self.score_action(Action { key, attributes }, subject_attributes),
                 )
             })
-            .filter(|&(_, score)| !score.is_nan())
             .collect::<HashMap<_, _>>();
 
-        let best = scores.iter().map(|(k, v)| (*k, *v)).max_by(|a, b| {
-            f64::partial_cmp(&a.1, &b.1)
-                .expect("action scores should be comparable as we filtered out any possible NaNs")
-        })?;
+        let best = scores
+            .iter()
+            .max_by(|a, b| f64::total_cmp(a.1, b.1))
+            .map(|(k, v)| (*k, *v))?;
 
         let weights = self.weigh_actions(&scores, best);
 
@@ -289,6 +288,8 @@ fn score_attributes(
             attributes
                 .numeric
                 .get(&coef.attribute_key)
+                // fend against infinite/NaN attributes as they poison the calculation down the line
+                .filter(|n| n.is_finite())
                 .map(|value| value * coef.coefficient)
                 .unwrap_or(coef.missing_value_coefficient)
         })
