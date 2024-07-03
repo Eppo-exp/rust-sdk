@@ -4,6 +4,16 @@ use serde::{Deserialize, Serialize};
 
 use crate::Attributes;
 
+/// Result of assignment evaluation.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Assignment {
+    /// Assignment value that should be returned to the user.
+    pub value: AssignmentValue,
+    /// Optional assignment event that should be logged to storage.
+    pub event: Option<AssignmentEvent>,
+}
+
 /// Enum representing values assigned to a subject as a result of feature flag evaluation.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]

@@ -4,13 +4,55 @@ use chrono::Utc;
 
 use crate::{
     sharder::{Md5Sharder, Sharder},
-    Attributes, Error, Result,
+    Attributes, Configuration, Error, Result,
 };
 
 use super::{
-    Allocation, AssignmentEvent, AssignmentValue, Flag, Shard, Split, Timestamp, TryParse,
+    Allocation, Assignment, AssignmentEvent, Flag, Shard, Split, Timestamp, TryParse,
     UniversalFlagConfig, VariationType,
 };
+
+impl Configuration {
+    /// Evaluate the specified feature flag for the given subject and return assigned variation and
+    /// an optional assignment event for logging.
+    pub fn get_assignment(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+        expected_type: Option<VariationType>,
+    ) -> Result<Option<Assignment>> {
+        let Some(ufc) = &self.flags else {
+            log::warn!(target: "eppo", flag_key, subject_key; "evaluating a flag before Eppo configuration has been fetched");
+            // We treat missing configuration (the poller has not fetched config) as a normal
+            // scenario.
+            return Ok(None);
+        };
+
+        let assignment =
+            match ufc.eval_flag(&flag_key, &subject_key, &subject_attributes, expected_type) {
+                Ok(result) => result,
+                Err(err) => {
+                    log::warn!(target: "eppo",
+                               flag_key,
+                               subject_key,
+                               subject_attributes:serde;
+                               "error occurred while evaluating a flag: {:?}", err,
+                    );
+                    return Err(err);
+                }
+            };
+
+        log::trace!(target: "eppo",
+                    flag_key,
+                    subject_key,
+                    subject_attributes:serde,
+                    assignment:serde = assignment.as_ref().map(|Assignment{value, ..}| value);
+                    "evaluated a flag");
+
+        Ok(assignment)
+    }
+}
 
 impl UniversalFlagConfig {
     /// Evaluate the flag for the given subject, expecting `expected_type` type.
@@ -28,7 +70,7 @@ impl UniversalFlagConfig {
         subject_key: &str,
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
-    ) -> Result<Option<(AssignmentValue, Option<AssignmentEvent>)>> {
+    ) -> Result<Option<Assignment>> {
         let flag = self.get_flag(flag_key)?;
 
         if let Some(ty) = expected_type {
@@ -65,7 +107,7 @@ impl Flag {
         subject_key: &str,
         subject_attributes: &Attributes,
         sharder: &impl Sharder,
-    ) -> Result<Option<(AssignmentValue, Option<AssignmentEvent>)>> {
+    ) -> Result<Option<Assignment>> {
         if !self.enabled {
             return Ok(None);
         }
@@ -123,17 +165,21 @@ impl Flag {
                 subject: subject_key.to_owned(),
                 subject_attributes: subject_attributes.clone(),
                 timestamp: now.to_rfc3339(),
-                meta_data: HashMap::from([(
+                meta_data: [(
                     "eppoCoreVersion".to_owned(),
                     env!("CARGO_PKG_VERSION").to_owned(),
-                )]),
+                )]
+                .into(),
                 extra_logging: split.extra_logging.clone(),
             })
         } else {
             None
         };
 
-        Ok(Some((assignment_value, event)))
+        Ok(Some(Assignment {
+            value: assignment_value,
+            event,
+        }))
     }
 }
 
@@ -258,7 +304,7 @@ mod tests {
 
                 let result_assingment = result
                     .as_ref()
-                    .map(|(value, _event)| value)
+                    .map(|assignment| &assignment.value)
                     .unwrap_or(&default_assignment);
                 let expected_assignment = to_value(subject.assignment)
                     .to_assignment_value(test_file.variation_type)

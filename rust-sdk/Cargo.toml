@@ -8,7 +8,7 @@ repository = "https://github.com/Eppo-exp/rust-sdk"
 license = "MIT"
 keywords = ["eppo", "feature-flags"]
 categories = ["config"]
-rust-version = "1.65.0"
+rust-version = "1.71.1"
 
 [dependencies]
 eppo_core = { version = "0.1.0", path = "../eppo_core" }
@@ -19,4 +19,4 @@ serde_json = "1.0.116"
 name = "simple"
 
 [dev-dependencies]
-env_logger = { version = "0.11.3", default-features = false, features = ["unstable-kv"] }
+env_logger = { version = "0.11.3", features = ["unstable-kv"] }

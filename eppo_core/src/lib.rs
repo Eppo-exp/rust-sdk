@@ -15,6 +15,7 @@
 #![warn(rustdoc::missing_crate_level_docs)]
 #![warn(missing_docs)]
 
+pub mod bandits;
 pub mod configuration_fetcher;
 pub mod configuration_store;
 pub mod poller_thread;
@@ -23,8 +24,10 @@ pub mod ufc;
 
 mod attributes;
 mod configuration;
+mod context_attributes;
 mod error;
 
 pub use attributes::{AttributeValue, Attributes};
 pub use configuration::Configuration;
+pub use context_attributes::ContextAttributes;
 pub use error::{Error, Result};

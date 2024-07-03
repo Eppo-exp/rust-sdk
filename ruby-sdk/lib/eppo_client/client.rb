@@ -48,32 +48,59 @@ module EppoClient
       logger = Logger.new($stdout)
       begin
         assignment = @core.get_assignment(flag_key, subject_key, subject_attributes, expected_type)
-
-        event = assignment[:event]
-        if event
-          begin
-            event["metaData"]["sdkName"] = "ruby"
-            event["metaData"]["sdkVersion"] = EppoClient::VERSION
-
-            @assignment_logger.log_assignment(event)
-          rescue EppoClient::AssignmentLoggerError
-            # Error means log_assignment was not set up. This is okay to ignore.
-          rescue StandardError => e
-            logger.error("[Eppo SDK] Error logging assignment event: #{e}")
-          end
+        if not assignment then
+          return default_value
         end
 
-        value = assignment[:value]&.[](expected_type)
-        value.nil? ? default_value : value
-      rescue StandardError
+        log_assignment(assignment[:event])
+
+        return assignment[:value][expected_type]
+      rescue StandardError => error
         logger.debug("[Eppo SDK] Failed to get assignment: #{error}")
 
-        # TODO: graceful mode?
+        # TODO: non-graceful mode?
         default_value
       end
     end
     # rubocop:enable Metrics/MethodLength
 
-    private :get_assignment_inner
+    def get_bandit_action(flag_key, subject_key, subject_attributes, actions, default_variation)
+      result = @core.get_bandit_action(flag_key, subject_key, subject_attributes, actions, default_variation)
+
+      log_assignment(result[:assignment_event])
+      log_bandit_action(result[:bandit_event])
+
+      return {:variation => result[:variation], :action=>result[:action]}
+    end
+
+    def log_assignment(event)
+      if not event then return end
+      begin
+        event["metaData"]["sdkName"] = "ruby"
+        event["metaData"]["sdkVersion"] = EppoClient::VERSION
+
+        @assignment_logger.log_assignment(event)
+      rescue EppoClient::AssignmentLoggerError
+      # Error means log_assignment was not set up. This is okay to ignore.
+      rescue StandardError => error
+        logger.error("[Eppo SDK] Error logging assignment event: #{error}")
+      end
+    end
+
+    def log_bandit_action(event)
+      if not event then return end
+      begin
+        event["metaData"]["sdkName"] = "ruby"
+        event["metaData"]["sdkVersion"] = EppoClient::VERSION
+
+        @assignment_logger.log_bandit_action(event)
+      rescue EppoClient::AssignmentLoggerError
+      # Error means log_assignment was not set up. This is okay to ignore.
+      rescue StandardError => error
+        logger.error("[Eppo SDK] Error logging bandit action event: #{error}")
+      end
+    end
+
+    private :get_assignment_inner, :log_assignment, :log_bandit_action
   end
 end

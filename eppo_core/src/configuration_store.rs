@@ -1,7 +1,7 @@
 //! A thread-safe in-memory storage for currently active configuration. [`ConfigurationStore`]
 //! provides a concurrent access for readers (e.g., flag evaluation) and writers (e.g., periodic
 //! configuration fetcher).
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 use crate::Configuration;
 
@@ -11,7 +11,7 @@ use crate::Configuration;
 /// `Configuration` itself is always immutable and can only be replaced fully.
 #[derive(Default)]
 pub struct ConfigurationStore {
-    configuration: RwLock<Configuration>,
+    configuration: RwLock<Arc<Configuration>>,
 }
 
 impl ConfigurationStore {
@@ -19,7 +19,7 @@ impl ConfigurationStore {
         ConfigurationStore::default()
     }
 
-    pub fn get_configuration(&self) -> Configuration {
+    pub fn get_configuration(&self) -> Arc<Configuration> {
         // self.configuration.read() should always return Ok(). Err() is possible only if the lock
         // is poisoned (writer panicked while holding the lock), which should never happen.
         let configuration = self
@@ -32,6 +32,7 @@ impl ConfigurationStore {
 
     /// Set new configuration.
     pub fn set_configuration(&self, config: Configuration) {
+        let config = Arc::new(config);
         let mut configuration_slot = self
             .configuration
             .write()
@@ -55,15 +56,17 @@ mod tests {
         {
             let store = store.clone();
             let _ = std::thread::spawn(move || {
-                store.set_configuration(Configuration {
-                    ufc: Some(Arc::new(UniversalFlagConfig {
+                store.set_configuration(Configuration::new(
+                    Some(UniversalFlagConfig {
                         flags: HashMap::new(),
-                    })),
-                });
+                        bandits: HashMap::new(),
+                    }),
+                    None,
+                ))
             })
             .join();
         }
 
-        assert!(store.get_configuration().ufc.is_some());
+        assert!(store.get_configuration().flags.is_some());
     }
 }

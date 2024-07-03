@@ -17,6 +17,10 @@ pub struct UniversalFlagConfig {
     /// Value is wrapped in `TryParse` so that if we fail to parse one flag (e.g., new server
     /// format), we can still serve other flags.
     pub flags: HashMap<String, TryParse<Flag>>,
+    /// `bandits` field connects string feature flags to bandits. Actual bandits configuration is
+    /// served separately.
+    #[serde(default)]
+    pub bandits: HashMap<String, Vec<BanditVariation>>,
 }
 
 /// `TryParse` allows the subfield to fail parsing without failing the parsing of the whole
@@ -277,6 +281,19 @@ impl ShardRange {
     pub(crate) fn contains(&self, v: u64) -> bool {
         self.start <= v && v < self.end
     }
+}
+
+/// `BanditVariation` associates a variation in feature flag with a bandit.
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BanditVariation {
+    pub key: String,
+    /// Key of the flag.
+    pub flag_key: String,
+    /// Today it's the same as `variation_value`.
+    pub variation_key: String,
+    /// String variation value.
+    pub variation_value: String,
 }
 
 #[cfg(test)]

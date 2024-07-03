@@ -1,18 +1,10 @@
 use std::{cell::RefCell, sync::Arc};
 
 use eppo_core::{
-    configuration_fetcher::ConfigurationFetcher,
-    configuration_store::ConfigurationStore,
-    poller_thread::PollerThread,
-    ufc::{AssignmentEvent, AssignmentValue, VariationType},
-    Attributes, Configuration,
+    configuration_fetcher::ConfigurationFetcher, configuration_store::ConfigurationStore,
+    poller_thread::PollerThread, ufc::VariationType, Attributes, ContextAttributes,
 };
-use magnus::{
-    error::Result,
-    exception::{self, exception},
-    prelude::*,
-    Error, IntoValue, RHash, RString, Symbol, TryConvert, Value,
-};
+use magnus::{error::Result, exception, prelude::*, Error, TryConvert, Value};
 
 #[derive(Debug)]
 #[magnus::wrap(class = "EppoClient::Core::Config", size, free_immediately)]
@@ -27,25 +19,6 @@ impl TryConvert for Config {
         let api_key = String::try_convert(val.funcall("api_key", ())?)?;
         let base_url = String::try_convert(val.funcall("base_url", ())?)?;
         Ok(Config { api_key, base_url })
-    }
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct Assignment {
-    value: Option<AssignmentValue>,
-    event: Option<AssignmentEvent>,
-}
-impl Assignment {
-    const fn empty() -> Assignment {
-        Assignment {
-            value: None,
-            event: None,
-        }
-    }
-}
-impl IntoValue for Assignment {
-    fn into_value_with(self, handle: &magnus::Ruby) -> Value {
-        serde_magnus::serialize(&self).expect("Assignment value should be serializable")
     }
 }
 
@@ -89,51 +62,50 @@ impl Client {
         subject_key: String,
         subject_attributes: Value,
         expected_type: Value,
-    ) -> Result<Assignment> {
+    ) -> Result<Value> {
         let expected_type: VariationType = serde_magnus::deserialize(expected_type)?;
         let subject_attributes: Attributes = serde_magnus::deserialize(subject_attributes)?;
 
-        let Configuration { ufc: Some(ufc) } = self.configuration_store.get_configuration() else {
-            log::warn!(target: "eppo", flag_key, subject_key; "evaluating a flag before Eppo configuration has been fetched");
-            // We treat missing configuration (the poller has not fetched config) as a normal
-            // scenario (at least for now).
-            return Ok(Assignment::empty());
-        };
+        let config = self.configuration_store.get_configuration();
+        let result = config
+            .get_assignment(
+                &flag_key,
+                &subject_key,
+                &subject_attributes,
+                Some(expected_type),
+            )
+            // TODO: maybe expose possible errors individually.
+            .map_err(|err| Error::new(exception::runtime_error(), err.to_string()))?;
 
-        let evaluation = match ufc.eval_flag(
+        Ok(serde_magnus::serialize(&result).expect("assignment value should be serializable"))
+    }
+
+    pub fn get_bandit_action(
+        &self,
+        flag_key: String,
+        subject_key: String,
+        subject_attributes: Value,
+        actions: Value,
+        default_variation: String,
+    ) -> Result<Value> {
+        let subject_attributes =
+            serde_magnus::deserialize::<_, ContextAttributes>(subject_attributes)
+                // Allow the user to pass generic Attributes instead of ContextAttributes
+                .or_else(|_err| {
+                    serde_magnus::deserialize::<_, Attributes>(subject_attributes).map(|x| x.into())
+                })?;
+        let actions = serde_magnus::deserialize(actions)?;
+
+        let config = self.configuration_store.get_configuration();
+        let result = config.get_bandit_action(
             &flag_key,
             &subject_key,
             &subject_attributes,
-            Some(expected_type),
-        ) {
-            Ok(result) => result,
-            Err(err) => {
-                log::warn!(target: "eppo",
-                           flag_key,
-                           subject_key,
-                           subject_attributes:serde;
-                           "error occurred while evaluating a flag: {:?}", err,
-                );
-                return Err(Error::new(exception::runtime_error(), "blah"));
-                // return Err(err);
-            }
-        };
+            &actions,
+            &default_variation,
+        );
 
-        log::trace!(target: "eppo",
-                    flag_key,
-                    subject_key,
-                    subject_attributes:serde,
-                    assignment:serde = evaluation.as_ref().map(|(value, _event)| value);
-                    "evaluated a flag");
-
-        let Some((value, event)) = evaluation else {
-            return Ok(Assignment::empty());
-        };
-
-        Ok(Assignment {
-            value: Some(value),
-            event,
-        })
+        serde_magnus::serialize(&result)
     }
 
     pub fn shutdown(&self) {

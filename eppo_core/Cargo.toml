@@ -7,7 +7,7 @@ repository = "https://github.com/Eppo-exp/rust-sdk"
 license = "MIT"
 keywords = ["eppo", "feature-flags"]
 categories = ["config"]
-rust-version = "1.65.0"
+rust-version = "1.71.1"
 
 [dependencies]
 chrono = { version = "0.4.38", features = ["serde"] }

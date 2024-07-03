@@ -7,9 +7,8 @@ use crate::{
     AssignmentValue, Attributes, ClientConfig, Result,
 };
 
-use eppo_core::configuration_store::ConfigurationStore;
 use eppo_core::ufc::VariationType;
-use eppo_core::Configuration;
+use eppo_core::{configuration_store::ConfigurationStore, ufc::Assignment};
 
 /// A client for Eppo API.
 ///
@@ -377,39 +376,11 @@ impl<'a> Client<'a> {
         expected_type: Option<VariationType>,
         convert: impl FnOnce(AssignmentValue) -> T,
     ) -> Result<Option<T>> {
-        let Configuration {
-            ufc: Some(configuration),
-        } = self.configuration_store.get_configuration()
-        else {
-            log::warn!(target: "eppo", flag_key, subject_key; "evaluating a flag before Eppo configuration has been fetched");
-            // We treat missing configuration (the poller has not fetched config) as a normal
-            // scenario (at least for now).
-            return Ok(None);
-        };
+        let config = self.configuration_store.get_configuration();
+        let assignment =
+            config.get_assignment(flag_key, subject_key, subject_attributes, expected_type)?;
 
-        let evaluation =
-            match configuration.eval_flag(flag_key, subject_key, subject_attributes, expected_type)
-            {
-                Ok(result) => result,
-                Err(err) => {
-                    log::warn!(target: "eppo",
-                               flag_key,
-                               subject_key,
-                               subject_attributes:serde;
-                               "error occurred while evaluating a flag: {:?}", err,
-                    );
-                    return Err(err);
-                }
-            };
-
-        log::trace!(target: "eppo",
-                    flag_key,
-                    subject_key,
-                    subject_attributes:serde,
-                    assignment:serde = evaluation.as_ref().map(|(value, _event)| value);
-                    "evaluated a flag");
-
-        let Some((value, event)) = evaluation else {
+        let Some(Assignment { value, event }) = assignment else {
             return Ok(None);
         };
 
@@ -469,8 +440,8 @@ mod tests {
         );
 
         // updating configuration after client is created
-        configuration_store.set_configuration(Configuration {
-            ufc: Some(Arc::new(UniversalFlagConfig {
+        configuration_store.set_configuration(Configuration::new(
+            Some(UniversalFlagConfig {
                 flags: [(
                     "flag".to_owned(),
                     TryParse::Parsed(Flag {
@@ -501,8 +472,10 @@ mod tests {
                     }),
                 )]
                 .into(),
-            })),
-        });
+                bandits: HashMap::new(),
+            }),
+            None,
+        ));
 
         assert_eq!(
             client
