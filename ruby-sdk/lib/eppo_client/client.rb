@@ -88,6 +88,7 @@ module EppoClient
       rescue EppoClient::AssignmentLoggerError
       # Error means log_assignment was not set up. This is okay to ignore.
       rescue StandardError => error
+        logger = Logger.new($stdout)
         logger.error("[Eppo SDK] Error logging assignment event: #{error}")
       end
     end
@@ -102,6 +103,7 @@ module EppoClient
       rescue EppoClient::AssignmentLoggerError
       # Error means log_assignment was not set up. This is okay to ignore.
       rescue StandardError => error
+        logger = Logger.new($stdout)
         logger.error("[Eppo SDK] Error logging bandit action event: #{error}")
       end
     end
