@@ -7,8 +7,10 @@ RSpec.describe EppoClient do
     expect(EppoClient::VERSION).not_to be nil
   end
 
-  context "given a client with UFC test config" do
-    client_with_test_config("ufc")
+  describe "UFC flag evaluation", :flags do
+    before :all do
+      init_client_for "ufc"
+    end
 
     Dir["../sdk-test-data/ufc/tests/*.json"].each do |file|
       basename = File.basename(file)
@@ -40,6 +42,41 @@ RSpec.describe EppoClient do
               end
 
             expect(result).to eq(subject["assignment"])
+          end
+        end
+      end
+    end
+  end
+
+  describe "Bandits evaluation", :bandits do
+    before :all do
+      init_client_for "bandit"
+    end
+
+    Dir["../sdk-test-data/ufc/bandit-tests/*.json"].each do |file|
+      basename = File.basename(file)
+      context "with test file #{basename}", :file => basename do
+        data = JSON.parse(File.read(file))
+
+        flag_key = data["flag"]
+        default_value = data["defaultValue"]
+
+        data["subjects"].each do |subject|
+          subject_key = subject["subjectKey"]
+          subject_attributes = subject["subjectAttributes"]
+
+          actions = subject["actions"].map { |action| [action["actionKey"], { "numericAttributes" => action["numericAttributes"], "categoricalAttributes" => action["categoricalAttributes"] }] }.to_h
+
+          it "#{subject_key}", :subject => subject_key do
+            expected = {
+              :variation=> subject["assignment"]["variation"],
+              :action=>subject["assignment"]["action"],
+            }
+
+            result =
+                EppoClient::Client.instance.get_bandit_action(flag_key, subject_key, subject_attributes, actions, default_value)
+
+            expect(result).to eq(expected)
           end
         end
       end

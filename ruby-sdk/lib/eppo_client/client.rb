@@ -48,6 +48,20 @@ module EppoClient
       get_assignment_inner(flag_key, subject_key, subject_attributes, "JSON", default_value)
     end
 
+    def get_bandit_action(flag_key, subject_key, subject_attributes, actions, default_variation)
+      attributes = coerce_context_attributes(subject_attributes)
+      actions = actions.to_h { |action, attributes| [action, coerce_context_attributes(attributes)] }
+      puts "get_bandit_action(#{flag_key}, #{subject_key}, #{attributes}, #{actions}, #{default_variation})"
+      result = @core.get_bandit_action(flag_key, subject_key, attributes, actions, default_variation)
+
+      log_assignment(result[:assignment_event])
+      log_bandit_action(result[:bandit_event])
+
+      return {:variation => result[:variation], :action=>result[:action]}
+    end
+
+    private
+
     # rubocop:disable Metrics/MethodLength
     def get_assignment_inner(flag_key, subject_key, subject_attributes, expected_type, default_value)
       logger = Logger.new($stdout)
@@ -69,21 +83,20 @@ module EppoClient
     end
     # rubocop:enable Metrics/MethodLength
 
-    def get_bandit_action(flag_key, subject_key, subject_attributes, actions, default_variation)
-      result = @core.get_bandit_action(flag_key, subject_key, subject_attributes, actions, default_variation)
-
-      log_assignment(result[:assignment_event])
-      log_bandit_action(result[:bandit_event])
-
-      return {:variation => result[:variation], :action=>result[:action]}
-    end
-
     def log_assignment(event)
       if not event then return end
-      begin
-        event["metaData"]["sdkName"] = "ruby"
-        event["metaData"]["sdkVersion"] = EppoClient::VERSION
 
+      # Because rust's AssignmentEvent has a #[flatten] extra_logging
+      # field, serde_magnus serializes it as a normal HashMap with
+      # string keys.
+      #
+      # Convert keys to symbols here, so that logger sees symbol-keyed
+      # events for both flag assignment and bandit actions.
+      event = event.to_h { |key, value| [key.to_sym, value]}
+
+      event[:metaData]["sdkName"] = "ruby"
+      event[:metaData]["sdkVersion"] = EppoClient::VERSION
+      begin
         @assignment_logger.log_assignment(event)
       rescue EppoClient::AssignmentLoggerError
       # Error means log_assignment was not set up. This is okay to ignore.
@@ -95,10 +108,11 @@ module EppoClient
 
     def log_bandit_action(event)
       if not event then return end
-      begin
-        event["metaData"]["sdkName"] = "ruby"
-        event["metaData"]["sdkVersion"] = EppoClient::VERSION
 
+      event[:metaData]["sdkName"] = "ruby"
+      event[:metaData]["sdkVersion"] = EppoClient::VERSION
+
+      begin
         @assignment_logger.log_bandit_action(event)
       rescue EppoClient::AssignmentLoggerError
       # Error means log_assignment was not set up. This is okay to ignore.
@@ -108,6 +122,19 @@ module EppoClient
       end
     end
 
-    private :get_assignment_inner, :log_assignment, :log_bandit_action
+    def coerce_context_attributes(attributes)
+      numeric_attributes = attributes[:numeric_attributes] || attributes["numericAttributes"]
+      categorical_attributes = attributes[:categorical_attributes] || attributes["categoricalAttributes"]
+      if numeric_attributes || categorical_attributes then
+        {
+          numericAttributes: numeric_attributes.to_h do |key, value|
+            value.is_a?(Numeric) ? [key, value] : [nil, nil]
+          end.compact,
+          categoricalAttributes: categorical_attributes.to_h do |key, value|
+            value.nil? ? [nil, nil] : [key, value.to_s]
+          end.compact,
+        }
+      end
+    end
   end
 end

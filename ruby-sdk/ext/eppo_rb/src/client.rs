@@ -88,12 +88,15 @@ impl Client {
         actions: Value,
         default_variation: String,
     ) -> Result<Value> {
-        let subject_attributes =
-            serde_magnus::deserialize::<_, ContextAttributes>(subject_attributes)
-                // Allow the user to pass generic Attributes instead of ContextAttributes
-                .or_else(|_err| {
-                    serde_magnus::deserialize::<_, Attributes>(subject_attributes).map(|x| x.into())
-                })?;
+        let subject_attributes = serde_magnus::deserialize::<_, ContextAttributes>(
+            subject_attributes,
+        )
+        .map_err(|err| {
+            Error::new(
+                exception::runtime_error(),
+                format!("enexpected value for subject_attributes: {err}"),
+            )
+        })?;
         let actions = serde_magnus::deserialize(actions)?;
 
         let config = self.configuration_store.get_configuration();

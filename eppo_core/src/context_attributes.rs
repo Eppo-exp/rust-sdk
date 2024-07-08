@@ -12,9 +12,11 @@ pub struct ContextAttributes {
     ///
     /// Not all numbers are numeric attributes. If a number is used to represent an enumeration or
     /// on/off values, it is a categorical attribute.
+    #[serde(alias = "numericAttributes")]
     pub numeric: HashMap<String, f64>,
     /// Categorical attributes are attributes that have a finite set of values that are not directly
     /// comparable (i.e., enumeration).
+    #[serde(alias = "categoricalAttributes")]
     pub categorical: HashMap<String, String>,
 }
 

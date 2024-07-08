@@ -2,7 +2,7 @@
 
 require "eppo_client"
 
-def client_with_test_config(test_name)
+def init_client_for(test_name)
     config = EppoClient::Config.new("test-api-key", base_url: "http://127.0.0.1:8378/#{test_name}/api")
     EppoClient::Client.instance.init(config)
 
