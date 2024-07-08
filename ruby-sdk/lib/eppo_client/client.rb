@@ -15,6 +15,11 @@ module EppoClient
     def init(config)
       config.validate
 
+      if !@core.nil? then
+        STDERR.puts "Eppo Warning: multiple initialization of the client"
+        @core.shutdown
+      end
+
       @assignment_logger = config.assignment_logger
       @core = EppoClient::Core::Client.new(config)
     end

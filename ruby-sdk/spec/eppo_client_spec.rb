@@ -1,26 +1,48 @@
 # frozen_string_literal: true
 
+require 'json'
+
 RSpec.describe EppoClient do
   it "has a version number" do
     expect(EppoClient::VERSION).not_to be nil
   end
 
-  context "given config" do
-    # config = EppoClient::Config.new("test_api_key")
-    config = EppoClient::Config.new(ENV.fetch("EPPO_API_KEY"))
+  context "given a client with UFC test config" do
+    client_with_test_config("ufc")
 
-    it "can be initialized" do
-      EppoClient::Client.instance.init(config)
-    end
+    Dir["../sdk-test-data/ufc/tests/*.json"].each do |file|
+      basename = File.basename(file)
+      context "with test file #{basename}", :file => basename do
+        data = JSON.parse(File.read(file))
 
-    it "can get boolean assignment" do
-      sleep(2)
+        flag_key = data["flag"]
+        variation_type = data["variationType"]
+        default_value = data["defaultValue"]
 
-      value = EppoClient::Client.instance.get_boolean_assignment("a-boolean-flag", "subject5", {}, false)
+        data["subjects"].each do |subject|
+          subject_key = subject["subjectKey"]
+          subject_attributes = subject["subjectAttributes"]
 
-      puts value
+          it "#{subject_key}", :subject => subject_key do
+            result =
+              case variation_type
+              when "STRING"
+                EppoClient::Client.instance.get_string_assignment(flag_key, subject_key, subject_attributes, default_value)
+              when "NUMERIC"
+                EppoClient::Client.instance.get_numeric_assignment(flag_key, subject_key, subject_attributes, default_value)
+              when "INTEGER"
+                EppoClient::Client.instance.get_integer_assignment(flag_key, subject_key, subject_attributes, default_value)
+              when "BOOLEAN"
+                EppoClient::Client.instance.get_boolean_assignment(flag_key, subject_key, subject_attributes, default_value)
+              when "JSON"
+                EppoClient::Client.instance.get_json_assignment(flag_key, subject_key, subject_attributes, default_value)
+              else raise "unexpected variationType: #{variation_type}"
+              end
 
-      expect(value).to be(true)
+            expect(result).to eq(subject["assignment"])
+          end
+        end
+      end
     end
   end
 end

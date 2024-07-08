@@ -2,6 +2,14 @@
 
 require "eppo_client"
 
+def client_with_test_config(test_name)
+    config = EppoClient::Config.new("test-api-key", base_url: "http://127.0.0.1:8378/#{test_name}/api")
+    EppoClient::Client.instance.init(config)
+
+    # Sleep to allow the client to fetch config
+    sleep(0.5)
+end
+
 RSpec.configure do |config|
   # Enable flags like --only-failures and --next-failure
   config.example_status_persistence_file_path = ".rspec_status"
