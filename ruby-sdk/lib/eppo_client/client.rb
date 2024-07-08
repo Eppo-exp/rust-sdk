@@ -51,7 +51,6 @@ module EppoClient
     def get_bandit_action(flag_key, subject_key, subject_attributes, actions, default_variation)
       attributes = coerce_context_attributes(subject_attributes)
       actions = actions.to_h { |action, attributes| [action, coerce_context_attributes(attributes)] }
-      puts "get_bandit_action(#{flag_key}, #{subject_key}, #{attributes}, #{actions}, #{default_variation})"
       result = @core.get_bandit_action(flag_key, subject_key, attributes, actions, default_variation)
 
       log_assignment(result[:assignment_event])
