@@ -7,7 +7,7 @@ def init_client_for(test_name)
     EppoClient::Client.instance.init(config)
 
     # Sleep to allow the client to fetch config
-    sleep(0.5)
+    sleep(0.050)
 end
 
 RSpec.configure do |config|
