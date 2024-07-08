@@ -277,6 +277,8 @@ mod tests {
 
     #[test]
     fn evaluation_sdk_test_data() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
         let config: UniversalFlagConfig =
             serde_json::from_reader(File::open("../sdk-test-data/ufc/flags-v1.json").unwrap())
                 .unwrap();

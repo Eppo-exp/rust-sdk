@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     bandits::{BanditConfiguration, BanditResponse},
-    ufc::{BanditVariation, UniversalFlagConfig},
+    ufc::{BanditVariation, TryParse, UniversalFlagConfig},
 };
 
 /// Remote configuration for the eppo client. It's a central piece that defines client behavior.
@@ -23,6 +23,15 @@ impl Configuration {
         config: Option<UniversalFlagConfig>,
         bandits: Option<BanditResponse>,
     ) -> Configuration {
+        if let Some(config) = &config {
+            // warn if some flags failed to parse
+            for (name, flag) in &config.flags {
+                if let TryParse::ParseFailed(_value) = flag {
+                    log::warn!(target: "eppo", "failed to parse flag configuration: {name:?}");
+                }
+            }
+        }
+
         let flag_to_bandit_associations = config
             .as_ref()
             .map(get_flag_to_bandit_associations)
