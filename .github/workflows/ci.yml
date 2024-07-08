@@ -35,15 +35,8 @@ jobs:
         os: [ubuntu, macos]
         ruby: [3.0, 3.1, 3.2]
 
-    defaults:
-      run:
-        working-directory: ruby-sdk
-
     steps:
       - uses: actions/checkout@v4
-
-      - run: npm ci
-        working-directory: .
 
       - name: Set up Ruby & Rust
         uses: oxidize-rb/actions/setup-ruby-and-rust@v1
@@ -53,14 +46,16 @@ jobs:
           cargo-cache: true
           rubygems: '3.5.11'
 
+      - run: npm ci
+      - run: make test-data
+
       - name: Install dependencies
         run: bundle install
+        working-directory: ruby-sdk
 
       - name: Build
         run: bundle exec rake build
-
-      - name: Load test data
-        run: bundle exec rake test_refreshed_data
+        working-directory: ruby-sdk
 
       - name: Run tests
-        run: bundle exec rspec
+        run: npm run with-server test:ruby
