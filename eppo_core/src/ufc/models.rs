@@ -304,8 +304,8 @@ mod tests {
 
     #[test]
     fn parse_flags_v1() {
-        let f = File::open("tests/data/ufc/flags-v1.json")
-            .expect("Failed to open tests/data/ufc/flags-v1.json");
+        let f = File::open("../sdk-test-data/ufc/flags-v1.json")
+            .expect("Failed to open ../sdk-test-data/ufc/flags-v1.json");
         let _ufc: UniversalFlagConfig = serde_json::from_reader(BufReader::new(f)).unwrap();
     }
 

@@ -278,9 +278,10 @@ mod tests {
     #[test]
     fn evaluation_sdk_test_data() {
         let config: UniversalFlagConfig =
-            serde_json::from_reader(File::open("tests/data/ufc/flags-v1.json").unwrap()).unwrap();
+            serde_json::from_reader(File::open("../sdk-test-data/ufc/flags-v1.json").unwrap())
+                .unwrap();
 
-        for entry in fs::read_dir("tests/data/ufc/tests/").unwrap() {
+        for entry in fs::read_dir("../sdk-test-data/ufc/tests/").unwrap() {
             let entry = entry.unwrap();
             println!("Processing test file: {:?}", entry.path());
 

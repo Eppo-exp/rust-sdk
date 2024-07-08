@@ -364,16 +364,18 @@ mod tests {
 
     #[test]
     fn sdk_test_data() {
-        let config =
-            serde_json::from_reader(File::open("tests/data/ufc/bandit-flags-v1.json").unwrap())
-                .unwrap();
-        let bandits =
-            serde_json::from_reader(File::open("tests/data/ufc/bandit-models-v1.json").unwrap())
-                .unwrap();
+        let config = serde_json::from_reader(
+            File::open("../sdk-test-data/ufc/bandit-flags-v1.json").unwrap(),
+        )
+        .unwrap();
+        let bandits = serde_json::from_reader(
+            File::open("../sdk-test-data/ufc/bandit-models-v1.json").unwrap(),
+        )
+        .unwrap();
 
         let config = Configuration::new(Some(config), Some(bandits));
 
-        for entry in read_dir("tests/data/ufc/bandit-tests/").unwrap() {
+        for entry in read_dir("../sdk-test-data/ufc/bandit-tests/").unwrap() {
             let entry = entry.unwrap();
             println!("Processing test file: {:?}", entry.path());
 
