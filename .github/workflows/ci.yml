@@ -19,6 +19,7 @@ jobs:
           - stable
     steps:
       - uses: actions/checkout@v3
+      - run: npm ci
       - run: make test-data
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - run: cargo build --verbose
@@ -37,12 +38,12 @@ jobs:
     defaults:
       run:
         working-directory: ruby-sdk
-        
-    env:
-      EPPO_API_KEY: ${{ secrets.EPPO_API_KEY }}
 
     steps:
       - uses: actions/checkout@v4
+
+      - run: npm ci
+        working-directory: .
 
       - name: Set up Ruby & Rust
         uses: oxidize-rb/actions/setup-ruby-and-rust@v1

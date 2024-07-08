@@ -1,0 +1,10 @@
+{
+  "private": true,
+  "scripts": {
+    "prestart": "./prepare.sh",
+    "start": "http-server -p 8378 -a 127.0.0.1 --cors"
+  },
+  "dependencies": {
+    "http-server": "^14.1.1"
+  }
+}

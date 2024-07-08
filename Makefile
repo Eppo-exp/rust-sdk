@@ -38,4 +38,4 @@ ${testDataDir}:
 
 .PHONY: test
 test: ${testDataDir}
-	cargo test
+	npm test

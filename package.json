@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "scripts": {
+    "test": "start-server-and-test start-mock-server http://127.0.0.1:8378 test:run",
+    "test:run": "cargo test",
+    "start-mock-server": "npm start --prefix ./mock-server"
+  },
+  "workspaces": ["mock-server"],
+  "dependencies": {
+    "start-server-and-test": "^2.0.4"
+  }
+}
