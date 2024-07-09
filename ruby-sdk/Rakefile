@@ -23,7 +23,7 @@ RbSys::ExtensionTask.new("eppo_rb", GEMSPEC) do |ext|
   ext.lib_dir = "lib/eppo_client"
 end
 
-task :build do
+task build: :compile do
   system "gem build #{GEM_NAME}.gemspec"
 end
 
