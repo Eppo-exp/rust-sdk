@@ -7,4 +7,11 @@ module EppoClient
       super("AssignmentLoggerError: #{message}")
     end
   end
+
+  # A custom error class for invalid values
+  class InvalidValueError < StandardError
+    def initialize(message)
+      super("InvalidValueError: #{message}")
+    end
+  end
 end
