@@ -46,6 +46,8 @@ module EppoClient
 
     def log_bandit_action: (untyped event) -> void
 
+    def enrich_event_metadata: (untyped event) -> void
+
     def coerce_context_attributes: (untyped attributes) -> untyped
   end
 
