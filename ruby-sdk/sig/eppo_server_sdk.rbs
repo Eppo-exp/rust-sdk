@@ -1,4 +1,94 @@
-module EppoServerSdk
+# EppoClient is the main module for initializing the Eppo client.
+# It provides a method to initialize the client with a given configuration.
+module EppoClient
+  def self.init: (Config config) -> void
+
+  # The base assignment logger class to override
+  class AssignmentLogger
+    def log_assignment: (untyped assignment_event) -> void
+
+    def log_bandit_action: (untyped assignment_event) -> void
+  end
+
+  # The main client singleton
+  class Client
+    @assignment_logger: AssignmentLogger
+    @core: Core::Client
+
+    include Singleton
+
+    attr_accessor assignment_logger: AssignmentLogger
+
+    def self.instance: () -> Client
+
+    def init: (Config config) -> void
+
+    def shutdown: () -> void
+
+    def get_string_assignment: (String flag_key, String subject_key, Hash[String, untyped] subject_attributes, String default_value) -> String
+
+    def get_numeric_assignment: (String flag_key, String subject_key, Hash[String, untyped] subject_attributes, Numeric default_value) -> Numeric
+
+    def get_integer_assignment: (String flag_key, String subject_key, Hash[String, untyped] subject_attributes, Integer default_value) -> Integer
+
+    def get_boolean_assignment: (String flag_key, String subject_key, Hash[String, untyped] subject_attributes, bool default_value) -> bool
+
+    def get_json_assignment: (String flag_key, String subject_key, Hash[String, untyped] subject_attributes, Object default_value) -> Object
+
+    def get_bandit_action: (String flag_key, String subject_key, Hash[String, untyped] subject_attributes, Hash[String, untyped] actions, String default_variation) -> { variation: untyped, action: untyped }
+
+    private
+
+    # rubocop:disable Metrics/MethodLength
+    def get_assignment_inner: (untyped flag_key, String subject_key, untyped subject_attributes, untyped expected_type, untyped default_value) -> untyped
+
+    def log_assignment: (untyped event) -> void
+
+    def log_bandit_action: (untyped event) -> void
+
+    def coerce_context_attributes: (untyped attributes) -> untyped
+  end
+
+  # The class for configuring the Eppo client singleton
+  class Config
+    @api_key: String
+    @assignment_logger: AssignmentLogger
+    @base_url: String
+
+    attr_reader api_key: String
+    attr_reader assignment_logger: AssignmentLogger
+    attr_reader base_url: String
+
+    def initialize: (String api_key, ?assignment_logger: AssignmentLogger, ?base_url: String) -> void
+
+    def validate: () -> void
+
+    # Hide instance variables (specifically api_key) from logs
+    def inspect: () -> ::String
+  end
+
+  # A custom error class for AssignmentLogger
+  class AssignmentLoggerError < StandardError
+    def initialize: (String message) -> void
+  end
+
+  # A custom error class for invalid values
+  class InvalidValueError < StandardError
+    def initialize: (String message) -> void
+  end
+
+  def self?.validate_not_blank: (String field_name, String field_value) -> void
+
   VERSION: String
-  # See the writing guide of rbs: https://github.com/ruby/rbs#guides
+end
+
+# Exposed from Rust
+module EppoClient::Core
+  DEFAULT_BASE_URL: String
+  class Client
+    def self.new: (untyped config) -> Client
+    def shutdown: () -> void
+    def get_assignment: (String flag_key, String subject_key, untyped subject_attributes, String expected_type) -> untyped
+    def get_bandit_action: (String flag_key, String subject_key, untyped attributes, untyped actions, String default_variation) -> untyped
+  end
 end
