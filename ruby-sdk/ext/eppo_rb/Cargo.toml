@@ -1,0 +1,19 @@
+[package]
+name = "eppo_rb"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+rust-version = "1.71.1"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+env_logger = { version = "0.11.3", features = ["unstable-kv"] }
+eppo_core = { version = "1.0.0", path = "../../../eppo_core" }
+log = { version = "0.4.21", features = ["kv_serde"] }
+magnus = { version = "0.6.2" }
+serde = { version = "1.0.203", features = ["derive"] }
+serde_magnus = "0.8.1"
+rb-sys = "0.9"

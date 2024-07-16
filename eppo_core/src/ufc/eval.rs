@@ -3,33 +3,84 @@ use std::collections::HashMap;
 use chrono::Utc;
 
 use crate::{
-    client::AssignmentValue,
-    sharder::Sharder,
-    ufc::{
-        Allocation, Flag, Shard, Split, Timestamp, TryParse, UniversalFlagConfig, VariationType,
-    },
-    AssignmentEvent, Error, Result, SubjectAttributes,
+    sharder::{Md5Sharder, Sharder},
+    Attributes, Configuration, Error, Result,
 };
 
+use super::{
+    Allocation, Assignment, AssignmentEvent, Flag, Shard, Split, Timestamp, TryParse,
+    UniversalFlagConfig, VariationType,
+};
+
+impl Configuration {
+    /// Evaluate the specified feature flag for the given subject and return assigned variation and
+    /// an optional assignment event for logging.
+    pub fn get_assignment(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+        expected_type: Option<VariationType>,
+    ) -> Result<Option<Assignment>> {
+        let Some(ufc) = &self.flags else {
+            log::warn!(target: "eppo", flag_key, subject_key; "evaluating a flag before Eppo configuration has been fetched");
+            // We treat missing configuration (the poller has not fetched config) as a normal
+            // scenario.
+            return Ok(None);
+        };
+
+        let assignment =
+            match ufc.eval_flag(&flag_key, &subject_key, &subject_attributes, expected_type) {
+                Ok(result) => result,
+                Err(err) => {
+                    log::warn!(target: "eppo",
+                               flag_key,
+                               subject_key,
+                               subject_attributes:serde;
+                               "error occurred while evaluating a flag: {:?}", err,
+                    );
+                    return Err(err);
+                }
+            };
+
+        log::trace!(target: "eppo",
+                    flag_key,
+                    subject_key,
+                    subject_attributes:serde,
+                    assignment:serde = assignment.as_ref().map(|Assignment{value, ..}| value);
+                    "evaluated a flag");
+
+        Ok(assignment)
+    }
+}
+
 impl UniversalFlagConfig {
+    /// Evaluate the flag for the given subject, expecting `expected_type` type.
+    ///
+    /// # Errors
+    ///
+    /// This method may return the following errors:
+    /// - [`Error::FlagNotFound`]
+    /// - [`Error::InvalidType`]
+    /// - [`Error::ConfigurationError`]
+    /// - [`Error::ConfigurationParseError`]
     pub fn eval_flag(
         &self,
         flag_key: &str,
         subject_key: &str,
-        subject_attributes: &SubjectAttributes,
-        sharder: &impl Sharder,
+        subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
-    ) -> Result<Option<(AssignmentValue, Option<AssignmentEvent>)>> {
+    ) -> Result<Option<Assignment>> {
         let flag = self.get_flag(flag_key)?;
 
         if let Some(ty) = expected_type {
             flag.verify_type(ty)?;
         }
 
-        flag.eval(subject_key, subject_attributes, sharder)
+        flag.eval(subject_key, subject_attributes, &Md5Sharder)
     }
 
-    pub fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag> {
+    fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag> {
         let flag = self.flags.get(flag_key).ok_or(Error::FlagNotFound)?;
 
         match flag {
@@ -40,7 +91,7 @@ impl UniversalFlagConfig {
 }
 
 impl Flag {
-    pub fn verify_type(&self, ty: VariationType) -> Result<()> {
+    fn verify_type(&self, ty: VariationType) -> Result<()> {
         if self.variation_type == ty {
             Ok(())
         } else {
@@ -51,12 +102,12 @@ impl Flag {
         }
     }
 
-    pub fn eval(
+    fn eval(
         &self,
         subject_key: &str,
-        subject_attributes: &SubjectAttributes,
+        subject_attributes: &Attributes,
         sharder: &impl Sharder,
-    ) -> Result<Option<(AssignmentValue, Option<AssignmentEvent>)>> {
+    ) -> Result<Option<Assignment>> {
         if !self.enabled {
             return Ok(None);
         }
@@ -64,7 +115,7 @@ impl Flag {
         let now = Utc::now();
 
         // Augmenting subject_attributes with id, so that subject_key can be used in the rules.
-        let augmented_subject_attributes = {
+        let subject_attributes_with_id = {
             let mut sa = subject_attributes.clone();
             sa.entry("id".into()).or_insert_with(|| subject_key.into());
             sa
@@ -74,7 +125,7 @@ impl Flag {
             allocation
                 .get_matching_split(
                     subject_key,
-                    &augmented_subject_attributes,
+                    &subject_attributes_with_id,
                     sharder,
                     self.total_shards,
                     now,
@@ -114,33 +165,34 @@ impl Flag {
                 subject: subject_key.to_owned(),
                 subject_attributes: subject_attributes.clone(),
                 timestamp: now.to_rfc3339(),
-                meta_data: HashMap::from([
-                    ("sdkLanguage".to_owned(), "rust".to_owned()),
-                    (
-                        "sdkVersion".to_owned(),
-                        env!("CARGO_PKG_VERSION").to_owned(),
-                    ),
-                ]),
+                meta_data: [(
+                    "eppoCoreVersion".to_owned(),
+                    env!("CARGO_PKG_VERSION").to_owned(),
+                )]
+                .into(),
                 extra_logging: split.extra_logging.clone(),
             })
         } else {
             None
         };
 
-        Ok(Some((assignment_value, event)))
+        Ok(Some(Assignment {
+            value: assignment_value,
+            event,
+        }))
     }
 }
 
 impl Allocation {
-    pub fn get_matching_split(
+    fn get_matching_split(
         &self,
         subject_key: &str,
-        augmented_subject_attributes: &SubjectAttributes,
+        subject_attributes_with_id: &Attributes,
         sharder: &impl Sharder,
         total_shards: u64,
         now: Timestamp,
     ) -> Option<&Split> {
-        if self.is_allowed_by_time(now) && self.is_allowed_by_rules(augmented_subject_attributes) {
+        if self.is_allowed_by_time(now) && self.is_allowed_by_rules(subject_attributes_with_id) {
             self.splits
                 .iter()
                 .find(|split| split.matches(subject_key, sharder, total_shards))
@@ -155,12 +207,12 @@ impl Allocation {
         !forbidden
     }
 
-    fn is_allowed_by_rules(&self, augmented_subject_attributes: &SubjectAttributes) -> bool {
+    fn is_allowed_by_rules(&self, subject_attributes_with_id: &Attributes) -> bool {
         self.rules.is_empty()
             || self
                 .rules
                 .iter()
-                .any(|rule| rule.eval(augmented_subject_attributes))
+                .any(|rule| rule.eval(subject_attributes_with_id))
     }
 }
 
@@ -190,9 +242,8 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        sharder::Md5Sharder,
         ufc::{TryParse, UniversalFlagConfig, Value, VariationType},
-        SubjectAttributes,
+        Attributes,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -208,7 +259,7 @@ mod tests {
     #[serde(rename_all = "camelCase")]
     struct TestSubject {
         subject_key: String,
-        subject_attributes: SubjectAttributes,
+        subject_attributes: Attributes,
         assignment: TryParse<Value>,
     }
 
@@ -226,10 +277,13 @@ mod tests {
 
     #[test]
     fn evaluation_sdk_test_data() {
-        let config: UniversalFlagConfig =
-            serde_json::from_reader(File::open("tests/data/ufc/flags-v1.json").unwrap()).unwrap();
+        let _ = env_logger::builder().is_test(true).try_init();
 
-        for entry in fs::read_dir("tests/data/ufc/tests/").unwrap() {
+        let config: UniversalFlagConfig =
+            serde_json::from_reader(File::open("../sdk-test-data/ufc/flags-v1.json").unwrap())
+                .unwrap();
+
+        for entry in fs::read_dir("../sdk-test-data/ufc/tests/").unwrap() {
             let entry = entry.unwrap();
             println!("Processing test file: {:?}", entry.path());
 
@@ -247,14 +301,13 @@ mod tests {
                         &test_file.flag,
                         &subject.subject_key,
                         &subject.subject_attributes,
-                        &Md5Sharder,
                         Some(test_file.variation_type),
                     )
                     .unwrap_or(None);
 
                 let result_assingment = result
                     .as_ref()
-                    .map(|(value, _event)| value)
+                    .map(|assignment| &assignment.value)
                     .unwrap_or(&default_assignment);
                 let expected_assignment = to_value(subject.assignment)
                     .to_assignment_value(test_file.variation_type)

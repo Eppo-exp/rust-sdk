@@ -24,7 +24,7 @@ help: Makefile
 	@sed -n 's/^##//p' $<
 
 ## test-data
-testDataDir := tests/data/
+testDataDir := sdk-test-data
 branchName := main
 githubRepoLink := https://github.com/Eppo-exp/sdk-test-data.git
 .PHONY: test-data
@@ -38,4 +38,4 @@ ${testDataDir}:
 
 .PHONY: test
 test: ${testDataDir}
-	cargo test
+	npm test

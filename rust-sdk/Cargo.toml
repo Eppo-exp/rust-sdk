@@ -1,0 +1,22 @@
+[package]
+name = "eppo"
+version = "3.0.0"
+edition = "2021"
+description = "Eppo SDK for Rust"
+homepage = "https://docs.geteppo.com/sdks/server-sdks/rust"
+repository = "https://github.com/Eppo-exp/rust-sdk"
+license = "MIT"
+keywords = ["eppo", "feature-flags"]
+categories = ["config"]
+rust-version = "1.71.1"
+
+[dependencies]
+eppo_core = { version = "1.0.0", path = "../eppo_core" }
+log = { version = "0.4.21", features = ["kv", "kv_serde"] }
+serde_json = "1.0.116"
+
+[[example]]
+name = "simple"
+
+[dev-dependencies]
+env_logger = { version = "0.11.3", features = ["unstable-kv"] }

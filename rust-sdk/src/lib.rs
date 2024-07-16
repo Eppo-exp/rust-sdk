@@ -58,16 +58,17 @@
 mod assignment_logger;
 mod client;
 mod config;
-mod configuration_store;
-mod error;
-mod eval;
 mod poller;
-mod rules;
-mod sharder;
-mod ufc;
 
-pub use assignment_logger::{AssignmentEvent, AssignmentLogger};
-pub use client::{AssignmentValue, AttributeValue, Client, SubjectAttributes};
+#[doc(inline)]
+pub use eppo_core::{
+    ufc::{AssignmentEvent, AssignmentValue},
+    AttributeValue, Attributes,
+};
+#[doc(inline)]
+pub use eppo_core::{Error, Result};
+
+pub use assignment_logger::AssignmentLogger;
+pub use client::Client;
 pub use config::ClientConfig;
-pub use error::{Error, Result};
 pub use poller::PollerThread;
