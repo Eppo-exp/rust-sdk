@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::ufc::VariationType;
+use crate::ufc::FlagEvaluationError;
 
 /// Represents a result type for operations in the Eppo SDK.
 ///
@@ -12,32 +12,12 @@ use crate::ufc::VariationType;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Enum representing possible errors that can occur in the Eppo SDK.
-// TODO: split the error into `EvaluationError` and the rest.
 #[derive(thiserror::Error, Debug, Clone)]
 #[non_exhaustive]
 pub enum Error {
-    /// The requested flag configuration was not found.
-    #[error("flag not found")]
-    FlagNotFound,
-
-    /// Requested flag has invalid type.
-    #[error("invalid flag type (expected: {expected:?}, found: {found:?})")]
-    InvalidType {
-        /// Expected type of the flag.
-        expected: VariationType,
-        /// Actual type of the flag.
-        found: VariationType,
-    },
-
-    /// An error occurred while parsing the configuration (server sent unexpected response). It is
-    /// recommended to upgrade the Eppo SDK.
-    #[error("error parsing configuration, try upgrading Eppo SDK")]
-    ConfigurationParseError,
-
-    /// Configuration received from the server is invalid for the SDK. This should normally never
-    /// happen and is likely a signal that you should update SDK.
-    #[error("configuration error, try upgrading Eppo SDK")]
-    ConfigurationError,
+    /// Error evaluating a flag.
+    #[error(transparent)]
+    FlagEvaluationError(FlagEvaluationError),
 
     /// Invalid base URL configuration.
     #[error("invalid base_url configuration")]

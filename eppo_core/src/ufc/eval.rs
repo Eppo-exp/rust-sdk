@@ -1,15 +1,13 @@
-use std::collections::HashMap;
-
 use chrono::Utc;
 
 use crate::{
     sharder::{Md5Sharder, Sharder},
-    Attributes, Configuration, Error, Result,
+    Attributes, Configuration,
 };
 
 use super::{
-    Allocation, Assignment, AssignmentEvent, Flag, Shard, Split, Timestamp, TryParse,
-    UniversalFlagConfig, VariationType,
+    Allocation, Assignment, AssignmentEvent, Flag, FlagEvaluationError, Shard, Split, Timestamp,
+    TryParse, UniversalFlagConfig, VariationType,
 };
 
 impl Configuration {
@@ -21,7 +19,7 @@ impl Configuration {
         subject_key: &str,
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
-    ) -> Result<Option<Assignment>> {
+    ) -> Result<Option<Assignment>, FlagEvaluationError> {
         let Some(ufc) = &self.flags else {
             log::warn!(target: "eppo", flag_key, subject_key; "evaluating a flag before Eppo configuration has been fetched");
             // We treat missing configuration (the poller has not fetched config) as a normal
@@ -56,21 +54,13 @@ impl Configuration {
 
 impl UniversalFlagConfig {
     /// Evaluate the flag for the given subject, expecting `expected_type` type.
-    ///
-    /// # Errors
-    ///
-    /// This method may return the following errors:
-    /// - [`Error::FlagNotFound`]
-    /// - [`Error::InvalidType`]
-    /// - [`Error::ConfigurationError`]
-    /// - [`Error::ConfigurationParseError`]
     pub fn eval_flag(
         &self,
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
-    ) -> Result<Option<Assignment>> {
+    ) -> Result<Option<Assignment>, FlagEvaluationError> {
         let flag = self.get_flag(flag_key)?;
 
         if let Some(ty) = expected_type {
@@ -80,22 +70,25 @@ impl UniversalFlagConfig {
         flag.eval(subject_key, subject_attributes, &Md5Sharder)
     }
 
-    fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag> {
-        let flag = self.flags.get(flag_key).ok_or(Error::FlagNotFound)?;
+    fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag, FlagEvaluationError> {
+        let flag = self
+            .flags
+            .get(flag_key)
+            .ok_or(FlagEvaluationError::FlagNotFound)?;
 
         match flag {
             TryParse::Parsed(flag) => Ok(flag),
-            TryParse::ParseFailed(_) => Err(Error::ConfigurationParseError),
+            TryParse::ParseFailed(_) => Err(FlagEvaluationError::ConfigurationParseError),
         }
     }
 }
 
 impl Flag {
-    fn verify_type(&self, ty: VariationType) -> Result<()> {
+    fn verify_type(&self, ty: VariationType) -> Result<(), FlagEvaluationError> {
         if self.variation_type == ty {
             Ok(())
         } else {
-            Err(Error::InvalidType {
+            Err(FlagEvaluationError::InvalidType {
                 expected: ty,
                 found: self.variation_type,
             })
@@ -107,7 +100,7 @@ impl Flag {
         subject_key: &str,
         subject_attributes: &Attributes,
         sharder: &impl Sharder,
-    ) -> Result<Option<Assignment>> {
+    ) -> Result<Option<Assignment>, FlagEvaluationError> {
         if !self.enabled {
             return Ok(None);
         }
@@ -141,7 +134,7 @@ impl Flag {
                        subject_key,
                        variation_key:display = split.variation_key;
                        "internal: unable to find variation");
-            Error::ConfigurationError
+            FlagEvaluationError::ConfigurationError
         })?;
 
         let assignment_value = variation
@@ -153,7 +146,7 @@ impl Flag {
                            subject_key,
                            variation_key:display = split.variation_key;
                            "internal: unable to convert Value to AssignmentValue");
-                Error::ConfigurationError
+                FlagEvaluationError::ConfigurationError
             })?;
 
         let event = if allocation.do_log {

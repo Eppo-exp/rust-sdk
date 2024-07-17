@@ -1,14 +1,12 @@
 use std::sync::Arc;
 
-#[cfg(doc)]
-use crate::Error;
 use crate::{
     poller::{PollerThread, PollerThreadConfig},
-    AssignmentValue, Attributes, ClientConfig, Result,
+    AssignmentValue, Attributes, ClientConfig, FlagEvaluationError,
 };
 
-use eppo_core::ufc::VariationType;
 use eppo_core::{configuration_store::ConfigurationStore, ufc::Assignment};
+use eppo_core::{ufc::VariationType, Error};
 
 /// A client for Eppo API.
 ///
@@ -83,13 +81,6 @@ impl<'a> Client<'a> {
     /// safety. They can catch type errors even _before_ evaluating the assignment, which helps to
     /// detect errors if subject is not eligible for the flag allocation.
     ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
-    ///
     /// # Examples
     ///
     /// ```
@@ -113,7 +104,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<AssignmentValue>> {
+    ) -> Result<Option<AssignmentValue>, FlagEvaluationError> {
         self.get_assignment_inner(flag_key, subject_key, subject_attributes, None, |x| x)
     }
 
@@ -127,14 +118,6 @@ impl<'a> Client<'a> {
     ///
     /// It is recommended to wait for the Eppo configuration to get fetched with
     /// [`PollerThread::wait_for_configuration()`].
-    ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::InvalidType`] if the requested flag has an invalid type or type conversion fails.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
     ///
     /// # Examples
     ///
@@ -153,7 +136,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<String>, FlagEvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -178,14 +161,6 @@ impl<'a> Client<'a> {
     /// It is recommended to wait for the Eppo configuration to get fetched with
     /// [`PollerThread::wait_for_configuration()`].
     ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::InvalidType`] if the requested flag has an invalid type or type conversion fails.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
-    ///
     /// # Examples
     ///
     /// ```
@@ -203,7 +178,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<i64>> {
+    ) -> Result<Option<i64>, FlagEvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -228,14 +203,6 @@ impl<'a> Client<'a> {
     /// It is recommended to wait for the Eppo configuration to get fetched with
     /// [`PollerThread::wait_for_configuration()`].
     ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::InvalidType`] if the requested flag has an invalid type or type conversion fails.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
-    ///
     /// # Examples
     ///
     /// ```
@@ -253,7 +220,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<f64>> {
+    ) -> Result<Option<f64>, FlagEvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -278,14 +245,6 @@ impl<'a> Client<'a> {
     /// It is recommended to wait for the Eppo configuration to get fetched with
     /// [`PollerThread::wait_for_configuration()`].
     ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::InvalidType`] if the requested flag has an invalid type or type conversion fails.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
-    ///
     /// # Examples
     ///
     /// ```
@@ -303,7 +262,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<bool>> {
+    ) -> Result<Option<bool>, FlagEvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -328,14 +287,6 @@ impl<'a> Client<'a> {
     /// It is recommended to wait for the Eppo configuration to get fetched with
     /// [`PollerThread::wait_for_configuration()`].
     ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::InvalidType`] if the requested flag has an invalid type or type conversion fails.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
-    ///
     /// # Examples
     ///
     /// ```
@@ -354,7 +305,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<serde_json::Value>> {
+    ) -> Result<Option<serde_json::Value>, FlagEvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -375,7 +326,7 @@ impl<'a> Client<'a> {
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
         convert: impl FnOnce(AssignmentValue) -> T,
-    ) -> Result<Option<T>> {
+    ) -> Result<Option<T>, FlagEvaluationError> {
         let config = self.configuration_store.get_configuration();
         let assignment =
             config.get_assignment(flag_key, subject_key, subject_attributes, expected_type)?;
@@ -395,7 +346,7 @@ impl<'a> Client<'a> {
     }
 
     /// Start a poller thread to fetch configuration from the server.
-    pub fn start_poller_thread(&mut self) -> Result<PollerThread> {
+    pub fn start_poller_thread(&mut self) -> Result<PollerThread, Error> {
         PollerThread::start(PollerThreadConfig {
             store: self.configuration_store.clone(),
             base_url: self.config.base_url.clone(),
