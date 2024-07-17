@@ -3,7 +3,7 @@ use super::{
     UniversalFlagConfig,
 };
 
-pub(crate) trait EvalVisitor {
+pub(super) trait EvalVisitor {
     // Type-foo here basically means that AllocationVisitor may hold references to EvalFlagVisitor
     // but should not outlive it.
     type AllocationVisitor<'a>: EvalAllocationVisitor + 'a
@@ -27,7 +27,7 @@ pub(crate) trait EvalVisitor {
     fn on_result(&mut self, result: &Result<Assignment, FlagEvaluationError>) {}
 }
 
-pub(crate) trait EvalAllocationVisitor {
+pub(super) trait EvalAllocationVisitor {
     #[allow(unused_variables)]
     #[inline]
     fn on_result(&mut self, result: Result<&Split, AllocationNonMatchReason>) {}
@@ -36,7 +36,7 @@ pub(crate) trait EvalAllocationVisitor {
 /// Dummy visitor that does nothing.
 ///
 /// It is designed so that all calls to it are optimized away (zero-cost).
-pub(crate) struct NoopEvalVisitor;
+pub(super) struct NoopEvalVisitor;
 
 impl EvalVisitor for NoopEvalVisitor {
     type AllocationVisitor<'a> = NoopEvalVisitor;
