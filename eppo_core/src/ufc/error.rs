@@ -1,9 +1,9 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::ufc::VariationType;
 
 /// Enum representing possible errors that can occur during flag evaluation.
-#[derive(thiserror::Error, Debug, Clone, Serialize, PartialEq)]
+#[derive(thiserror::Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum FlagEvaluationError {
     /// Configuration has not been fetched yet.

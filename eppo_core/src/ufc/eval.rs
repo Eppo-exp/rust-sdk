@@ -6,6 +6,7 @@ use crate::{
 };
 
 use super::{
+    eval_details::{EvalFlagDetails, EvalFlagDetailsBuilder},
     eval_visitor::{EvalAllocationVisitor, EvalVisitor, NoopEvalVisitor},
     Allocation, Assignment, AssignmentEvent, Flag, FlagEvaluationError, Shard, Split, Timestamp,
     TryParse, UniversalFlagConfig, VariationType,
@@ -28,6 +29,33 @@ impl Configuration {
             subject_attributes,
             expected_type,
         )
+    }
+
+    /// Evaluate the specified feature flag for the given subject and return evaluation details.
+    pub fn get_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+        expected_type: Option<VariationType>,
+    ) -> (
+        Result<Option<Assignment>, FlagEvaluationError>,
+        EvalFlagDetails,
+    ) {
+        let mut builder = EvalFlagDetailsBuilder::new(
+            flag_key.to_owned(),
+            subject_key.to_owned(),
+            subject_attributes.to_owned(),
+        );
+        let result = self.get_assignment_with_visitor(
+            &mut builder,
+            flag_key,
+            subject_key,
+            subject_attributes,
+            expected_type,
+        );
+        let details = builder.build();
+        (result, details)
     }
 
     fn get_assignment_with_visitor<V: EvalVisitor>(
@@ -239,7 +267,7 @@ impl Flag {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) enum AllocationNonMatchReason {
+pub(super) enum AllocationNonMatchReason {
     BeforeStartDate,
     AfterEndDate,
     FailingRules,
