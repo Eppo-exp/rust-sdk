@@ -96,9 +96,7 @@ impl Configuration {
 
             // These are considered normal conditions and usually don't need extra attention, so we
             // remap them to Ok(None) before returning to the user.
-            Err(err @ FlagEvaluationError::FlagNotFound)
-            | Err(err @ FlagEvaluationError::FlagDisabled)
-            | Err(err @ FlagEvaluationError::NoAllocation) => {
+            Err(err) if err.is_normal() => {
                 log::trace!(target: "eppo",
                            flag_key,
                            subject_key;

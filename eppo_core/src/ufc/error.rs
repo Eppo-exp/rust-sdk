@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::ufc::VariationType;
 
 /// Enum representing possible errors that can occur during flag evaluation.
-#[derive(thiserror::Error, Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub enum FlagEvaluationError {
     /// Configuration has not been fetched yet.
@@ -14,6 +14,7 @@ pub enum FlagEvaluationError {
     #[error("flag not found")]
     FlagNotFound,
 
+    /// Flag is found in configuration but it is disabled.
     #[error("flag is disabled")]
     FlagDisabled,
 
@@ -39,4 +40,21 @@ pub enum FlagEvaluationError {
     /// happen and is likely a signal that you should update SDK.
     #[error("configuration error, try upgrading Eppo SDK")]
     ConfigurationError,
+}
+
+impl FlagEvaluationError {
+    /// Return `true` if the error is a normal running condition and the default value should be
+    /// returned silently.
+    pub(super) fn is_normal(self) -> bool {
+        match self {
+            FlagEvaluationError::ConfigurationMissing
+            | FlagEvaluationError::FlagNotFound
+            | FlagEvaluationError::FlagDisabled
+            | FlagEvaluationError::NoAllocation => true,
+
+            FlagEvaluationError::InvalidType { .. }
+            | FlagEvaluationError::ConfigurationParseError
+            | FlagEvaluationError::ConfigurationError => false,
+        }
+    }
 }
