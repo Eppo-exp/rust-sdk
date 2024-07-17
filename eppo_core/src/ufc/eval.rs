@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::{
-    eval_visitor::{EvalVisitor, NoopEvalVisitor},
+    eval_visitor::{EvalAllocationVisitor, EvalVisitor, NoopEvalVisitor},
     Allocation, Assignment, AssignmentEvent, Flag, FlagEvaluationError, Shard, Split, Timestamp,
     TryParse, UniversalFlagConfig, VariationType,
 };
@@ -125,6 +125,8 @@ impl UniversalFlagConfig {
     ) -> Result<Assignment, FlagEvaluationError> {
         let flag = self.get_flag(flag_key)?;
 
+        visitor.on_flag_configuration(flag);
+
         if let Some(ty) = expected_type {
             flag.verify_type(ty)?;
         }
@@ -159,7 +161,7 @@ impl Flag {
 
     fn eval<V: EvalVisitor>(
         &self,
-        _visitor: &mut V,
+        visitor: &mut V,
         subject_key: &str,
         subject_attributes: &Attributes,
         sharder: &impl Sharder,
@@ -178,15 +180,16 @@ impl Flag {
         };
 
         let Some((allocation, split)) = self.allocations.iter().find_map(|allocation| {
-            allocation
-                .get_matching_split(
-                    subject_key,
-                    &subject_attributes_with_id,
-                    sharder,
-                    self.total_shards,
-                    now,
-                )
-                .map(|split| (allocation, split))
+            let mut visitor = visitor.visit_allocation(allocation);
+            let result = allocation.get_matching_split(
+                subject_key,
+                &subject_attributes_with_id,
+                sharder,
+                self.total_shards,
+                now,
+            );
+            visitor.on_result(result);
+            result.ok().map(|split| (allocation, split))
         }) else {
             return Err(FlagEvaluationError::NoAllocation);
         };
@@ -235,6 +238,14 @@ impl Flag {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) enum AllocationNonMatchReason {
+    BeforeStartDate,
+    AfterEndDate,
+    FailingRules,
+    TrafficExposureMiss,
+}
+
 impl Allocation {
     fn get_matching_split(
         &self,
@@ -243,28 +254,27 @@ impl Allocation {
         sharder: &impl Sharder,
         total_shards: u64,
         now: Timestamp,
-    ) -> Option<&Split> {
-        if self.is_allowed_by_time(now) && self.is_allowed_by_rules(subject_attributes_with_id) {
-            self.splits
-                .iter()
-                .find(|split| split.matches(subject_key, sharder, total_shards))
-        } else {
-            None
+    ) -> Result<&Split, AllocationNonMatchReason> {
+        if self.start_at.is_some_and(|t| now < t) {
+            return Err(AllocationNonMatchReason::BeforeStartDate);
         }
-    }
+        if self.end_at.is_some_and(|t| now > t) {
+            return Err(AllocationNonMatchReason::AfterEndDate);
+        }
 
-    fn is_allowed_by_time(&self, now: Timestamp) -> bool {
-        let forbidden = matches!(self.start_at, Some(t) if now < t)
-            || matches!(self.end_at, Some(t) if now > t);
-        !forbidden
-    }
-
-    fn is_allowed_by_rules(&self, subject_attributes_with_id: &Attributes) -> bool {
-        self.rules.is_empty()
+        let is_allowed_by_rules = self.rules.is_empty()
             || self
                 .rules
                 .iter()
-                .any(|rule| rule.eval(subject_attributes_with_id))
+                .any(|rule| rule.eval(subject_attributes_with_id));
+        if !is_allowed_by_rules {
+            return Err(AllocationNonMatchReason::FailingRules);
+        }
+
+        self.splits
+            .iter()
+            .find(|split| split.matches(subject_key, sharder, total_shards))
+            .ok_or(AllocationNonMatchReason::TrafficExposureMiss)
     }
 }
 
