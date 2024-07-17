@@ -14,6 +14,13 @@ pub enum FlagEvaluationError {
     #[error("flag not found")]
     FlagNotFound,
 
+    #[error("flag is disabled")]
+    FlagDisabled,
+
+    /// No allocation found. This causes the return of default allocation.
+    #[error("no allocation assigned")]
+    NoAllocation,
+
     /// Requested flag has invalid type.
     #[error("invalid flag type (expected: {expected:?}, found: {found:?})")]
     InvalidType {

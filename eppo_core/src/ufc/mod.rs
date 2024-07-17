@@ -2,6 +2,7 @@
 mod assignment;
 mod error;
 mod eval;
+mod eval_visitor;
 mod models;
 mod rules;
 
