@@ -12,6 +12,6 @@ pub use error::FlagEvaluationError;
 pub use eval::{get_assignment, get_assignment_details};
 pub use eval_details::{
     ConfigurationDetails, EvalAllocationDetails, EvalConditionDetails, EvalFlagDetails,
-    EvalRuleDetails,
+    EvalRuleDetails, EvalShardDetails, EvalSplitDetails,
 };
 pub use models::*;

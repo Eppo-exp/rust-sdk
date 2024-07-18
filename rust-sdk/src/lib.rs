@@ -62,7 +62,11 @@ mod poller;
 
 #[doc(inline)]
 pub use eppo_core::{
-    ufc::{AssignmentEvent, AssignmentValue, FlagEvaluationError},
+    ufc::{
+        AssignmentEvent, AssignmentValue, ConfigurationDetails, EvalAllocationDetails,
+        EvalConditionDetails, EvalFlagDetails, EvalRuleDetails, EvalSplitDetails,
+        FlagEvaluationError,
+    },
     AttributeValue, Attributes, Error, Result,
 };
 
