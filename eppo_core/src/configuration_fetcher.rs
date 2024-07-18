@@ -1,6 +1,4 @@
 //! An HTTP client that fetches configuration from the server.
-use std::sync::Arc;
-
 use reqwest::{StatusCode, Url};
 
 use crate::{bandits::BanditResponse, ufc::UniversalFlagConfig, Configuration, Error, Result};

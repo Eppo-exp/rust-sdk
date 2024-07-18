@@ -1,9 +1,6 @@
 use chrono::Utc;
 
-use crate::{
-    sharder::{Md5Sharder, Sharder},
-    Attributes, Configuration,
-};
+use crate::{sharder::get_md5_shard, Attributes, Configuration};
 
 use super::{
     eval_details::{EvalFlagDetails, EvalFlagDetailsBuilder},
@@ -157,7 +154,7 @@ impl UniversalFlagConfig {
             flag.verify_type(ty)?;
         }
 
-        flag.eval(visitor, subject_key, subject_attributes, &Md5Sharder)
+        flag.eval(visitor, subject_key, subject_attributes)
     }
 
     fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag, FlagEvaluationError> {
@@ -190,7 +187,6 @@ impl Flag {
         visitor: &mut V,
         subject_key: &str,
         subject_attributes: &Attributes,
-        sharder: &impl Sharder,
     ) -> Result<Assignment, FlagEvaluationError> {
         if !self.enabled {
             return Err(FlagEvaluationError::FlagDisabled);
@@ -210,7 +206,6 @@ impl Flag {
             let result = allocation.get_matching_split(
                 subject_key,
                 &subject_attributes_with_id,
-                sharder,
                 self.total_shards,
                 now,
             );
@@ -277,7 +272,6 @@ impl Allocation {
         &self,
         subject_key: &str,
         subject_attributes_with_id: &Attributes,
-        sharder: &impl Sharder,
         total_shards: u64,
         now: Timestamp,
     ) -> Result<&Split, AllocationNonMatchReason> {
@@ -299,26 +293,26 @@ impl Allocation {
 
         self.splits
             .iter()
-            .find(|split| split.matches(subject_key, sharder, total_shards))
+            .find(|split| split.matches(subject_key, total_shards))
             .ok_or(AllocationNonMatchReason::TrafficExposureMiss)
     }
 }
 
 impl Split {
-    /// Return `true` if `subject_key` matches the given split under the provided `sharder`.
+    /// Return `true` if `subject_key` matches the given split.
     ///
     /// To match a split, subject must match all underlying shards.
-    fn matches(&self, subject_key: &str, sharder: &impl Sharder, total_shards: u64) -> bool {
+    fn matches(&self, subject_key: &str, total_shards: u64) -> bool {
         self.shards
             .iter()
-            .all(|shard| shard.matches(subject_key, sharder, total_shards))
+            .all(|shard| shard.matches(subject_key, total_shards))
     }
 }
 
 impl Shard {
-    /// Return `true` if `subject_key` matches the given shard under the provided `sharder`.
-    fn matches(&self, subject_key: &str, sharder: &impl Sharder, total_shards: u64) -> bool {
-        let h = sharder.get_shard(&format!("{}-{}", self.salt, subject_key), total_shards);
+    /// Return `true` if `subject_key` matches the given shard.
+    fn matches(&self, subject_key: &str, total_shards: u64) -> bool {
+        let h = get_md5_shard(&[self.salt.as_str(), "-", subject_key], total_shards);
         self.ranges.iter().any(|range| range.contains(h))
     }
 }

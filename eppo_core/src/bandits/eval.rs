@@ -4,8 +4,7 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::sharder::Md5Sharder;
-use crate::sharder::Sharder;
+use crate::sharder::get_md5_shard;
 use crate::ufc::Assignment;
 use crate::ufc::AssignmentEvent;
 use crate::ufc::AssignmentValue;
@@ -195,18 +194,15 @@ impl BanditModelData {
             let mut shuffled_actions = actions.keys().map(|x| x.as_str()).collect::<Vec<_>>();
             // Sort actions by their shard value. Use action key as tie breaker.
             shuffled_actions.sort_by_cached_key(|&action_key| {
-                let hash = Md5Sharder.get_shard(
-                    format!("{flag_key}-{subject_key}-{action_key}"),
-                    TOTAL_SHARDS,
-                );
+                let hash =
+                    get_md5_shard(&[flag_key, "-", subject_key, "-", action_key], TOTAL_SHARDS);
                 (hash, action_key)
             });
             shuffled_actions
         };
 
-        let selection_hash =
-            (Md5Sharder.get_shard(format!("{flag_key}-{subject_key}"), TOTAL_SHARDS) as f64)
-                / (TOTAL_SHARDS as f64);
+        let selection_hash = (get_md5_shard(&[flag_key, "-", subject_key], TOTAL_SHARDS) as f64)
+            / (TOTAL_SHARDS as f64);
 
         let selected_action = {
             let mut cumulative_weight = 0.0;
