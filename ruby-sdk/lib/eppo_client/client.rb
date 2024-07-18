@@ -72,7 +72,7 @@ module EppoClient
 
         log_assignment(assignment[:event])
 
-        return assignment[:value][expected_type]
+        return assignment[:value][:value]
       rescue StandardError => error
         logger.debug("[Eppo SDK] Failed to get assignment: #{error}")
 
