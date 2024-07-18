@@ -3,10 +3,11 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::{Attributes, Configuration};
+use crate::{AttributeValue, Attributes, Configuration};
 
 use super::{
-    eval::AllocationNonMatchReason, eval_visitor::*, Assignment, FlagEvaluationError, Split, Value,
+    eval::AllocationNonMatchReason, eval_visitor::*, Assignment, Condition, FlagEvaluationError,
+    Rule, Split, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -43,6 +44,8 @@ pub struct ConfigurationDetails {
 pub struct EvalAllocationDetails {
     pub key: String,
     pub result: EvalAllocationResult,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub evaluated_rules: Vec<EvalRuleDetails>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -54,6 +57,21 @@ pub enum EvalAllocationResult {
     AfterEndDate,
     FailingRules,
     TrafficExposureMiss,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EvalRuleDetails {
+    pub matched: bool,
+    pub conditions: Vec<EvalConditionDetails>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EvalConditionDetails {
+    pub matched: bool,
+    pub condition: Condition,
+    pub attribute_value: Option<AttributeValue>,
 }
 
 pub(crate) struct EvalFlagDetailsBuilder {
@@ -74,8 +92,12 @@ pub(crate) struct EvalFlagDetailsBuilder {
 }
 
 pub(crate) struct EvalAllocationDetailsBuilder<'a> {
-    result: &'a mut EvalAllocationDetails,
+    allocation_details: &'a mut EvalAllocationDetails,
     variation_key: &'a mut Option<String>,
+}
+
+pub(crate) struct EvalRuleDetailsBuilder<'a> {
+    rule_details: &'a mut EvalRuleDetails,
 }
 
 impl EvalFlagDetailsBuilder {
@@ -119,6 +141,7 @@ impl EvalFlagDetailsBuilder {
                     None => EvalAllocationDetails {
                         key,
                         result: EvalAllocationResult::Unevaluated,
+                        evaluated_rules: Vec::new(),
                     },
                 })
                 .collect(),
@@ -139,9 +162,10 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
             .or_insert(EvalAllocationDetails {
                 key: allocation.key.clone(),
                 result: EvalAllocationResult::Unevaluated,
+                evaluated_rules: Vec::new(),
             });
         EvalAllocationDetailsBuilder {
-            result,
+            allocation_details: result,
             variation_key: &mut self.variation_key,
         }
     }
@@ -164,16 +188,36 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
         self.variation_value = Some(variation.value.clone());
     }
 
-    fn on_result(&mut self, result: &Result<super::Assignment, super::FlagEvaluationError>) {
+    fn on_result(&mut self, result: &Result<Assignment, FlagEvaluationError>) {
         self.result = Some(result.clone());
     }
 }
 
-impl<'a> EvalAllocationVisitor for EvalAllocationDetailsBuilder<'a> {
+impl<'b> EvalAllocationVisitor for EvalAllocationDetailsBuilder<'b> {
+    type RuleVisitor<'a> = EvalRuleDetailsBuilder<'a>
+    where
+        Self: 'a;
+
+    fn visit_rule<'a>(&'a mut self, _rule: &Rule) -> EvalRuleDetailsBuilder<'a> {
+        self.allocation_details
+            .evaluated_rules
+            .push(EvalRuleDetails {
+                matched: false,
+                conditions: Vec::new(),
+            });
+        EvalRuleDetailsBuilder {
+            rule_details: self
+                .allocation_details
+                .evaluated_rules
+                .last_mut()
+                .expect("we just inserted an element, so there must be last"),
+        }
+    }
+
     fn on_result(&mut self, result: Result<&Split, AllocationNonMatchReason>) {
         *self.variation_key = result.ok().map(|split| split.variation_key.clone());
 
-        self.result.result = match result {
+        self.allocation_details.result = match result {
             Ok(_) => EvalAllocationResult::Matched,
             Err(AllocationNonMatchReason::BeforeStartDate) => EvalAllocationResult::BeforeStartDate,
             Err(AllocationNonMatchReason::AfterEndDate) => EvalAllocationResult::AfterEndDate,
@@ -182,5 +226,24 @@ impl<'a> EvalAllocationVisitor for EvalAllocationDetailsBuilder<'a> {
                 EvalAllocationResult::TrafficExposureMiss
             }
         };
+    }
+}
+
+impl<'a> EvalRuleVisitor for EvalRuleDetailsBuilder<'a> {
+    fn on_condition_eval(
+        &mut self,
+        condition: &Condition,
+        attribute_value: Option<&AttributeValue>,
+        result: bool,
+    ) {
+        self.rule_details.conditions.push(EvalConditionDetails {
+            matched: result,
+            condition: condition.clone(),
+            attribute_value: attribute_value.cloned(),
+        });
+    }
+
+    fn on_result(&mut self, result: bool) {
+        self.rule_details.matched = result;
     }
 }

@@ -4,7 +4,7 @@ use crate::{sharder::get_md5_shard, Attributes, Configuration};
 
 use super::{
     eval_details::{EvalFlagDetails, EvalFlagDetailsBuilder},
-    eval_visitor::{EvalAllocationVisitor, EvalVisitor, NoopEvalVisitor},
+    eval_visitor::{EvalAllocationVisitor, EvalRuleVisitor, EvalVisitor, NoopEvalVisitor},
     Allocation, Assignment, AssignmentEvent, Flag, FlagEvaluationError, Shard, Split, Timestamp,
     TryParse, UniversalFlagConfig, VariationType,
 };
@@ -214,6 +214,7 @@ impl Flag {
         let Some((allocation, split)) = self.allocations.iter().find_map(|allocation| {
             let mut visitor = visitor.visit_allocation(allocation);
             let result = allocation.get_matching_split(
+                &mut visitor,
                 subject_key,
                 &subject_attributes_with_id,
                 self.total_shards,
@@ -280,8 +281,9 @@ pub(super) enum AllocationNonMatchReason {
 }
 
 impl Allocation {
-    fn get_matching_split(
+    fn get_matching_split<V: EvalAllocationVisitor>(
         &self,
+        visitor: &mut V,
         subject_key: &str,
         subject_attributes_with_id: &Attributes,
         total_shards: u64,
@@ -295,10 +297,12 @@ impl Allocation {
         }
 
         let is_allowed_by_rules = self.rules.is_empty()
-            || self
-                .rules
-                .iter()
-                .any(|rule| rule.eval(subject_attributes_with_id));
+            || self.rules.iter().any(|rule| {
+                let mut visitor = visitor.visit_rule(rule);
+                let result = rule.eval(&mut visitor, subject_attributes_with_id);
+                visitor.on_result(result);
+                result
+            });
         if !is_allowed_by_rules {
             return Err(AllocationNonMatchReason::FailingRules);
         }

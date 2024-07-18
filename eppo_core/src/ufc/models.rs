@@ -203,7 +203,7 @@ pub struct Rule {
 
 /// `Condition` is a check that given user `attribute` matches the condition `value` under the given
 /// `operator`.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub struct Condition {
@@ -243,7 +243,7 @@ pub enum ConditionOperator {
     IsNull,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 #[allow(missing_docs)]
 pub enum ConditionValue {

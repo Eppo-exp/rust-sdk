@@ -1,8 +1,8 @@
-use crate::Configuration;
+use crate::{AttributeValue, Configuration};
 
 use super::{
-    eval::AllocationNonMatchReason, Allocation, Assignment, Flag, FlagEvaluationError, Split,
-    Variation,
+    eval::AllocationNonMatchReason, Allocation, Assignment, Condition, Flag, FlagEvaluationError,
+    Rule, Split, Variation,
 };
 
 pub(super) trait EvalVisitor {
@@ -34,9 +34,31 @@ pub(super) trait EvalVisitor {
 }
 
 pub(super) trait EvalAllocationVisitor {
+    type RuleVisitor<'a>: EvalRuleVisitor + 'a
+    where
+        Self: 'a;
+
+    fn visit_rule<'a>(&'a mut self, rule: &Rule) -> Self::RuleVisitor<'a>;
+
     #[allow(unused_variables)]
     #[inline]
     fn on_result(&mut self, result: Result<&Split, AllocationNonMatchReason>) {}
+}
+
+pub(super) trait EvalRuleVisitor {
+    #[allow(unused_variables)]
+    #[inline]
+    fn on_condition_eval(
+        &mut self,
+        condition: &Condition,
+        attribute_value: Option<&AttributeValue>,
+        result: bool,
+    ) {
+    }
+
+    #[allow(unused_variables)]
+    #[inline]
+    fn on_result(&mut self, result: bool) {}
 }
 
 /// Dummy visitor that does nothing.
@@ -53,4 +75,13 @@ impl EvalVisitor for NoopEvalVisitor {
     }
 }
 
-impl EvalAllocationVisitor for NoopEvalVisitor {}
+impl EvalAllocationVisitor for NoopEvalVisitor {
+    type RuleVisitor<'a> = NoopEvalVisitor;
+
+    #[inline]
+    fn visit_rule<'a>(&'a mut self, _rule: &Rule) -> Self::RuleVisitor<'a> {
+        NoopEvalVisitor
+    }
+}
+
+impl EvalRuleVisitor for NoopEvalVisitor {}
