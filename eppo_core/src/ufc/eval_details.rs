@@ -5,12 +5,14 @@ use crate::{AttributeValue, Attributes};
 
 use super::{AssignmentValue, Condition, FlagEvaluationError, Shard, Value};
 
+/// Details about feature flag evaluation.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EvalFlagDetails {
     pub flag_key: String,
     pub subject_key: String,
     pub subject_attributes: Attributes,
+    /// Timestamp when the flag was evaluated.
     pub timestamp: DateTime<Utc>,
     /// Details of configuration used for evaluation. None if configuration hasn't been fetched yet.
     pub configuration_details: Option<ConfigurationDetails>,
@@ -52,11 +54,17 @@ pub struct EvalAllocationDetails {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum EvalAllocationResult {
+    /// The allocation was not evaluated because previous allocation matched.
     Unevaluated,
+    /// The subject matched all conditions and this allocation was selected.
     Matched,
+    /// Evaluation happened before required start date for this allocation.
     BeforeStartDate,
+    /// Evaluation happened after required end date for this allocation.
     AfterEndDate,
+    /// Subject failed all allocation rules.
     FailingRules,
+    /// Subject matched all rules but missed due to traffic exposure.
     TrafficExposureMiss,
 }
 
