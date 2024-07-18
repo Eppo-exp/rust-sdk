@@ -21,9 +21,11 @@ pub struct EvalFlagDetails {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<FlagEvaluationError>,
     /// Key of the selected variation.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub variation_key: Option<String>,
     /// Value of the selected variation. Could be `None` if no variation is selected, or selected
     /// value is absent in configuration (configuration error).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub variation_value: Option<Value>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub allocations: Vec<EvalAllocationDetails>,
