@@ -6,8 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::{AttributeValue, Attributes, Configuration};
 
 use super::{
-    eval::AllocationNonMatchReason, eval_visitor::*, Assignment, Condition, FlagEvaluationError,
-    Rule, Split, Value,
+    eval::AllocationNonMatchReason, eval_visitor::*, Assignment, AssignmentEvent, AssignmentValue,
+    Condition, FlagEvaluationError, Rule, Split, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,7 +19,10 @@ pub struct EvalFlagDetails {
     pub timestamp: DateTime<Utc>,
     /// Details of configuration used for evaluation. None if configuration hasn't been fetched yet.
     pub configuration_details: Option<ConfigurationDetails>,
-    pub result: Result<Assignment, FlagEvaluationError>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub result: Option<AssignmentValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<FlagEvaluationError>,
     /// Key of the selected variation.
     pub variation_key: Option<String>,
     /// Value of the selected variation. Could be `None` if no variation is selected, or selected
@@ -69,9 +72,9 @@ pub struct EvalRuleDetails {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EvalConditionDetails {
-    pub matched: bool,
     pub condition: Condition,
     pub attribute_value: Option<AttributeValue>,
+    pub matched: bool,
 }
 
 pub(crate) struct EvalFlagDetailsBuilder {
@@ -122,15 +125,19 @@ impl EvalFlagDetailsBuilder {
     }
 
     pub fn build(mut self) -> EvalFlagDetails {
+        let (result, error) = match self.result {
+            None => (None, None), // this should never happen
+            Some(Ok(Assignment { value, event: _ })) => (Some(value), None),
+            Some(Err(err)) => (None, Some(err)),
+        };
         EvalFlagDetails {
             flag_key: self.flag_key,
             subject_key: self.subject_key,
             subject_attributes: self.subject_attributes,
             timestamp: self.now,
             configuration_details: self.configuration_details,
-            result: self.result.expect(
-                "EvalFlagDetailsBuilder.build() should only be called after evaluation is complete",
-            ),
+            result,
+            error,
             variation_key: self.variation_key,
             variation_value: self.variation_value,
             allocations: self

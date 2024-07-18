@@ -10,4 +10,8 @@ mod rules;
 pub use assignment::{Assignment, AssignmentEvent, AssignmentValue};
 pub use error::FlagEvaluationError;
 pub use eval::{get_assignment, get_assignment_details};
+pub use eval_details::{
+    ConfigurationDetails, EvalAllocationDetails, EvalConditionDetails, EvalFlagDetails,
+    EvalRuleDetails,
+};
 pub use models::*;
