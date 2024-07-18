@@ -7,7 +7,7 @@ use crate::{
 
 use eppo_core::{
     configuration_store::ConfigurationStore,
-    ufc::{get_assignment, Assignment},
+    ufc::{get_assignment, get_assignment_details, Assignment, EvalFlagDetails},
 };
 use eppo_core::{ufc::VariationType, Error};
 
@@ -351,6 +351,194 @@ impl<'a> Client<'a> {
         }
 
         Ok(Some(convert(value)))
+    }
+
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_assignment()`] or another detail-less function in
+    /// production.
+    ///
+    /// # Typed versions
+    ///
+    /// There are typed versions of this function:
+    /// - [`Client::get_string_assignment_details()`]
+    /// - [`Client::get_integer_assignment_details()`]
+    /// - [`Client::get_numeric_assignment_details()`]
+    /// - [`Client::get_boolean_assignment_details()`]
+    /// - [`Client::get_json_assignment_details()`]
+    ///
+    /// It is recommended to use typed versions of this function as they provide additional type
+    /// safety. They can catch type errors even _before_ evaluating the assignment, which helps to
+    /// detect errors if subject is not eligible for the flag allocation.
+    pub fn get_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> (
+        Result<Option<AssignmentValue>, FlagEvaluationError>,
+        EvalFlagDetails,
+    ) {
+        self.get_assignment_details_inner(flag_key, subject_key, subject_attributes, None, |x| x)
+    }
+
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_string_assignment()`] in production.
+    pub fn get_string_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> (Result<Option<String>, FlagEvaluationError>, EvalFlagDetails) {
+        self.get_assignment_details_inner(
+            flag_key,
+            subject_key,
+            subject_attributes,
+            Some(VariationType::String),
+            |x| {
+                x.to_string()
+                    // The unwrap cannot fail because the type is checked during evaluation.
+                    .unwrap()
+            },
+        )
+    }
+
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_integer_assignment()`] in production.
+    pub fn get_integer_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> (Result<Option<i64>, FlagEvaluationError>, EvalFlagDetails) {
+        self.get_assignment_details_inner(
+            flag_key,
+            subject_key,
+            subject_attributes,
+            Some(VariationType::Integer),
+            |x| {
+                x.as_integer()
+                    // The unwrap cannot fail because the type is checked during evaluation.
+                    .unwrap()
+            },
+        )
+    }
+
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_numeric_assignment()`] in production.
+    pub fn get_numeric_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> (Result<Option<f64>, FlagEvaluationError>, EvalFlagDetails) {
+        self.get_assignment_details_inner(
+            flag_key,
+            subject_key,
+            subject_attributes,
+            Some(VariationType::Numeric),
+            |x| {
+                x.as_numeric()
+                    // The unwrap cannot fail because the type is checked during evaluation.
+                    .unwrap()
+            },
+        )
+    }
+
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_boolean_assignment()`] in production.
+    pub fn get_boolean_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> (Result<Option<bool>, FlagEvaluationError>, EvalFlagDetails) {
+        self.get_assignment_details_inner(
+            flag_key,
+            subject_key,
+            subject_attributes,
+            Some(VariationType::Boolean),
+            |x| {
+                x.as_boolean()
+                    // The unwrap cannot fail because the type is checked during evaluation.
+                    .unwrap()
+            },
+        )
+    }
+
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_json_assignment()`] in production.
+    pub fn get_json_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> (
+        Result<Option<serde_json::Value>, FlagEvaluationError>,
+        EvalFlagDetails,
+    ) {
+        self.get_assignment_details_inner(
+            flag_key,
+            subject_key,
+            subject_attributes,
+            Some(VariationType::Json),
+            |x| {
+                x.to_json()
+                    // The unwrap cannot fail because the type is checked during evaluation.
+                    .unwrap()
+            },
+        )
+    }
+
+    fn get_assignment_details_inner<T>(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+        expected_type: Option<VariationType>,
+        convert: impl FnOnce(AssignmentValue) -> T,
+    ) -> (Result<Option<T>, FlagEvaluationError>, EvalFlagDetails) {
+        let config = self.configuration_store.get_configuration();
+        let (assignment, details) = get_assignment_details(
+            config.as_ref().map(|it| it.as_ref()),
+            flag_key,
+            subject_key,
+            subject_attributes,
+            expected_type,
+        );
+
+        let value = match assignment {
+            Ok(Some(Assignment { value, event })) => {
+                if let Some(event) = event {
+                    log::trace!(target: "eppo",
+                                event:serde;
+                                "logging assignment");
+                    self.config.assignment_logger.log_assignment(event);
+                }
+                Ok(Some(convert(value)))
+            }
+            Ok(None) => Ok(None),
+            Err(err) => Err(err),
+        };
+
+        (value, details)
     }
 
     /// Start a poller thread to fetch configuration from the server.
