@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use crate::Attributes;
+use crate::{Attributes, Configuration};
 
 use super::{
     eval::AllocationNonMatchReason, eval_visitor::*, Assignment, FlagEvaluationError, Split,
@@ -114,7 +114,7 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
         EvalAllocationDetailsBuilder { result }
     }
 
-    fn on_configuration(&mut self, _configuration: &super::UniversalFlagConfig) {}
+    fn on_configuration(&mut self, _configuration: &Configuration) {}
 
     fn on_flag_configuration(&mut self, flag: &super::Flag) {
         self.allocation_keys_order.truncate(0);

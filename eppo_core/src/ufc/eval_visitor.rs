@@ -1,6 +1,7 @@
+use crate::Configuration;
+
 use super::{
     eval::AllocationNonMatchReason, Allocation, Assignment, Flag, FlagEvaluationError, Split,
-    UniversalFlagConfig,
 };
 
 pub(super) trait EvalVisitor {
@@ -13,7 +14,7 @@ pub(super) trait EvalVisitor {
     /// Called when (if) evaluation gets configuration.
     #[allow(unused_variables)]
     #[inline]
-    fn on_configuration(&mut self, configuration: &UniversalFlagConfig) {}
+    fn on_configuration(&mut self, configuration: &Configuration) {}
 
     #[allow(unused_variables)]
     #[inline]

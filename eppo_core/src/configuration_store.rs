@@ -8,18 +8,21 @@ use crate::Configuration;
 /// `ConfigurationStore` provides a thread-safe (`Sync`) storage for Eppo configuration that allows
 /// concurrent access for readers and writers.
 ///
-/// `Configuration` itself is always immutable and can only be replaced fully.
+/// `Configuration` itself is always immutable and can only be replaced completely.
 #[derive(Default)]
 pub struct ConfigurationStore {
-    configuration: RwLock<Arc<Configuration>>,
+    configuration: RwLock<Option<Arc<Configuration>>>,
 }
 
 impl ConfigurationStore {
+    /// Create a new empty configuration store.
     pub fn new() -> Self {
         ConfigurationStore::default()
     }
 
-    pub fn get_configuration(&self) -> Arc<Configuration> {
+    /// Get currently-active configuration. Returns None if configuration hasn't been fetched/stored
+    /// yet.
+    pub fn get_configuration(&self) -> Option<Arc<Configuration>> {
         // self.configuration.read() should always return Ok(). Err() is possible only if the lock
         // is poisoned (writer panicked while holding the lock), which should never happen.
         let configuration = self
@@ -38,7 +41,7 @@ impl ConfigurationStore {
             .write()
             .expect("thread holding configuration lock should not panic");
 
-        *configuration_slot = config;
+        *configuration_slot = Some(config);
     }
 }
 
@@ -58,24 +61,26 @@ mod tests {
     fn can_set_configuration_from_another_thread() {
         let store = Arc::new(ConfigurationStore::new());
 
+        assert!(store.get_configuration().is_none());
+
         {
             let store = store.clone();
             let _ = std::thread::spawn(move || {
-                store.set_configuration(Configuration::new(
-                    Some(UniversalFlagConfig {
+                store.set_configuration(Configuration::from_server_response(
+                    UniversalFlagConfig {
                         created_at: Utc::now(),
                         environment: Environment {
                             name: "test".to_owned(),
                         },
                         flags: HashMap::new(),
                         bandits: HashMap::new(),
-                    }),
+                    },
                     None,
                 ))
             })
             .join();
         }
 
-        assert!(store.get_configuration().flags.is_some());
+        assert!(store.get_configuration().is_some());
     }
 }

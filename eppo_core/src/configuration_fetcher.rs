@@ -53,7 +53,7 @@ impl ConfigurationFetcher {
             Some(self.fetch_bandits_configuration()?)
         };
 
-        Ok(Configuration::new(Some(ufc), bandits))
+        Ok(Configuration::from_server_response(ufc, bandits))
     }
 
     fn fetch_ufc_configuration(&mut self) -> Result<UniversalFlagConfig> {

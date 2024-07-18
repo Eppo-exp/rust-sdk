@@ -1,8 +1,12 @@
 use std::{cell::RefCell, sync::Arc};
 
 use eppo_core::{
-    configuration_fetcher::ConfigurationFetcher, configuration_store::ConfigurationStore,
-    poller_thread::PollerThread, ufc::VariationType, Attributes, ContextAttributes,
+    bandits::get_bandit_action,
+    configuration_fetcher::ConfigurationFetcher,
+    configuration_store::ConfigurationStore,
+    poller_thread::PollerThread,
+    ufc::{get_assignment, VariationType},
+    Attributes, ContextAttributes,
 };
 use magnus::{error::Result, exception, prelude::*, Error, TryConvert, Value};
 
@@ -67,15 +71,15 @@ impl Client {
         let subject_attributes: Attributes = serde_magnus::deserialize(subject_attributes)?;
 
         let config = self.configuration_store.get_configuration();
-        let result = config
-            .get_assignment(
-                &flag_key,
-                &subject_key,
-                &subject_attributes,
-                Some(expected_type),
-            )
-            // TODO: maybe expose possible errors individually.
-            .map_err(|err| Error::new(exception::runtime_error(), err.to_string()))?;
+        let result = get_assignment(
+            config.as_ref().map(AsRef::as_ref),
+            &flag_key,
+            &subject_key,
+            &subject_attributes,
+            Some(expected_type),
+        )
+        // TODO: maybe expose possible errors individually.
+        .map_err(|err| Error::new(exception::runtime_error(), err.to_string()))?;
 
         Ok(serde_magnus::serialize(&result).expect("assignment value should be serializable"))
     }
@@ -100,7 +104,8 @@ impl Client {
         let actions = serde_magnus::deserialize(actions)?;
 
         let config = self.configuration_store.get_configuration();
-        let result = config.get_bandit_action(
+        let result = get_bandit_action(
+            config.as_ref().map(AsRef::as_ref),
             &flag_key,
             &subject_key,
             &subject_attributes,

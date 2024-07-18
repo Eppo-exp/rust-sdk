@@ -5,6 +5,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::sharder::get_md5_shard;
+use crate::ufc::get_assignment;
 use crate::ufc::Assignment;
 use crate::ufc::AssignmentEvent;
 use crate::ufc::AssignmentValue;
@@ -52,102 +53,111 @@ pub struct BanditResult {
     bandit_event: Option<BanditEvent>,
 }
 
-impl Configuration {
-    /// Evaluate the specified string feature flag for the given subject. If resulting variation is
-    /// a bandit, evaluate the bandit to return the action.
-    pub fn get_bandit_action(
-        &self,
-        flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &ContextAttributes,
-        actions: &HashMap<String, ContextAttributes>,
-        default_variation: &str,
-    ) -> BanditResult {
-        let assignment = self
-            .get_assignment(
-                flag_key,
-                subject_key,
-                &subject_attributes.to_generic_attributes(),
-                Some(VariationType::String),
-            )
-            .unwrap_or_default()
-            .unwrap_or_else(|| Assignment {
-                value: AssignmentValue::String(default_variation.to_owned()),
-                event: None,
-            });
-
-        let variation = assignment
-            .value
-            .to_string()
-            .expect("flag assignment in bandit evaluation is always a string");
-
-        let Some(bandit_key) = self.get_bandit_key(flag_key, &variation) else {
-            // It's not a bandit variation, just return it.
-            return BanditResult {
-                variation,
-                action: None,
-                assignment_event: assignment.event,
-                bandit_event: None,
-            };
+/// Evaluate the specified string feature flag for the given subject. If resulting variation is
+/// a bandit, evaluate the bandit to return the action.
+pub fn get_bandit_action(
+    configuration: Option<&Configuration>,
+    flag_key: &str,
+    subject_key: &str,
+    subject_attributes: &ContextAttributes,
+    actions: &HashMap<String, ContextAttributes>,
+    default_variation: &str,
+) -> BanditResult {
+    let Some(configuration) = configuration else {
+        return BanditResult {
+            variation: default_variation.to_owned(),
+            action: None,
+            assignment_event: None,
+            bandit_event: None,
         };
+    };
 
-        let Some(bandit) = self.get_bandit(bandit_key) else {
-            // We've evaluated a flag that resulted in a bandit but now we cannot find the bandit
-            // configuration and we cannot proceed.
-            //
-            // This should normally never happen as it means that there's a mismatch between the
-            // general UFC config and bandits config.
-            log::warn!(target: "eppo", bandit_key; "unable to find bandit configuration");
-            return BanditResult {
-                variation,
-                action: None,
-                assignment_event: assignment.event,
-                bandit_event: None,
-            };
-        };
+    let assignment = get_assignment(
+        Some(configuration),
+        flag_key,
+        subject_key,
+        &subject_attributes.to_generic_attributes(),
+        Some(VariationType::String),
+    )
+    .unwrap_or_default()
+    .unwrap_or_else(|| Assignment {
+        value: AssignmentValue::String(default_variation.to_owned()),
+        event: None,
+    });
 
-        let Some(evaluation) =
-            bandit
-                .model_data
-                .evaluate(flag_key, subject_key, subject_attributes, actions)
-        else {
-            // We've evaluated a flag but now bandit evaluation failed. (Likely to user supplying
-            // empty actions, or NaN attributes.)
-            return BanditResult {
-                variation,
-                action: None,
-                assignment_event: assignment.event,
-                bandit_event: None,
-            };
-        };
+    let variation = assignment
+        .value
+        .to_string()
+        .expect("flag assignment in bandit evaluation is always a string");
 
-        let bandit_event = BanditEvent {
-            flag_key: flag_key.to_owned(),
-            bandit_key: bandit_key.to_owned(),
-            subject: subject_key.to_owned(),
-            action: evaluation.action_key.clone(),
-            action_probability: evaluation.action_weight,
-            optimality_gap: evaluation.optimality_gap,
-            model_version: bandit.model_version.clone(),
-            timestamp: Utc::now().to_rfc3339(),
-            subject_numeric_attributes: evaluation.subject_attributes.numeric,
-            subject_categorical_attributes: evaluation.subject_attributes.categorical,
-            action_numeric_attributes: evaluation.action_attributes.numeric,
-            action_categorical_attributes: evaluation.action_attributes.categorical,
-            meta_data: [(
-                "eppoCoreVersion".to_owned(),
-                env!("CARGO_PKG_VERSION").to_owned(),
-            )]
-            .into(),
-        };
-
+    let Some(bandit_key) = configuration.get_bandit_key(flag_key, &variation) else {
+        // It's not a bandit variation, just return it.
         return BanditResult {
             variation,
-            action: Some(evaluation.action_key),
+            action: None,
             assignment_event: assignment.event,
-            bandit_event: Some(bandit_event),
+            bandit_event: None,
         };
-    }
+    };
+
+    let Some(bandit) = configuration.get_bandit(bandit_key) else {
+        // We've evaluated a flag that resulted in a bandit but now we cannot find the bandit
+        // configuration and we cannot proceed.
+        //
+        // This should normally never happen as it means that there's a mismatch between the
+        // general UFC config and bandits config.
+        log::warn!(target: "eppo", bandit_key; "unable to find bandit configuration");
+        return BanditResult {
+            variation,
+            action: None,
+            assignment_event: assignment.event,
+            bandit_event: None,
+        };
+    };
+
+    let Some(evaluation) =
+        bandit
+            .model_data
+            .evaluate(flag_key, subject_key, subject_attributes, actions)
+    else {
+        // We've evaluated a flag but now bandit evaluation failed. (Likely to user supplying
+        // empty actions, or NaN attributes.)
+        //
+        // Abort evaluation and return default variant, ignoring `assignment.event` logging.
+        return BanditResult {
+            variation,
+            action: None,
+            assignment_event: assignment.event,
+            bandit_event: None,
+        };
+    };
+
+    let bandit_event = BanditEvent {
+        flag_key: flag_key.to_owned(),
+        bandit_key: bandit_key.to_owned(),
+        subject: subject_key.to_owned(),
+        action: evaluation.action_key.clone(),
+        action_probability: evaluation.action_weight,
+        optimality_gap: evaluation.optimality_gap,
+        model_version: bandit.model_version.clone(),
+        timestamp: Utc::now().to_rfc3339(),
+        subject_numeric_attributes: evaluation.subject_attributes.numeric,
+        subject_categorical_attributes: evaluation.subject_attributes.categorical,
+        action_numeric_attributes: evaluation.action_attributes.numeric,
+        action_categorical_attributes: evaluation.action_attributes.categorical,
+        meta_data: [(
+            "eppoCoreVersion".to_owned(),
+            env!("CARGO_PKG_VERSION").to_owned(),
+        )]
+        .into(),
+    };
+
+    return BanditResult {
+        variation,
+        action: Some(evaluation.action_key),
+        assignment_event: assignment.event,
+        bandit_event: Some(bandit_event),
+    };
 }
 
 impl BanditModelData {
@@ -313,7 +323,7 @@ mod tests {
 
     use serde::{Deserialize, Serialize};
 
-    use crate::{Configuration, ContextAttributes};
+    use crate::{bandits::get_bandit_action, Configuration, ContextAttributes};
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -373,7 +383,7 @@ mod tests {
         )
         .unwrap();
 
-        let config = Configuration::new(Some(config), Some(bandits));
+        let config = Configuration::from_server_response(config, Some(bandits));
 
         for entry in read_dir("../sdk-test-data/ufc/bandit-tests/").unwrap() {
             let entry = entry.unwrap();
@@ -401,7 +411,8 @@ mod tests {
                     .map(|x| (x.action_key, x.attributes.into()))
                     .collect();
 
-                let result = config.get_bandit_action(
+                let result = get_bandit_action(
+                    Some(&config),
                     &test.flag,
                     &subject.subject_key,
                     &subject.subject_attributes.into(),

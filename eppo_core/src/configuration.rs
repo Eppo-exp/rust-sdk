@@ -1,15 +1,19 @@
 use std::collections::HashMap;
 
+use chrono::{DateTime, Utc};
+
 use crate::{
     bandits::{BanditConfiguration, BanditResponse},
     ufc::{BanditVariation, TryParse, UniversalFlagConfig},
 };
 
 /// Remote configuration for the eppo client. It's a central piece that defines client behavior.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Configuration {
+    /// Timestamp when configuration was fetched by the SDK.
+    pub fetched_at: DateTime<Utc>,
     /// Flags configuration.
-    pub flags: Option<UniversalFlagConfig>,
+    pub flags: UniversalFlagConfig,
     /// Bandits configuration.
     pub bandits: Option<BanditResponse>,
     /// Mapping from flag key to flag variation value to bandit variation. Cached from
@@ -20,24 +24,23 @@ pub struct Configuration {
 
 impl Configuration {
     /// Create a new configuration from server responses.
-    pub fn new(
-        config: Option<UniversalFlagConfig>,
+    pub fn from_server_response(
+        config: UniversalFlagConfig,
         bandits: Option<BanditResponse>,
     ) -> Configuration {
-        if let Some(config) = &config {
-            // warn if some flags failed to parse
-            for (name, flag) in &config.flags {
-                if let TryParse::ParseFailed(_value) = flag {
-                    log::warn!(target: "eppo", "failed to parse flag configuration: {name:?}");
-                }
+        let now = Utc::now();
+
+        // warn if some flags failed to parse
+        for (name, flag) in &config.flags {
+            if let TryParse::ParseFailed(_value) = flag {
+                log::warn!(target: "eppo", "failed to parse flag configuration: {name:?}");
             }
         }
 
-        let flag_to_bandit_associations = config
-            .as_ref()
-            .map(get_flag_to_bandit_associations)
-            .unwrap_or_default();
+        let flag_to_bandit_associations = get_flag_to_bandit_associations(&config);
+
         Configuration {
+            fetched_at: now,
             flags: config,
             bandits,
             flag_to_bandit_associations,

@@ -9,140 +9,141 @@ use super::{
     TryParse, UniversalFlagConfig, VariationType,
 };
 
-impl Configuration {
-    /// Evaluate the specified feature flag for the given subject and return assigned variation and
-    /// an optional assignment event for logging.
-    pub fn get_assignment(
-        &self,
-        flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
-        expected_type: Option<VariationType>,
-    ) -> Result<Option<Assignment>, FlagEvaluationError> {
-        let now = Utc::now();
-        self.get_assignment_with_visitor(
-            &mut NoopEvalVisitor,
-            flag_key,
-            subject_key,
-            subject_attributes,
-            expected_type,
-            now,
-        )
-    }
+/// Evaluate the specified feature flag for the given subject and return assigned variation and
+/// an optional assignment event for logging.
+pub fn get_assignment(
+    configuration: Option<&Configuration>,
+    flag_key: &str,
+    subject_key: &str,
+    subject_attributes: &Attributes,
+    expected_type: Option<VariationType>,
+) -> Result<Option<Assignment>, FlagEvaluationError> {
+    let now = Utc::now();
+    get_assignment_with_visitor(
+        configuration,
+        &mut NoopEvalVisitor,
+        flag_key,
+        subject_key,
+        subject_attributes,
+        expected_type,
+        now,
+    )
+}
 
-    /// Evaluate the specified feature flag for the given subject and return evaluation details.
-    pub fn get_assignment_details(
-        &self,
-        flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
-        expected_type: Option<VariationType>,
-    ) -> (
-        Result<Option<Assignment>, FlagEvaluationError>,
-        EvalFlagDetails,
-    ) {
-        let now = Utc::now();
-        let mut builder = EvalFlagDetailsBuilder::new(
-            flag_key.to_owned(),
-            subject_key.to_owned(),
-            subject_attributes.to_owned(),
-            now,
-        );
-        let result = self.get_assignment_with_visitor(
-            &mut builder,
-            flag_key,
-            subject_key,
-            subject_attributes,
-            expected_type,
-            now,
-        );
-        let details = builder.build();
-        (result, details)
-    }
+/// Evaluate the specified feature flag for the given subject and return evaluation details.
+pub fn get_assignment_details(
+    configuration: Option<&Configuration>,
+    flag_key: &str,
+    subject_key: &str,
+    subject_attributes: &Attributes,
+    expected_type: Option<VariationType>,
+) -> (
+    Result<Option<Assignment>, FlagEvaluationError>,
+    EvalFlagDetails,
+) {
+    let now = Utc::now();
+    let mut builder = EvalFlagDetailsBuilder::new(
+        flag_key.to_owned(),
+        subject_key.to_owned(),
+        subject_attributes.to_owned(),
+        now,
+    );
+    let result = get_assignment_with_visitor(
+        configuration,
+        &mut builder,
+        flag_key,
+        subject_key,
+        subject_attributes,
+        expected_type,
+        now,
+    );
+    let details = builder.build();
+    (result, details)
+}
 
-    fn get_assignment_with_visitor<V: EvalVisitor>(
-        &self,
-        visitor: &mut V,
-        flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
-        expected_type: Option<VariationType>,
-        now: DateTime<Utc>,
-    ) -> Result<Option<Assignment>, FlagEvaluationError> {
-        let result = self.get_assignment_inner(
-            visitor,
-            flag_key,
-            subject_key,
-            subject_attributes,
-            expected_type,
-            now,
-        );
+fn get_assignment_with_visitor<V: EvalVisitor>(
+    configuration: Option<&Configuration>,
+    visitor: &mut V,
+    flag_key: &str,
+    subject_key: &str,
+    subject_attributes: &Attributes,
+    expected_type: Option<VariationType>,
+    now: DateTime<Utc>,
+) -> Result<Option<Assignment>, FlagEvaluationError> {
+    let result = get_assignment_inner(
+        configuration,
+        visitor,
+        flag_key,
+        subject_key,
+        subject_attributes,
+        expected_type,
+        now,
+    );
 
-        visitor.on_result(&result);
+    visitor.on_result(&result);
 
-        match result {
-            Ok(assignment) => {
-                log::trace!(target: "eppo",
+    match result {
+        Ok(assignment) => {
+            log::trace!(target: "eppo",
                     flag_key,
                     subject_key,
                     assignment:serde = assignment.value;
                     "evaluated a flag");
-                Ok(Some(assignment))
-            }
+            Ok(Some(assignment))
+        }
 
-            Err(FlagEvaluationError::ConfigurationMissing) => {
-                log::warn!(target: "eppo",
+        Err(FlagEvaluationError::ConfigurationMissing) => {
+            log::warn!(target: "eppo",
                            flag_key,
                            subject_key;
                            "evaluating a flag before Eppo configuration has been fetched");
-                Ok(None)
-            }
+            Ok(None)
+        }
 
-            // These are considered normal conditions and usually don't need extra attention, so we
-            // remap them to Ok(None) before returning to the user.
-            Err(err) if err.is_normal() => {
-                log::trace!(target: "eppo",
+        // These are considered normal conditions and usually don't need extra attention, so we
+        // remap them to Ok(None) before returning to the user.
+        Err(err) if err.is_normal() => {
+            log::trace!(target: "eppo",
                            flag_key,
                            subject_key;
                            "returning default assignment because of: {err}");
-                Ok(None)
-            }
+            Ok(None)
+        }
 
-            Err(err) => {
-                log::warn!(target: "eppo",
-                           flag_key,
-                           subject_key;
-                           "error occurred while evaluating a flag: {err}",
-                );
-                Err(err)
-            }
+        Err(err) => {
+            log::warn!(target: "eppo",
+                       flag_key,
+                       subject_key;
+                       "error occurred while evaluating a flag: {err}",
+            );
+            Err(err)
         }
     }
+}
 
-    fn get_assignment_inner<V: EvalVisitor>(
-        &self,
-        visitor: &mut V,
-        flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
-        expected_type: Option<VariationType>,
-        now: DateTime<Utc>,
-    ) -> Result<Assignment, FlagEvaluationError> {
-        let Some(ufc) = &self.flags else {
-            return Err(FlagEvaluationError::ConfigurationMissing);
-        };
+fn get_assignment_inner<V: EvalVisitor>(
+    configuration: Option<&Configuration>,
+    visitor: &mut V,
+    flag_key: &str,
+    subject_key: &str,
+    subject_attributes: &Attributes,
+    expected_type: Option<VariationType>,
+    now: DateTime<Utc>,
+) -> Result<Assignment, FlagEvaluationError> {
+    let Some(config) = configuration else {
+        return Err(FlagEvaluationError::ConfigurationMissing);
+    };
 
-        visitor.on_configuration(ufc);
+    visitor.on_configuration(config);
 
-        ufc.eval_flag(
-            visitor,
-            &flag_key,
-            &subject_key,
-            &subject_attributes,
-            expected_type,
-            now,
-        )
-    }
+    config.flags.eval_flag(
+        visitor,
+        &flag_key,
+        &subject_key,
+        &subject_attributes,
+        expected_type,
+        now,
+    )
 }
 
 impl UniversalFlagConfig {
@@ -333,7 +334,7 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        ufc::{TryParse, UniversalFlagConfig, Value, VariationType},
+        ufc::{get_assignment, TryParse, UniversalFlagConfig, Value, VariationType},
         Attributes, Configuration,
     };
 
@@ -373,7 +374,7 @@ mod tests {
         let config: UniversalFlagConfig =
             serde_json::from_reader(File::open("../sdk-test-data/ufc/flags-v1.json").unwrap())
                 .unwrap();
-        let config = Configuration::new(Some(config), None);
+        let config = Configuration::from_server_response(config, None);
 
         for entry in fs::read_dir("../sdk-test-data/ufc/tests/").unwrap() {
             let entry = entry.unwrap();
@@ -388,14 +389,14 @@ mod tests {
 
             for subject in test_file.subjects {
                 print!("test subject {:?} ... ", subject.subject_key);
-                let result = config
-                    .get_assignment(
-                        &test_file.flag,
-                        &subject.subject_key,
-                        &subject.subject_attributes,
-                        Some(test_file.variation_type),
-                    )
-                    .unwrap_or(None);
+                let result = get_assignment(
+                    Some(&config),
+                    &test_file.flag,
+                    &subject.subject_key,
+                    &subject.subject_attributes,
+                    Some(test_file.variation_type),
+                )
+                .unwrap_or(None);
 
                 let result_assingment = result
                     .as_ref()

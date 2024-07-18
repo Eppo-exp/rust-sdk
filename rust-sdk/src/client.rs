@@ -5,7 +5,10 @@ use crate::{
     AssignmentValue, Attributes, ClientConfig, FlagEvaluationError,
 };
 
-use eppo_core::{configuration_store::ConfigurationStore, ufc::Assignment};
+use eppo_core::{
+    configuration_store::ConfigurationStore,
+    ufc::{get_assignment, Assignment},
+};
 use eppo_core::{ufc::VariationType, Error};
 
 /// A client for Eppo API.
@@ -328,8 +331,13 @@ impl<'a> Client<'a> {
         convert: impl FnOnce(AssignmentValue) -> T,
     ) -> Result<Option<T>, FlagEvaluationError> {
         let config = self.configuration_store.get_configuration();
-        let assignment =
-            config.get_assignment(flag_key, subject_key, subject_attributes, expected_type)?;
+        let assignment = get_assignment(
+            config.as_ref().map(|it| it.as_ref()),
+            flag_key,
+            subject_key,
+            subject_attributes,
+            expected_type,
+        )?;
 
         let Some(Assignment { value, event }) = assignment else {
             return Ok(None);
@@ -394,8 +402,8 @@ mod tests {
         );
 
         // updating configuration after client is created
-        configuration_store.set_configuration(Configuration::new(
-            Some(UniversalFlagConfig {
+        configuration_store.set_configuration(Configuration::from_server_response(
+            UniversalFlagConfig {
                 created_at: chrono::Utc::now(),
                 environment: Environment {
                     name: "test".to_owned(),
@@ -431,7 +439,7 @@ mod tests {
                 )]
                 .into(),
                 bandits: HashMap::new(),
-            }),
+            },
             None,
         ));
 
