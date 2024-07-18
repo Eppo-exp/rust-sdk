@@ -3,7 +3,8 @@ use chrono::{DateTime, Utc};
 use crate::{sharder::get_md5_shard, Attributes, Configuration};
 
 use super::{
-    eval_details::{EvalFlagDetails, EvalFlagDetailsBuilder},
+    eval_details::EvalFlagDetails,
+    eval_details_builder::EvalFlagDetailsBuilder,
     eval_visitor::{
         EvalAllocationVisitor, EvalRuleVisitor, EvalSplitVisitor, EvalVisitor, NoopEvalVisitor,
     },

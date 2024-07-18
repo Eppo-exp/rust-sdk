@@ -2,14 +2,13 @@ use std::sync::Arc;
 
 use crate::{
     poller::{PollerThread, PollerThreadConfig},
-    AssignmentValue, Attributes, ClientConfig, FlagEvaluationError,
+    AssignmentValue, Attributes, ClientConfig, Error, EvalFlagDetails, FlagEvaluationError,
 };
 
 use eppo_core::{
     configuration_store::ConfigurationStore,
-    ufc::{get_assignment, get_assignment_details, Assignment, EvalFlagDetails},
+    ufc::{get_assignment, get_assignment_details, Assignment, VariationType},
 };
-use eppo_core::{ufc::VariationType, Error};
 
 /// A client for Eppo API.
 ///
