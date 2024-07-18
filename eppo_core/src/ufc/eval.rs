@@ -1,4 +1,4 @@
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 
 use crate::{sharder::get_md5_shard, Attributes, Configuration};
 
@@ -19,12 +19,14 @@ impl Configuration {
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
     ) -> Result<Option<Assignment>, FlagEvaluationError> {
+        let now = Utc::now();
         self.get_assignment_with_visitor(
             &mut NoopEvalVisitor,
             flag_key,
             subject_key,
             subject_attributes,
             expected_type,
+            now,
         )
     }
 
@@ -39,10 +41,12 @@ impl Configuration {
         Result<Option<Assignment>, FlagEvaluationError>,
         EvalFlagDetails,
     ) {
+        let now = Utc::now();
         let mut builder = EvalFlagDetailsBuilder::new(
             flag_key.to_owned(),
             subject_key.to_owned(),
             subject_attributes.to_owned(),
+            now,
         );
         let result = self.get_assignment_with_visitor(
             &mut builder,
@@ -50,6 +54,7 @@ impl Configuration {
             subject_key,
             subject_attributes,
             expected_type,
+            now,
         );
         let details = builder.build();
         (result, details)
@@ -62,6 +67,7 @@ impl Configuration {
         subject_key: &str,
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
+        now: DateTime<Utc>,
     ) -> Result<Option<Assignment>, FlagEvaluationError> {
         let result = self.get_assignment_inner(
             visitor,
@@ -69,6 +75,7 @@ impl Configuration {
             subject_key,
             subject_attributes,
             expected_type,
+            now,
         );
 
         visitor.on_result(&result);
@@ -119,6 +126,7 @@ impl Configuration {
         subject_key: &str,
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
+        now: DateTime<Utc>,
     ) -> Result<Assignment, FlagEvaluationError> {
         let Some(ufc) = &self.flags else {
             return Err(FlagEvaluationError::ConfigurationMissing);
@@ -132,6 +140,7 @@ impl Configuration {
             &subject_key,
             &subject_attributes,
             expected_type,
+            now,
         )
     }
 }
@@ -145,6 +154,7 @@ impl UniversalFlagConfig {
         subject_key: &str,
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
+        now: DateTime<Utc>,
     ) -> Result<Assignment, FlagEvaluationError> {
         let flag = self.get_flag(flag_key)?;
 
@@ -154,7 +164,7 @@ impl UniversalFlagConfig {
             flag.verify_type(ty)?;
         }
 
-        flag.eval(visitor, subject_key, subject_attributes)
+        flag.eval(visitor, subject_key, subject_attributes, now)
     }
 
     fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag, FlagEvaluationError> {
@@ -187,12 +197,11 @@ impl Flag {
         visitor: &mut V,
         subject_key: &str,
         subject_attributes: &Attributes,
+        now: DateTime<Utc>,
     ) -> Result<Assignment, FlagEvaluationError> {
         if !self.enabled {
             return Err(FlagEvaluationError::FlagDisabled);
         }
-
-        let now = Utc::now();
 
         // Augmenting subject_attributes with id, so that subject_key can be used in the rules.
         let subject_attributes_with_id = {

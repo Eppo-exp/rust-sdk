@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::Attributes;
@@ -9,19 +10,25 @@ use super::{
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EvalFlagDetails {
     pub flag_key: String,
     pub subject_key: String,
     pub subject_attributes: Attributes,
+    pub timestamp: DateTime<Utc>,
     pub result: Result<Assignment, FlagEvaluationError>,
     pub allocations: Vec<EvalAllocationDetails>,
 }
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct EvalAllocationDetails {
     pub key: String,
     pub result: EvalAllocationResult,
 }
+
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum EvalAllocationResult {
     Unevaluated,
     Matched,
@@ -35,6 +42,7 @@ pub(crate) struct EvalFlagDetailsBuilder {
     flag_key: String,
     subject_key: String,
     subject_attributes: Attributes,
+    now: DateTime<Utc>,
 
     result: Option<Result<Assignment, FlagEvaluationError>>,
 
@@ -52,11 +60,13 @@ impl EvalFlagDetailsBuilder {
         flag_key: String,
         subject_key: String,
         subject_attributes: Attributes,
+        now: DateTime<Utc>,
     ) -> EvalFlagDetailsBuilder {
         EvalFlagDetailsBuilder {
             flag_key,
             subject_key,
             subject_attributes,
+            now,
             result: None,
             allocation_keys_order: Vec::new(),
             allocation_eval_results: HashMap::new(),
@@ -68,6 +78,7 @@ impl EvalFlagDetailsBuilder {
             flag_key: self.flag_key,
             subject_key: self.subject_key,
             subject_attributes: self.subject_attributes,
+            timestamp: self.now,
             result: self.result.expect(
                 "EvalFlagDetailsBuilder.build() should only be called after evaluation is complete",
             ),
