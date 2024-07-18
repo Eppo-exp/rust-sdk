@@ -2,7 +2,7 @@ use crate::{AttributeValue, Configuration};
 
 use super::{
     eval::AllocationNonMatchReason, Allocation, Assignment, Condition, Flag, FlagEvaluationError,
-    Rule, Split, Variation,
+    Rule, Shard, Split, Variation,
 };
 
 pub(super) trait EvalVisitor {
@@ -38,7 +38,13 @@ pub(super) trait EvalAllocationVisitor {
     where
         Self: 'a;
 
+    type SplitVisitor<'a>: EvalSplitVisitor + 'a
+    where
+        Self: 'a;
+
     fn visit_rule<'a>(&'a mut self, rule: &Rule) -> Self::RuleVisitor<'a>;
+
+    fn visit_split<'a>(&'a mut self, split: &Split) -> Self::SplitVisitor<'a>;
 
     #[allow(unused_variables)]
     #[inline]
@@ -61,6 +67,16 @@ pub(super) trait EvalRuleVisitor {
     fn on_result(&mut self, result: bool) {}
 }
 
+pub(super) trait EvalSplitVisitor {
+    #[allow(unused_variables)]
+    #[inline]
+    fn on_shard_eval(&mut self, shard: &Shard, shard_value: u64, matches: bool) {}
+
+    #[allow(unused_variables)]
+    #[inline]
+    fn on_result(&mut self, matches: bool) {}
+}
+
 /// Dummy visitor that does nothing.
 ///
 /// It is designed so that all calls to it are optimized away (zero-cost).
@@ -78,10 +94,19 @@ impl EvalVisitor for NoopEvalVisitor {
 impl EvalAllocationVisitor for NoopEvalVisitor {
     type RuleVisitor<'a> = NoopEvalVisitor;
 
+    type SplitVisitor<'a> = NoopEvalVisitor;
+
     #[inline]
     fn visit_rule<'a>(&'a mut self, _rule: &Rule) -> Self::RuleVisitor<'a> {
+        NoopEvalVisitor
+    }
+
+    #[inline]
+    fn visit_split<'a>(&'a mut self, _split: &Split) -> Self::SplitVisitor<'a> {
         NoopEvalVisitor
     }
 }
 
 impl EvalRuleVisitor for NoopEvalVisitor {}
+
+impl EvalSplitVisitor for NoopEvalVisitor {}

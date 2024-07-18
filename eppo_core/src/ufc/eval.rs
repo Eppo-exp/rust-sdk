@@ -4,7 +4,9 @@ use crate::{sharder::get_md5_shard, Attributes, Configuration};
 
 use super::{
     eval_details::{EvalFlagDetails, EvalFlagDetailsBuilder},
-    eval_visitor::{EvalAllocationVisitor, EvalRuleVisitor, EvalVisitor, NoopEvalVisitor},
+    eval_visitor::{
+        EvalAllocationVisitor, EvalRuleVisitor, EvalSplitVisitor, EvalVisitor, NoopEvalVisitor,
+    },
     Allocation, Assignment, AssignmentEvent, Flag, FlagEvaluationError, Shard, Split, Timestamp,
     TryParse, UniversalFlagConfig, VariationType,
 };
@@ -309,7 +311,12 @@ impl Allocation {
 
         self.splits
             .iter()
-            .find(|split| split.matches(subject_key, total_shards))
+            .find(|split| {
+                let mut visitor = visitor.visit_split(split);
+                let matches = split.matches(&mut visitor, subject_key, total_shards);
+                visitor.on_result(matches);
+                matches
+            })
             .ok_or(AllocationNonMatchReason::TrafficExposureMiss)
     }
 }
@@ -318,18 +325,30 @@ impl Split {
     /// Return `true` if `subject_key` matches the given split.
     ///
     /// To match a split, subject must match all underlying shards.
-    fn matches(&self, subject_key: &str, total_shards: u64) -> bool {
+    fn matches<V: EvalSplitVisitor>(
+        &self,
+        visitor: &mut V,
+        subject_key: &str,
+        total_shards: u64,
+    ) -> bool {
         self.shards
             .iter()
-            .all(|shard| shard.matches(subject_key, total_shards))
+            .all(|shard| shard.matches(visitor, subject_key, total_shards))
     }
 }
 
 impl Shard {
     /// Return `true` if `subject_key` matches the given shard.
-    fn matches(&self, subject_key: &str, total_shards: u64) -> bool {
+    fn matches<V: EvalSplitVisitor>(
+        &self,
+        visitor: &mut V,
+        subject_key: &str,
+        total_shards: u64,
+    ) -> bool {
         let h = get_md5_shard(&[self.salt.as_str(), "-", subject_key], total_shards);
-        self.ranges.iter().any(|range| range.contains(h))
+        let matches = self.ranges.iter().any(|range| range.contains(h));
+        visitor.on_shard_eval(self, h, matches);
+        matches
     }
 }
 

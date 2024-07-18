@@ -7,7 +7,7 @@ use crate::{AttributeValue, Attributes, Configuration};
 
 use super::{
     eval::AllocationNonMatchReason, eval_visitor::*, Assignment, AssignmentEvent, AssignmentValue,
-    Condition, FlagEvaluationError, Rule, Split, Value,
+    Condition, FlagEvaluationError, Rule, Shard, Split, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -28,6 +28,7 @@ pub struct EvalFlagDetails {
     /// Value of the selected variation. Could be `None` if no variation is selected, or selected
     /// value is absent in configuration (configuration error).
     pub variation_value: Option<Value>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub allocations: Vec<EvalAllocationDetails>,
 }
 
@@ -49,6 +50,8 @@ pub struct EvalAllocationDetails {
     pub result: EvalAllocationResult,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub evaluated_rules: Vec<EvalRuleDetails>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub evaluated_splits: Vec<EvalSplitDetails>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -77,6 +80,22 @@ pub struct EvalConditionDetails {
     pub matched: bool,
 }
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EvalSplitDetails {
+    pub variation_key: String,
+    pub matched: bool,
+    pub shards: Vec<EvalShardDetails>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EvalShardDetails {
+    pub matched: bool,
+    pub shard: Shard,
+    pub shard_value: u64,
+}
+
 pub(crate) struct EvalFlagDetailsBuilder {
     flag_key: String,
     subject_key: String,
@@ -101,6 +120,10 @@ pub(crate) struct EvalAllocationDetailsBuilder<'a> {
 
 pub(crate) struct EvalRuleDetailsBuilder<'a> {
     rule_details: &'a mut EvalRuleDetails,
+}
+
+pub(crate) struct EvalSplitDetailsBuilder<'a> {
+    split_details: &'a mut EvalSplitDetails,
 }
 
 impl EvalFlagDetailsBuilder {
@@ -149,6 +172,7 @@ impl EvalFlagDetailsBuilder {
                         key,
                         result: EvalAllocationResult::Unevaluated,
                         evaluated_rules: Vec::new(),
+                        evaluated_splits: Vec::new(),
                     },
                 })
                 .collect(),
@@ -170,6 +194,7 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
                 key: allocation.key.clone(),
                 result: EvalAllocationResult::Unevaluated,
                 evaluated_rules: Vec::new(),
+                evaluated_splits: Vec::new(),
             });
         EvalAllocationDetailsBuilder {
             allocation_details: result,
@@ -205,6 +230,10 @@ impl<'b> EvalAllocationVisitor for EvalAllocationDetailsBuilder<'b> {
     where
         Self: 'a;
 
+    type SplitVisitor<'a> = EvalSplitDetailsBuilder<'a>
+    where
+        Self: 'a;
+
     fn visit_rule<'a>(&'a mut self, _rule: &Rule) -> EvalRuleDetailsBuilder<'a> {
         self.allocation_details
             .evaluated_rules
@@ -216,6 +245,23 @@ impl<'b> EvalAllocationVisitor for EvalAllocationDetailsBuilder<'b> {
             rule_details: self
                 .allocation_details
                 .evaluated_rules
+                .last_mut()
+                .expect("we just inserted an element, so there must be last"),
+        }
+    }
+
+    fn visit_split<'a>(&'a mut self, split: &Split) -> Self::SplitVisitor<'a> {
+        self.allocation_details
+            .evaluated_splits
+            .push(EvalSplitDetails {
+                matched: false,
+                variation_key: split.variation_key.clone(),
+                shards: Vec::new(),
+            });
+        EvalSplitDetailsBuilder {
+            split_details: self
+                .allocation_details
+                .evaluated_splits
                 .last_mut()
                 .expect("we just inserted an element, so there must be last"),
         }
@@ -252,5 +298,19 @@ impl<'a> EvalRuleVisitor for EvalRuleDetailsBuilder<'a> {
 
     fn on_result(&mut self, result: bool) {
         self.rule_details.matched = result;
+    }
+}
+
+impl<'a> EvalSplitVisitor for EvalSplitDetailsBuilder<'a> {
+    fn on_shard_eval(&mut self, shard: &Shard, shard_value: u64, matches: bool) {
+        self.split_details.shards.push(EvalShardDetails {
+            matched: matches,
+            shard: shard.clone(),
+            shard_value,
+        });
+    }
+
+    fn on_result(&mut self, matches: bool) {
+        self.split_details.matched = matches;
     }
 }
