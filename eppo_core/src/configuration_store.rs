@@ -46,8 +46,13 @@ impl ConfigurationStore {
 mod tests {
     use std::{collections::HashMap, sync::Arc};
 
+    use chrono::Utc;
+
     use super::ConfigurationStore;
-    use crate::{ufc::UniversalFlagConfig, Configuration};
+    use crate::{
+        ufc::{Environment, UniversalFlagConfig},
+        Configuration,
+    };
 
     #[test]
     fn can_set_configuration_from_another_thread() {
@@ -58,6 +63,10 @@ mod tests {
             let _ = std::thread::spawn(move || {
                 store.set_configuration(Configuration::new(
                     Some(UniversalFlagConfig {
+                        created_at: Utc::now(),
+                        environment: Environment {
+                            name: "test".to_owned(),
+                        },
                         flags: HashMap::new(),
                         bandits: HashMap::new(),
                     }),

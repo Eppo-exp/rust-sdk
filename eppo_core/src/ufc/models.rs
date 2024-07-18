@@ -12,6 +12,10 @@ pub type Timestamp = chrono::DateTime<chrono::Utc>;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UniversalFlagConfig {
+    /// When configuration was last updated.
+    pub created_at: Timestamp,
+    /// Environment this configuration belongs to.
+    pub environment: Environment,
     /// Flags configuration.
     ///
     /// Value is wrapped in `TryParse` so that if we fail to parse one flag (e.g., new server
@@ -21,6 +25,13 @@ pub struct UniversalFlagConfig {
     /// served separately.
     #[serde(default)]
     pub bandits: HashMap<String, Vec<BanditVariation>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Environment {
+    /// Name of the environment.
+    pub name: String,
 }
 
 /// `TryParse` allows the subfield to fail parsing without failing the parsing of the whole
@@ -314,6 +325,8 @@ mod tests {
         let ufc: UniversalFlagConfig = serde_json::from_str(
             &r#"
               {
+                "createdAt": "2024-07-18T00:00:00Z",
+                "environment": {"name": "test"},
                 "flags": {
                   "success": {
                     "key": "success",

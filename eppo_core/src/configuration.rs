@@ -12,7 +12,8 @@ pub struct Configuration {
     pub flags: Option<UniversalFlagConfig>,
     /// Bandits configuration.
     pub bandits: Option<BanditResponse>,
-    /// Mapping from flag key to flag variation value to bandit variation.
+    /// Mapping from flag key to flag variation value to bandit variation. Cached from
+    /// `self.flags.bandits`.
     pub flag_to_bandit_associations:
         HashMap</* flag_key: */ String, HashMap</* variation_key: */ String, BanditVariation>>,
 }

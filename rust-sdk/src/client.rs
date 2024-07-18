@@ -362,7 +362,10 @@ mod tests {
     use crate::{client::AssignmentValue, Client, ClientConfig};
     use eppo_core::{
         configuration_store::ConfigurationStore,
-        ufc::{Allocation, Flag, Split, TryParse, UniversalFlagConfig, Variation, VariationType},
+        ufc::{
+            Allocation, Environment, Flag, Split, TryParse, UniversalFlagConfig, Variation,
+            VariationType,
+        },
         Configuration,
     };
 
@@ -393,6 +396,10 @@ mod tests {
         // updating configuration after client is created
         configuration_store.set_configuration(Configuration::new(
             Some(UniversalFlagConfig {
+                created_at: chrono::Utc::now(),
+                environment: Environment {
+                    name: "test".to_owned(),
+                },
                 flags: [(
                     "flag".to_owned(),
                     TryParse::Parsed(Flag {
