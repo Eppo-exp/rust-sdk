@@ -2,6 +2,7 @@ use crate::Configuration;
 
 use super::{
     eval::AllocationNonMatchReason, Allocation, Assignment, Flag, FlagEvaluationError, Split,
+    Variation,
 };
 
 pub(super) trait EvalVisitor {
@@ -19,6 +20,10 @@ pub(super) trait EvalVisitor {
     #[allow(unused_variables)]
     #[inline]
     fn on_flag_configuration(&mut self, flag: &Flag) {}
+
+    #[allow(unused_variables)]
+    #[inline]
+    fn on_variation(&mut self, variation: &Variation) {}
 
     fn visit_allocation<'a>(&'a mut self, allocation: &Allocation) -> Self::AllocationVisitor<'a>;
 

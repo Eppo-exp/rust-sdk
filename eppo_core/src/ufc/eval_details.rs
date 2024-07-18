@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{Attributes, Configuration};
 
 use super::{
-    eval::AllocationNonMatchReason, eval_visitor::*, Assignment, FlagEvaluationError, Split,
+    eval::AllocationNonMatchReason, eval_visitor::*, Assignment, FlagEvaluationError, Split, Value,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -19,6 +19,11 @@ pub struct EvalFlagDetails {
     /// Details of configuration used for evaluation. None if configuration hasn't been fetched yet.
     pub configuration_details: Option<ConfigurationDetails>,
     pub result: Result<Assignment, FlagEvaluationError>,
+    /// Key of the selected variation.
+    pub variation_key: Option<String>,
+    /// Value of the selected variation. Could be `None` if no variation is selected, or selected
+    /// value is absent in configuration (configuration error).
+    pub variation_value: Option<Value>,
     pub allocations: Vec<EvalAllocationDetails>,
 }
 
@@ -60,6 +65,9 @@ pub(crate) struct EvalFlagDetailsBuilder {
 
     result: Option<Result<Assignment, FlagEvaluationError>>,
 
+    variation_key: Option<String>,
+    variation_value: Option<Value>,
+
     /// List of allocation keys. Used to sort `allocation_eval_results`.
     allocation_keys_order: Vec<String>,
     allocation_eval_results: HashMap<String, EvalAllocationDetails>,
@@ -67,6 +75,7 @@ pub(crate) struct EvalFlagDetailsBuilder {
 
 pub(crate) struct EvalAllocationDetailsBuilder<'a> {
     result: &'a mut EvalAllocationDetails,
+    variation_key: &'a mut Option<String>,
 }
 
 impl EvalFlagDetailsBuilder {
@@ -83,6 +92,8 @@ impl EvalFlagDetailsBuilder {
             now,
             configuration_details: None,
             result: None,
+            variation_key: None,
+            variation_value: None,
             allocation_keys_order: Vec::new(),
             allocation_eval_results: HashMap::new(),
         }
@@ -98,6 +109,8 @@ impl EvalFlagDetailsBuilder {
             result: self.result.expect(
                 "EvalFlagDetailsBuilder.build() should only be called after evaluation is complete",
             ),
+            variation_key: self.variation_key,
+            variation_value: self.variation_value,
             allocations: self
                 .allocation_keys_order
                 .into_iter()
@@ -127,7 +140,10 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
                 key: allocation.key.clone(),
                 result: EvalAllocationResult::Unevaluated,
             });
-        EvalAllocationDetailsBuilder { result }
+        EvalAllocationDetailsBuilder {
+            result,
+            variation_key: &mut self.variation_key,
+        }
     }
 
     fn on_configuration(&mut self, configuration: &Configuration) {
@@ -144,6 +160,10 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
             .extend(flag.allocations.iter().map(|it| &it.key).cloned());
     }
 
+    fn on_variation(&mut self, variation: &super::Variation) {
+        self.variation_value = Some(variation.value.clone());
+    }
+
     fn on_result(&mut self, result: &Result<super::Assignment, super::FlagEvaluationError>) {
         self.result = Some(result.clone());
     }
@@ -151,6 +171,8 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
 
 impl<'a> EvalAllocationVisitor for EvalAllocationDetailsBuilder<'a> {
     fn on_result(&mut self, result: Result<&Split, AllocationNonMatchReason>) {
+        *self.variation_key = result.ok().map(|split| split.variation_key.clone());
+
         self.result.result = match result {
             Ok(_) => EvalAllocationResult::Matched,
             Err(AllocationNonMatchReason::BeforeStartDate) => EvalAllocationResult::BeforeStartDate,

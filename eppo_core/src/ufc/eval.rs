@@ -234,6 +234,8 @@ impl Flag {
             FlagEvaluationError::ConfigurationError
         })?;
 
+        visitor.on_variation(variation);
+
         let assignment_value = variation
             .value
             .to_assignment_value(self.variation_type)
