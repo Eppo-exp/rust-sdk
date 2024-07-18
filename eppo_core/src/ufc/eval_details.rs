@@ -16,8 +16,21 @@ pub struct EvalFlagDetails {
     pub subject_key: String,
     pub subject_attributes: Attributes,
     pub timestamp: DateTime<Utc>,
+    /// Details of configuration used for evaluation. None if configuration hasn't been fetched yet.
+    pub configuration_details: Option<ConfigurationDetails>,
     pub result: Result<Assignment, FlagEvaluationError>,
     pub allocations: Vec<EvalAllocationDetails>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigurationDetails {
+    /// Timestamp when configuration was fetched by the SDK.
+    pub fetched_at: DateTime<Utc>,
+    /// Timestamp when configuration was published by the server.
+    pub published_at: DateTime<Utc>,
+    /// Environment the configuration belongs to.
+    pub environment_name: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -43,6 +56,7 @@ pub(crate) struct EvalFlagDetailsBuilder {
     subject_key: String,
     subject_attributes: Attributes,
     now: DateTime<Utc>,
+    configuration_details: Option<ConfigurationDetails>,
 
     result: Option<Result<Assignment, FlagEvaluationError>>,
 
@@ -67,6 +81,7 @@ impl EvalFlagDetailsBuilder {
             subject_key,
             subject_attributes,
             now,
+            configuration_details: None,
             result: None,
             allocation_keys_order: Vec::new(),
             allocation_eval_results: HashMap::new(),
@@ -79,6 +94,7 @@ impl EvalFlagDetailsBuilder {
             subject_key: self.subject_key,
             subject_attributes: self.subject_attributes,
             timestamp: self.now,
+            configuration_details: self.configuration_details,
             result: self.result.expect(
                 "EvalFlagDetailsBuilder.build() should only be called after evaluation is complete",
             ),
@@ -114,7 +130,13 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
         EvalAllocationDetailsBuilder { result }
     }
 
-    fn on_configuration(&mut self, _configuration: &Configuration) {}
+    fn on_configuration(&mut self, configuration: &Configuration) {
+        self.configuration_details = Some(ConfigurationDetails {
+            fetched_at: configuration.fetched_at,
+            published_at: configuration.flags.created_at,
+            environment_name: configuration.flags.environment.name.clone(),
+        })
+    }
 
     fn on_flag_configuration(&mut self, flag: &super::Flag) {
         self.allocation_keys_order.truncate(0);
