@@ -24,4 +24,9 @@ thiserror = "1.0.60"
 url = "2.5.0"
 
 [dev-dependencies]
+criterion = { version = "0.4", features = ["html_reports"] }
 env_logger = "0.11.3"
+
+[[bench]]
+name = "evaluation_details"
+harness = false
