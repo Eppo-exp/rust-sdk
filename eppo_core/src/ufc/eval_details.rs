@@ -6,7 +6,7 @@ use crate::{AttributeValue, Attributes};
 use super::{AssignmentValue, Condition, FlagEvaluationError, Shard, Value};
 
 /// Details about feature flag evaluation.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EvalFlagDetails {
     pub flag_key: String,

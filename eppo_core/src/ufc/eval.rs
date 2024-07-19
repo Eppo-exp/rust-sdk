@@ -61,6 +61,15 @@ pub fn get_assignment_details(
         now,
     );
     let details = builder.build();
+    let result = result.map(|it| {
+        it.map(|Assignment { value, event }| Assignment {
+            value,
+            event: event.map(|mut it| {
+                it.evaluation_details = Some(details.clone());
+                it
+            }),
+        })
+    });
     (result, details)
 }
 
@@ -266,6 +275,7 @@ impl Flag {
             )]
             .into(),
             extra_logging: split.extra_logging.clone(),
+            evaluation_details: None,
         });
 
         Ok(Assignment {
