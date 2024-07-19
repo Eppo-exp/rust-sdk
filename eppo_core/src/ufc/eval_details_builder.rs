@@ -5,8 +5,8 @@ use chrono::{DateTime, Utc};
 use crate::{AttributeValue, Attributes, Configuration};
 
 use super::{
-    eval::AllocationNonMatchReason, eval_details::*, eval_visitor::*, Assignment, Condition,
-    FlagEvaluationError, Rule, Shard, Split, Value,
+    eval::AllocationNonMatchReason, eval_details::*, eval_visitor::*, Assignment, AssignmentValue,
+    Condition, FlagEvaluationError, Rule, Shard, Split, Value,
 };
 
 pub(crate) struct EvalFlagDetailsBuilder {
@@ -16,7 +16,8 @@ pub(crate) struct EvalFlagDetailsBuilder {
     now: DateTime<Utc>,
     configuration_details: Option<ConfigurationDetails>,
 
-    result: Option<Result<Assignment, FlagEvaluationError>>,
+    result: Option<AssignmentValue>,
+    error: Option<FlagEvaluationError>,
 
     variation_key: Option<String>,
     variation_value: Option<Value>,
@@ -53,6 +54,7 @@ impl EvalFlagDetailsBuilder {
             now,
             configuration_details: None,
             result: None,
+            error: None,
             variation_key: None,
             variation_value: None,
             allocation_keys_order: Vec::new(),
@@ -61,19 +63,14 @@ impl EvalFlagDetailsBuilder {
     }
 
     pub fn build(mut self) -> EvalFlagDetails {
-        let (result, error) = match self.result {
-            None => (None, None), // this should never happen
-            Some(Ok(Assignment { value, event: _ })) => (Some(value), None),
-            Some(Err(err)) => (None, Some(err)),
-        };
         EvalFlagDetails {
             flag_key: self.flag_key,
             subject_key: self.subject_key,
             subject_attributes: self.subject_attributes,
             timestamp: self.now,
             configuration_details: self.configuration_details,
-            result,
-            error,
+            result: self.result,
+            error: self.error,
             variation_key: self.variation_key,
             variation_value: self.variation_value,
             allocations: self
@@ -134,7 +131,10 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
     }
 
     fn on_result(&mut self, result: &Result<Assignment, FlagEvaluationError>) {
-        self.result = Some(result.clone());
+        (self.result, self.error) = match result {
+            Ok(Assignment { value, event: _ }) => (Some(value.clone()), None),
+            Err(err) => (None, Some(err.clone())),
+        };
     }
 }
 
