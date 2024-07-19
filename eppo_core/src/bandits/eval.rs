@@ -98,13 +98,11 @@ impl Configuration {
             //
             // This should normally never happen as it means that there's a mismatch between the
             // general UFC config and bandits config.
-            //
-            // Abort evaluation and return default variant, ignoring `assignment.event` logging.
             log::warn!(target: "eppo", bandit_key; "unable to find bandit configuration");
             return BanditResult {
-                variation: default_variation.to_owned(),
+                variation,
                 action: None,
-                assignment_event: None,
+                assignment_event: assignment.event,
                 bandit_event: None,
             };
         };
@@ -116,12 +114,10 @@ impl Configuration {
         else {
             // We've evaluated a flag but now bandit evaluation failed. (Likely to user supplying
             // empty actions, or NaN attributes.)
-            //
-            // Abort evaluation and return default variant, ignoring `assignment.event` logging.
             return BanditResult {
-                variation: default_variation.to_owned(),
+                variation,
                 action: None,
-                assignment_event: None,
+                assignment_event: assignment.event,
                 bandit_event: None,
             };
         };
