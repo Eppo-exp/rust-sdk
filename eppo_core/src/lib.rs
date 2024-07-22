@@ -13,7 +13,6 @@
 //! breaking changes and major version bumps.
 
 #![warn(rustdoc::missing_crate_level_docs)]
-#![warn(missing_docs)]
 
 pub mod bandits;
 pub mod configuration_fetcher;
@@ -30,4 +29,4 @@ mod error;
 pub use attributes::{AttributeValue, Attributes};
 pub use configuration::Configuration;
 pub use context_attributes::ContextAttributes;
-pub use error::{Error, Result};
+pub use error::{Error, EvaluationError, Result};

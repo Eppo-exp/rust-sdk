@@ -1,14 +1,18 @@
 use chrono::{DateTime, Utc};
 
-use crate::{sharder::get_md5_shard, Attributes, Configuration};
+use crate::{
+    error::{EvaluationError, EvaluationFailure},
+    sharder::get_md5_shard,
+    Attributes, Configuration,
+};
 
 use super::{
-    eval_details::EvalFlagDetails,
+    eval_details::EvaluationResultWithDetails,
     eval_details_builder::EvalFlagDetailsBuilder,
     eval_visitor::{
         EvalAllocationVisitor, EvalRuleVisitor, EvalSplitVisitor, EvalVisitor, NoopEvalVisitor,
     },
-    Allocation, Assignment, AssignmentEvent, Flag, FlagEvaluationError, Shard, Split, Timestamp,
+    Allocation, Assignment, AssignmentEvent, AssignmentValue, Flag, Shard, Split, Timestamp,
     TryParse, UniversalFlagConfig, VariationType,
 };
 
@@ -20,7 +24,7 @@ pub fn get_assignment(
     subject_key: &str,
     subject_attributes: &Attributes,
     expected_type: Option<VariationType>,
-) -> Result<Option<Assignment>, FlagEvaluationError> {
+) -> Result<Option<Assignment>, EvaluationError> {
     let now = Utc::now();
     get_assignment_with_visitor(
         configuration,
@@ -41,11 +45,11 @@ pub fn get_assignment_details(
     subject_attributes: &Attributes,
     expected_type: Option<VariationType>,
 ) -> (
-    Result<Option<Assignment>, FlagEvaluationError>,
-    EvalFlagDetails,
+    EvaluationResultWithDetails<AssignmentValue>,
+    Option<AssignmentEvent>,
 ) {
     let now = Utc::now();
-    let mut builder = EvalFlagDetailsBuilder::new(
+    let mut details_builder = EvalFlagDetailsBuilder::new(
         flag_key.to_owned(),
         subject_key.to_owned(),
         subject_attributes.to_owned(),
@@ -53,24 +57,32 @@ pub fn get_assignment_details(
     );
     let result = get_assignment_with_visitor(
         configuration,
-        &mut builder,
+        &mut details_builder,
         flag_key,
         subject_key,
         subject_attributes,
         expected_type,
         now,
     );
-    let details = builder.build();
-    let result = result.map(|it| {
-        it.map(|Assignment { value, event }| Assignment {
-            value,
-            event: event.map(|mut it| {
-                it.evaluation_details = Some(details.clone());
-                it
-            }),
-        })
-    });
-    (result, details)
+
+    let (value, mut event) = match result.unwrap_or_default() {
+        Some(Assignment { value, event }) => (Some(value), event),
+        None => (None, None),
+    };
+
+    let evaluation_details = details_builder.build();
+
+    if let Some(event) = &mut event {
+        event.evaluation_details = Some(evaluation_details.clone());
+    }
+
+    let result_with_details = EvaluationResultWithDetails {
+        variation: value,
+        action: None,
+        evaluation_details,
+    };
+
+    (result_with_details, event)
 }
 
 fn get_assignment_with_visitor<V: EvalVisitor>(
@@ -81,7 +93,7 @@ fn get_assignment_with_visitor<V: EvalVisitor>(
     subject_attributes: &Attributes,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
-) -> Result<Option<Assignment>, FlagEvaluationError> {
+) -> Result<Option<Assignment>, EvaluationError> {
     let result = get_assignment_inner(
         configuration,
         visitor,
@@ -104,7 +116,7 @@ fn get_assignment_with_visitor<V: EvalVisitor>(
             Ok(Some(assignment))
         }
 
-        Err(FlagEvaluationError::ConfigurationMissing) => {
+        Err(EvaluationFailure::ConfigurationMissing) => {
             log::warn!(target: "eppo",
                            flag_key,
                            subject_key;
@@ -112,23 +124,23 @@ fn get_assignment_with_visitor<V: EvalVisitor>(
             Ok(None)
         }
 
-        // These are considered normal conditions and usually don't need extra attention, so we
-        // remap them to Ok(None) before returning to the user.
-        Err(err) if err.is_normal() => {
-            log::trace!(target: "eppo",
-                           flag_key,
-                           subject_key;
-                           "returning default assignment because of: {err}");
-            Ok(None)
-        }
-
-        Err(err) => {
+        Err(EvaluationFailure::Error(err)) => {
             log::warn!(target: "eppo",
                        flag_key,
                        subject_key;
                        "error occurred while evaluating a flag: {err}",
             );
             Err(err)
+        }
+
+        // Non-Error failures are considered normal conditions and usually don't need extra
+        // attention, so we remap them to Ok(None) before returning to the user.
+        Err(err) => {
+            log::trace!(target: "eppo",
+                           flag_key,
+                           subject_key;
+                           "returning default assignment because of: {err}");
+            Ok(None)
         }
     }
 }
@@ -141,9 +153,9 @@ fn get_assignment_inner<V: EvalVisitor>(
     subject_attributes: &Attributes,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
-) -> Result<Assignment, FlagEvaluationError> {
+) -> Result<Assignment, EvaluationFailure> {
     let Some(config) = configuration else {
-        return Err(FlagEvaluationError::ConfigurationMissing);
+        return Err(EvaluationFailure::ConfigurationMissing);
     };
 
     visitor.on_configuration(config);
@@ -168,7 +180,7 @@ impl UniversalFlagConfig {
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
         now: DateTime<Utc>,
-    ) -> Result<Assignment, FlagEvaluationError> {
+    ) -> Result<Assignment, EvaluationFailure> {
         let flag = self.get_flag(flag_key)?;
 
         visitor.on_flag_configuration(flag);
@@ -180,28 +192,30 @@ impl UniversalFlagConfig {
         flag.eval(visitor, subject_key, subject_attributes, now)
     }
 
-    fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag, FlagEvaluationError> {
+    fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag, EvaluationFailure> {
         let flag = self
             .flags
             .get(flag_key)
-            .ok_or(FlagEvaluationError::FlagNotFound)?;
+            .ok_or(EvaluationFailure::FlagUnrecognizedOrDisabled)?;
 
         match flag {
             TryParse::Parsed(flag) => Ok(flag),
-            TryParse::ParseFailed(_) => Err(FlagEvaluationError::ConfigurationParseError),
+            TryParse::ParseFailed(_) => Err(EvaluationFailure::Error(
+                EvaluationError::UnexpectedConfigurationParseError,
+            )),
         }
     }
 }
 
 impl Flag {
-    fn verify_type(&self, ty: VariationType) -> Result<(), FlagEvaluationError> {
+    fn verify_type(&self, ty: VariationType) -> Result<(), EvaluationFailure> {
         if self.variation_type == ty {
             Ok(())
         } else {
-            Err(FlagEvaluationError::InvalidType {
+            Err(EvaluationFailure::Error(EvaluationError::TypeMismatch {
                 expected: ty,
                 found: self.variation_type,
-            })
+            }))
         }
     }
 
@@ -211,9 +225,9 @@ impl Flag {
         subject_key: &str,
         subject_attributes: &Attributes,
         now: DateTime<Utc>,
-    ) -> Result<Assignment, FlagEvaluationError> {
+    ) -> Result<Assignment, EvaluationFailure> {
         if !self.enabled {
-            return Err(FlagEvaluationError::FlagDisabled);
+            return Err(EvaluationFailure::FlagDisabled);
         }
 
         // Augmenting subject_attributes with id, so that subject_key can be used in the rules.
@@ -235,7 +249,7 @@ impl Flag {
             visitor.on_result(result);
             result.ok().map(|split| (allocation, split))
         }) else {
-            return Err(FlagEvaluationError::NoAllocation);
+            return Err(EvaluationFailure::DefaultAllocationNull);
         };
 
         let variation = self.variations.get(&split.variation_key).ok_or_else(|| {
@@ -244,7 +258,7 @@ impl Flag {
                        subject_key,
                        variation_key:display = split.variation_key;
                        "internal: unable to find variation");
-            FlagEvaluationError::ConfigurationError
+            EvaluationFailure::Error(EvaluationError::UnexpectedConfigurationError)
         })?;
 
         visitor.on_variation(variation);
@@ -258,7 +272,7 @@ impl Flag {
                            subject_key,
                            variation_key:display = split.variation_key;
                            "internal: unable to convert Value to AssignmentValue");
-                FlagEvaluationError::ConfigurationError
+                EvaluationFailure::Error(EvaluationError::UnexpectedConfigurationError)
             })?;
 
         let event = allocation.do_log.then(|| AssignmentEvent {
@@ -289,7 +303,7 @@ impl Flag {
 pub(super) enum AllocationNonMatchReason {
     BeforeStartDate,
     AfterEndDate,
-    FailingRules,
+    FailingRule,
     TrafficExposureMiss,
 }
 
@@ -317,7 +331,7 @@ impl Allocation {
                 result
             });
         if !is_allowed_by_rules {
-            return Err(AllocationNonMatchReason::FailingRules);
+            return Err(AllocationNonMatchReason::FailingRule);
         }
 
         self.splits

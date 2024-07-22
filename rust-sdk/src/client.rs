@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{
     poller::{PollerThread, PollerThreadConfig},
-    AssignmentValue, Attributes, ClientConfig, Error, EvalFlagDetails, FlagEvaluationError,
+    AssignmentValue, Attributes, ClientConfig, Error, EvaluationError, EvaluationResultWithDetails,
 };
 
 use eppo_core::{
@@ -106,7 +106,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<AssignmentValue>, FlagEvaluationError> {
+    ) -> Result<Option<AssignmentValue>, EvaluationError> {
         self.get_assignment_inner(flag_key, subject_key, subject_attributes, None, |x| x)
     }
 
@@ -138,7 +138,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<String>, FlagEvaluationError> {
+    ) -> Result<Option<String>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -180,7 +180,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<i64>, FlagEvaluationError> {
+    ) -> Result<Option<i64>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -222,7 +222,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<f64>, FlagEvaluationError> {
+    ) -> Result<Option<f64>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -264,7 +264,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<bool>, FlagEvaluationError> {
+    ) -> Result<Option<bool>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -307,7 +307,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<serde_json::Value>, FlagEvaluationError> {
+    ) -> Result<Option<serde_json::Value>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -328,7 +328,7 @@ impl<'a> Client<'a> {
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
         convert: impl FnOnce(AssignmentValue) -> T,
-    ) -> Result<Option<T>, FlagEvaluationError> {
+    ) -> Result<Option<T>, EvaluationError> {
         let config = self.configuration_store.get_configuration();
         let assignment = get_assignment(
             config.as_ref().map(|it| it.as_ref()),
@@ -376,11 +376,8 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> (
-        Result<Option<AssignmentValue>, FlagEvaluationError>,
-        EvalFlagDetails,
-    ) {
-        self.get_assignment_details_inner(flag_key, subject_key, subject_attributes, None, |x| x)
+    ) -> EvaluationResultWithDetails<AssignmentValue> {
+        self.get_assignment_details_inner(flag_key, subject_key, subject_attributes, None)
     }
 
     /// Get the assignment value for a given feature flag and subject, along with details of why
@@ -393,18 +390,17 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> (Result<Option<String>, FlagEvaluationError>, EvalFlagDetails) {
+    ) -> EvaluationResultWithDetails<String> {
         self.get_assignment_details_inner(
             flag_key,
             subject_key,
             subject_attributes,
             Some(VariationType::String),
-            |x| {
-                x.to_string()
-                    // The unwrap cannot fail because the type is checked during evaluation.
-                    .unwrap()
-            },
         )
+        .map(|it| {
+            it.to_string()
+                .expect("the type should have been checked during evaluation")
+        })
     }
 
     /// Get the assignment value for a given feature flag and subject, along with details of why
@@ -417,18 +413,17 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> (Result<Option<i64>, FlagEvaluationError>, EvalFlagDetails) {
+    ) -> EvaluationResultWithDetails<i64> {
         self.get_assignment_details_inner(
             flag_key,
             subject_key,
             subject_attributes,
             Some(VariationType::Integer),
-            |x| {
-                x.as_integer()
-                    // The unwrap cannot fail because the type is checked during evaluation.
-                    .unwrap()
-            },
         )
+        .map(|it| {
+            it.as_integer()
+                .expect("the type should have been checked during evaluation")
+        })
     }
 
     /// Get the assignment value for a given feature flag and subject, along with details of why
@@ -441,18 +436,17 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> (Result<Option<f64>, FlagEvaluationError>, EvalFlagDetails) {
+    ) -> EvaluationResultWithDetails<f64> {
         self.get_assignment_details_inner(
             flag_key,
             subject_key,
             subject_attributes,
             Some(VariationType::Numeric),
-            |x| {
-                x.as_numeric()
-                    // The unwrap cannot fail because the type is checked during evaluation.
-                    .unwrap()
-            },
         )
+        .map(|it| {
+            it.as_numeric()
+                .expect("the type should have been checked during evaluation")
+        })
     }
 
     /// Get the assignment value for a given feature flag and subject, along with details of why
@@ -465,18 +459,17 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> (Result<Option<bool>, FlagEvaluationError>, EvalFlagDetails) {
+    ) -> EvaluationResultWithDetails<bool> {
         self.get_assignment_details_inner(
             flag_key,
             subject_key,
             subject_attributes,
             Some(VariationType::Boolean),
-            |x| {
-                x.as_boolean()
-                    // The unwrap cannot fail because the type is checked during evaluation.
-                    .unwrap()
-            },
         )
+        .map(|it| {
+            it.as_boolean()
+                .expect("the type should have been checked during evaluation")
+        })
     }
 
     /// Get the assignment value for a given feature flag and subject, along with details of why
@@ -489,33 +482,28 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> (
-        Result<Option<serde_json::Value>, FlagEvaluationError>,
-        EvalFlagDetails,
-    ) {
+    ) -> EvaluationResultWithDetails<serde_json::Value> {
         self.get_assignment_details_inner(
             flag_key,
             subject_key,
             subject_attributes,
             Some(VariationType::Json),
-            |x| {
-                x.to_json()
-                    // The unwrap cannot fail because the type is checked during evaluation.
-                    .unwrap()
-            },
         )
+        .map(|it| {
+            it.to_json()
+                .expect("the type should have been checked during evaluation")
+        })
     }
 
-    fn get_assignment_details_inner<T>(
+    fn get_assignment_details_inner(
         &self,
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
-        convert: impl FnOnce(AssignmentValue) -> T,
-    ) -> (Result<Option<T>, FlagEvaluationError>, EvalFlagDetails) {
+    ) -> EvaluationResultWithDetails<AssignmentValue> {
         let config = self.configuration_store.get_configuration();
-        let (assignment, details) = get_assignment_details(
+        let (result, event) = get_assignment_details(
             config.as_ref().map(|it| it.as_ref()),
             flag_key,
             subject_key,
@@ -523,21 +511,14 @@ impl<'a> Client<'a> {
             expected_type,
         );
 
-        let value = match assignment {
-            Ok(Some(Assignment { value, event })) => {
-                if let Some(event) = event {
-                    log::trace!(target: "eppo",
-                                event:serde;
-                                "logging assignment");
-                    self.config.assignment_logger.log_assignment(event);
-                }
-                Ok(Some(convert(value)))
-            }
-            Ok(None) => Ok(None),
-            Err(err) => Err(err),
-        };
+        if let Some(event) = event {
+            log::trace!(target: "eppo",
+                        event:serde;
+                        "logging assignment");
+            self.config.assignment_logger.log_assignment(event);
+        }
 
-        (value, details)
+        result
     }
 
     /// Start a poller thread to fetch configuration from the server.

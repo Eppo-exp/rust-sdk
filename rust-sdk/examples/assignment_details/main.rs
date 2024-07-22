@@ -22,22 +22,15 @@ pub fn main() -> eppo::Result<()> {
     }
 
     // Get assignment for test-subject.
-    let (assignment, details) = client.get_boolean_assignment_details(
+    let assignment_with_details = client.get_boolean_assignment_details(
         "a-boolean-flag",
         "test-subject",
         &[("name".to_owned(), AttributeValue::from("<your name>"))].into(),
     );
 
-    let assignment = assignment
-        .unwrap_or_default()
-        // default assignment
-        .unwrap_or(false);
-
-    println!("Assignment: {:?}", assignment);
-
     println!(
-        "Details: {}",
-        serde_json::to_string_pretty(&details).unwrap()
+        "{}",
+        serde_json::to_string_pretty(&assignment_with_details).unwrap()
     );
 
     Ok(())

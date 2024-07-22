@@ -194,7 +194,7 @@ fn default_do_log() -> bool {
     true
 }
 
-#[derive(Debug, Serialize, Deserialize, From, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub struct Rule {

@@ -1,8 +1,8 @@
-use crate::{AttributeValue, Configuration};
+use crate::{error::EvaluationFailure, AttributeValue, Configuration};
 
 use super::{
-    eval::AllocationNonMatchReason, Allocation, Assignment, Condition, Flag, FlagEvaluationError,
-    Rule, Shard, Split, Variation,
+    eval::AllocationNonMatchReason, Allocation, Assignment, Condition, Flag, Rule, Shard, Split,
+    Variation,
 };
 
 pub(super) trait EvalVisitor {
@@ -30,7 +30,7 @@ pub(super) trait EvalVisitor {
     /// Called with evaluation result.
     #[allow(unused_variables)]
     #[inline]
-    fn on_result(&mut self, result: &Result<Assignment, FlagEvaluationError>) {}
+    fn on_result(&mut self, result: &Result<Assignment, EvaluationFailure>) {}
 }
 
 pub(super) trait EvalAllocationVisitor {

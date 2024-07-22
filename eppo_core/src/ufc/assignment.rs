@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::Attributes;
 
-use super::eval_details::EvalFlagDetails;
+use super::eval_details::EvaluationDetails;
 
 /// Result of assignment evaluation.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -263,5 +263,5 @@ pub struct AssignmentEvent {
     /// Evaluation details that could help with debugging the assigment. Only populated when
     /// details-version of the `get_assigment` was called.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub evaluation_details: Option<EvalFlagDetails>,
+    pub evaluation_details: Option<EvaluationDetails>,
 }
