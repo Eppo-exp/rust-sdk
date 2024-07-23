@@ -4,7 +4,7 @@ require "singleton"
 require "logger"
 
 require_relative "config"
-require_relative "eppo_rb"
+require_relative "../eppo_rb/eppo_rb" # this gets copied into an unexpected location
 
 module EppoClient
   # The main client singleton
