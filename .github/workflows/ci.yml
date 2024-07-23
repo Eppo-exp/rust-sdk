@@ -49,6 +49,17 @@ jobs:
       - run: npm ci
       - run: make test-data
 
+      - name: Check Cargo.lock
+        # Ensure that Cargo.lock matches Cargo.toml
+        run: cargo generate-lockfile --locked
+        working-directory: ruby-sdk
+
+      - name: Override eppo_core for testing
+        run: |
+          mkdir -p ~/.cargo/
+          echo "[patch.crates-io.eppo_core]" >> "${CARGO_HOME:-$HOME/.cargo}/config.toml"
+          echo "path = '$PWD/eppo_core'" >> "${CARGO_HOME:-$HOME/.cargo}/config.toml"
+
       - name: Install dependencies
         run: bundle install
         working-directory: ruby-sdk
