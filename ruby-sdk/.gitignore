@@ -16,3 +16,7 @@ target/
 
 # rspec failure tracking
 .rspec_status
+
+# .cargo/config.toml should be used for testing with local version of
+# eppo_core but it should not be committed.
+/.cargo/config.toml
