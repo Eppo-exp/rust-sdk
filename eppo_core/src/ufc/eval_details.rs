@@ -68,6 +68,7 @@ pub struct EvaluationDetails {
     pub environment_name: Option<String>,
 
     pub flag_evaluation_code: FlagEvaluationCode,
+    pub flag_evaluation_description: String,
 
     /// Key of the selected variation.
     pub variation_key: Option<String>,

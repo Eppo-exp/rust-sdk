@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
 
-use crate::{error::EvaluationFailure, AttributeValue, Attributes, Configuration};
+use crate::{error::EvaluationFailure, AttributeValue, Attributes, Configuration, EvaluationError};
 
 use super::{
-    eval::AllocationNonMatchReason, eval_details::*, eval_visitor::*, Assignment, Condition, Rule,
-    Shard, Split, Value,
+    eval::AllocationNonMatchReason, eval_details::*, eval_visitor::*, Allocation, Assignment,
+    Condition, Rule, Shard, Split, Value,
 };
 
 pub(crate) struct EvalFlagDetailsBuilder {
@@ -24,12 +24,24 @@ pub(crate) struct EvalFlagDetailsBuilder {
     variation_key: Option<String>,
     variation_value: Option<Value>,
 
+    /// Matched details on allocation and split if any.
+    matched_details: Option<MatchedDetails>,
+
     /// List of allocation keys. Used to sort `allocation_eval_results`.
     allocation_keys_order: Vec<String>,
     allocation_eval_results: HashMap<String, AllocationEvaluationDetails>,
 }
 
+struct MatchedDetails {
+    has_rules: bool,
+    is_experiment: bool,
+    is_partial_rollout: bool,
+}
+
 pub(crate) struct EvalAllocationDetailsBuilder<'a> {
+    allocation_has_rules: bool,
+    allocation_is_experiment: bool,
+    matched: &'a mut Option<MatchedDetails>,
     allocation_details: &'a mut AllocationEvaluationDetails,
     variation_key: &'a mut Option<String>,
 }
@@ -60,12 +72,14 @@ impl EvalFlagDetailsBuilder {
             evaluation_failure: None,
             variation_key: None,
             variation_value: None,
+            matched_details: None,
             allocation_keys_order: Vec::new(),
             allocation_eval_results: HashMap::new(),
         }
     }
 
     pub fn build(mut self) -> EvaluationDetails {
+        let flag_evaluation_description = self.build_description();
         EvaluationDetails {
             flag_key: self.flag_key,
             subject_key: self.subject_key,
@@ -75,6 +89,7 @@ impl EvalFlagDetailsBuilder {
             config_published_at: self.configuration_published_at,
             environment_name: self.environment_name,
             flag_evaluation_code: self.evaluation_failure.into(),
+            flag_evaluation_description,
             variation_key: self.variation_key,
             variation_value: self.variation_value,
             bandit_key: None,
@@ -96,15 +111,73 @@ impl EvalFlagDetailsBuilder {
                 .collect(),
         }
     }
+
+    fn build_description(&self) -> String {
+        if let Some(failure) = &self.evaluation_failure {
+            return match failure {
+                EvaluationFailure::Error(EvaluationError::TypeMismatch { expected, found }) => {
+                    format!("Variation value does not have the correct type. Found: {:?} != {:?} for flag {}", found, expected, self.flag_key)
+                }
+                EvaluationFailure::Error(EvaluationError::UnexpectedConfigurationError)
+                | EvaluationFailure::Error(EvaluationError::UnexpectedConfigurationParseError) => {
+                    format!("Configuration error. This might indicate that you're using an outdated version of Eppo SDK")
+                }
+                EvaluationFailure::ConfigurationMissing => {
+                    format!("Configuration has not been fetched yet")
+                }
+                EvaluationFailure::FlagUnrecognizedOrDisabled => {
+                    format!("Unrecognized or disabled flag: {}", self.flag_key)
+                }
+                EvaluationFailure::FlagDisabled => format!("Disabled flag: {}", self.flag_key),
+                EvaluationFailure::DefaultAllocationNull => format!(
+                    "No allocations matched. Falling back to \"Default Allocation\", serving NULL"
+                ),
+            };
+        }
+
+        if let Some(MatchedDetails {
+            has_rules,
+            is_experiment,
+            is_partial_rollout,
+        }) = self.matched_details
+        {
+            let subject_key = &self.subject_key;
+            let variation_key = self
+                .variation_key
+                .as_ref()
+                .expect("variation key should be set when matched details is");
+            let allocation_key = self
+                .allocation_keys_order
+                .iter()
+                .find(|&key| {
+                    self.allocation_eval_results[key].allocation_evaluation_code
+                        == AllocationEvaluationCode::Match
+                })
+                .expect("there must be matched allocation");
+
+            return if !has_rules {
+                format!("{subject_key} belongs to the range of traffic assigned to {variation_key:?} defined in allocation {allocation_key:?}")
+            } else if is_experiment || is_partial_rollout {
+                format!("Supplied attributes match rules defined in allocation {allocation_key:?} and {subject_key} belongs to the range of traffic assigned to {variation_key:?}")
+            } else {
+                format!("Supplied attributes match rules defined in allocation {allocation_key:?}")
+            };
+        }
+
+        debug_assert!(
+            false,
+            "either self.evaluation_failure or self.matched_details should be set"
+        );
+        String::new()
+    }
 }
 
 impl EvalVisitor for EvalFlagDetailsBuilder {
-    type AllocationVisitor<'a> = EvalAllocationDetailsBuilder<'a>;
+    type AllocationVisitor<'a> = EvalAllocationDetailsBuilder<'a>
+    where
+        Self: 'a;
 
-    fn visit_allocation<'a>(
-        &'a mut self,
-        allocation: &super::Allocation,
-    ) -> Self::AllocationVisitor<'a> {
+    fn visit_allocation<'a>(&'a mut self, allocation: &Allocation) -> Self::AllocationVisitor<'a> {
         let order_position = self.allocation_eval_results.len() + 1;
         let result = self
             .allocation_eval_results
@@ -116,9 +189,13 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
                 evaluated_rules: Vec::new(),
                 evaluated_splits: Vec::new(),
             });
+
         EvalAllocationDetailsBuilder {
             allocation_details: result,
             variation_key: &mut self.variation_key,
+            allocation_has_rules: !allocation.rules.is_empty(),
+            allocation_is_experiment: allocation.splits.len() > 1,
+            matched: &mut self.matched_details,
         }
     }
 
@@ -186,6 +263,14 @@ impl<'b> EvalAllocationVisitor for EvalAllocationDetailsBuilder<'b> {
     }
 
     fn on_result(&mut self, result: Result<&Split, AllocationNonMatchReason>) {
+        if let Ok(split) = result {
+            *self.matched = Some(MatchedDetails {
+                has_rules: self.allocation_has_rules,
+                is_experiment: self.allocation_is_experiment,
+                is_partial_rollout: split.shards.len() > 1,
+            })
+        }
+
         *self.variation_key = result.ok().map(|split| split.variation_key.clone());
 
         self.allocation_details.allocation_evaluation_code = match result {
