@@ -38,6 +38,6 @@ jobs:
           fi
       - name: Verify MSRV for each package
         run: |
-          for dir in eppo_core rust-sdk ruby-sdk/ext/eppo_rb; do
+          for dir in eppo_core rust-sdk ruby-sdk/ext/eppo_client; do
             (cd $dir && cargo msrv verify)
           done
