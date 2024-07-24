@@ -3,4 +3,4 @@
 require "mkmf"
 require "rb_sys/mkmf"
 
-create_rust_makefile("eppo_rb")
+create_rust_makefile("eppo_client")

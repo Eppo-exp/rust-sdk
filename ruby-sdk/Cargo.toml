@@ -3,5 +3,5 @@
 # in the ext/ directory.
 
 [workspace]
-members = ["./ext/eppo_rb"]
+members = ["./ext/eppo_client"]
 resolver = "2"
