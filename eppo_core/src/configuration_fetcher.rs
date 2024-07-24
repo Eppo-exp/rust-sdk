@@ -70,7 +70,7 @@ impl ConfigurationFetcher {
         )
         .map_err(|err| Error::InvalidBaseUrl(err))?;
 
-        log::debug!(target: "eppo", "fetching UFC configuration");
+        log::debug!(target: "eppo", "fetching UFC flags configuration");
         let response = self.client.get(url).send()?;
 
         let response = response.error_for_status().map_err(|err| {
@@ -87,7 +87,7 @@ impl ConfigurationFetcher {
 
         let configuration = response.json()?;
 
-        log::debug!(target: "eppo", "successfully fetched UFC configuration");
+        log::debug!(target: "eppo", "successfully fetched UFC flags configuration");
 
         Ok(configuration)
     }
@@ -104,7 +104,7 @@ impl ConfigurationFetcher {
         )
         .map_err(|err| Error::InvalidBaseUrl(err))?;
 
-        log::debug!(target: "eppo", "fetching UFC configuration");
+        log::debug!(target: "eppo", "fetching UFC bandits configuration");
         let response = self.client.get(url).send()?;
 
         let response = response.error_for_status().map_err(|err| {
@@ -121,7 +121,7 @@ impl ConfigurationFetcher {
 
         let configuration = response.json()?;
 
-        log::debug!(target: "eppo", "successfully fetched UFC configuration");
+        log::debug!(target: "eppo", "successfully fetched UFC bandits configuration");
 
         Ok(configuration)
     }
