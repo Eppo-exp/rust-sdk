@@ -294,6 +294,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "eppo_client"
+version = "3.0.0"
+dependencies = [
+ "env_logger",
+ "eppo_core",
+ "log",
+ "magnus",
+ "rb-sys",
+ "serde",
+ "serde_magnus",
+]
+
+[[package]]
 name = "eppo_core"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -311,19 +324,6 @@ dependencies = [
  "serde_json",
  "thiserror",
  "url",
-]
-
-[[package]]
-name = "eppo_rb"
-version = "3.0.0"
-dependencies = [
- "env_logger",
- "eppo_core",
- "log",
- "magnus",
- "rb-sys",
- "serde",
- "serde_magnus",
 ]
 
 [[package]]

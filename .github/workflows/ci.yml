@@ -51,7 +51,7 @@ jobs:
 
       - name: Check Cargo.lock
         # Ensure that Cargo.lock matches Cargo.toml
-        run: cargo generate-lockfile --locked
+        run: cargo update --workspace --locked
         working-directory: ruby-sdk
 
       - name: Override eppo_core for testing

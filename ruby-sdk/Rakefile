@@ -19,7 +19,7 @@ task default: :build
 
 GEMSPEC = Gem::Specification.load("eppo-server-sdk.gemspec")
 
-RbSys::ExtensionTask.new("eppo_rb", GEMSPEC) do |ext|
+RbSys::ExtensionTask.new("eppo_client", GEMSPEC) do |ext|
   ext.lib_dir = "lib/eppo_client"
 end
 
