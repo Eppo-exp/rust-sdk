@@ -18,6 +18,9 @@ jobs:
           - stable
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
       - run: npm ci
       - run: make test-data
       - name: Install Rust toolchain
@@ -28,12 +31,24 @@ jobs:
         run: cargo test --verbose
       - name: Docs
         run: cargo doc --verbose
-      - name: Publish eppo_core
-        run: cargo publish -p eppo_core
+      - name: Publish eppo_core library
+        run: |
+          VERSION=$(cargo pkgid | sed 's/.*#//')
+          if ! cargo search eppo_core | grep -q "^eppo_core = \"${VERSION}\""; then
+            cargo publish -p eppo_core
+          else
+            echo "eppo_core version ${VERSION} is already published, skipping."
+          fi
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-      - name: Publish rust-sdk
-        run: cargo publish -p eppo
+      - name: Publish Rust SDK
+        run: |
+          VERSION=$(cargo pkgid -p eppo | sed 's/.*#//')
+          if ! cargo search eppo | grep -q "^eppo = \"${VERSION}\""; then
+            cargo publish -p eppo
+          else
+            echo "eppo version ${VERSION} is already published, skipping."
+          fi
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
@@ -64,4 +79,3 @@ jobs:
           gem push *.gem
         env:
           RUBYGEMS_API_KEY: "${{ secrets.RUBYGEMS_API_KEY }}"
-  
