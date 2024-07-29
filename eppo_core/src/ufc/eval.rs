@@ -384,7 +384,13 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        ufc::{get_assignment, TryParse, UniversalFlagConfig, Value, VariationType},
+        ufc::{
+            eval_details::{
+                AllocationEvaluationCode, AllocationEvaluationDetails, FlagEvaluationCode,
+            },
+            get_assignment, get_assignment_details, Rule, TryParse, UniversalFlagConfig, Value,
+            VariationType,
+        },
         Attributes, Configuration,
     };
 
@@ -403,6 +409,68 @@ mod tests {
         subject_key: String,
         subject_attributes: Attributes,
         assignment: TryParse<Value>,
+        evaluation_details: TruncatedEvaluationDetails,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    struct TruncatedEvaluationDetails {
+        /// Environment the configuration belongs to. None if configuration hasn't been fetched yet.
+        environment_name: Option<String>,
+
+        flag_evaluation_code: TruncatedFlagEvaluationCode,
+        flag_evaluation_description: String,
+
+        /// Key of the selected variation.
+        variation_key: Option<String>,
+        /// Value of the selected variation. Could be `None` if no variation is selected, or selected
+        /// value is absent in configuration (configuration error).
+        variation_value: serde_json::Value,
+
+        bandit_key: Option<String>,
+        bandit_action: Option<String>,
+
+        matched_rule: Option<Rule>,
+        matched_allocation: Option<TruncatedAllocationEvaluationDetails>,
+        unmatched_allocations: Vec<TruncatedAllocationEvaluationDetails>,
+        unevaluated_allocations: Vec<TruncatedAllocationEvaluationDetails>,
+    }
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+    #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+    enum TruncatedFlagEvaluationCode {
+        // AssignmentError is not used in Rust because we know all possible errors.
+        AssignmentError,
+        #[serde(untagged)]
+        Native(FlagEvaluationCode),
+    }
+    impl From<TruncatedFlagEvaluationCode> for FlagEvaluationCode {
+        fn from(value: TruncatedFlagEvaluationCode) -> Self {
+            match value {
+                TruncatedFlagEvaluationCode::AssignmentError => {
+                    FlagEvaluationCode::UnexpectedConfigurationError
+                }
+                TruncatedFlagEvaluationCode::Native(code) => code,
+            }
+        }
+    }
+
+    #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct TruncatedAllocationEvaluationDetails {
+        pub key: String,
+        /// Order position of the allocation as seen in the Web UI.
+        pub order_position: usize,
+        pub allocation_evaluation_code: AllocationEvaluationCode,
+    }
+    impl From<AllocationEvaluationDetails> for TruncatedAllocationEvaluationDetails {
+        fn from(value: AllocationEvaluationDetails) -> Self {
+            Self {
+                key: value.key,
+                order_position: value.order_position,
+                allocation_evaluation_code: value.allocation_evaluation_code,
+            }
+        }
     }
 
     // Test files have different representation of Value for JSON. Whereas server returns a string
@@ -457,6 +525,89 @@ mod tests {
                     .unwrap();
 
                 assert_eq!(result_assingment, &expected_assignment);
+                println!("ok");
+            }
+        }
+    }
+
+    #[test]
+    fn evaluation_details_sdk_test_data() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let config: UniversalFlagConfig =
+            serde_json::from_reader(File::open("../sdk-test-data/ufc/flags-v1.json").unwrap())
+                .unwrap();
+        let config = Configuration::from_server_response(config, None);
+
+        for entry in fs::read_dir("../sdk-test-data/ufc/tests/").unwrap() {
+            let entry = entry.unwrap();
+            println!("Processing test file: {:?}", entry.path());
+
+            let f = File::open(entry.path()).unwrap();
+            let test_file: TestFile = serde_json::from_reader(f).unwrap();
+
+            for subject in test_file.subjects {
+                print!("test subject {:?} ... ", subject.subject_key);
+                let (result, _) = get_assignment_details(
+                    Some(&config),
+                    &test_file.flag,
+                    &subject.subject_key,
+                    &subject.subject_attributes,
+                    Some(test_file.variation_type),
+                );
+
+                let actual = result.evaluation_details;
+                let expected = &subject.evaluation_details;
+
+                assert_eq!(actual.environment_name, expected.environment_name);
+                assert_eq!(
+                    actual.flag_evaluation_code,
+                    FlagEvaluationCode::from(expected.flag_evaluation_code)
+                );
+                if expected.flag_evaluation_code != TruncatedFlagEvaluationCode::AssignmentError {
+                    // Assignment errors never happen in Rust and we generate different description.
+                    assert_eq!(
+                        actual.flag_evaluation_description,
+                        expected.flag_evaluation_description
+                    );
+                }
+                assert_eq!(actual.bandit_key, expected.bandit_key);
+                assert_eq!(actual.variation_key, expected.variation_key);
+                // Truncated evaluation details erase variation value (integer vs. float vs. json)
+                // type and simultaneously transform the value in a ways that is impossible to
+                // reverse (parse json from string). So it is impossible to test against.
+                //
+                // assert_eq!(
+                //     actual.variation_value,
+                //     expected.variation_value
+                // );
+
+                let mut matched_allocation: Option<TruncatedAllocationEvaluationDetails> = None;
+                let mut unmatched_allocations: Vec<TruncatedAllocationEvaluationDetails> =
+                    Vec::new();
+                let mut unevaluated_allocations: Vec<TruncatedAllocationEvaluationDetails> =
+                    Vec::new();
+                for allocation in actual.allocations {
+                    match allocation.allocation_evaluation_code {
+                        AllocationEvaluationCode::Unevaluated => {
+                            unevaluated_allocations.push(allocation.into())
+                        }
+                        AllocationEvaluationCode::Match => {
+                            matched_allocation = Some(allocation.into())
+                        }
+                        AllocationEvaluationCode::BeforeStartTime
+                        | AllocationEvaluationCode::AfterEndTime
+                        | AllocationEvaluationCode::FailingRule
+                        | AllocationEvaluationCode::TrafficExposureMiss => {
+                            unmatched_allocations.push(allocation.into())
+                        }
+                    }
+                }
+
+                assert_eq!(matched_allocation, expected.matched_allocation);
+                assert_eq!(unmatched_allocations, expected.unmatched_allocations);
+                assert_eq!(unevaluated_allocations, expected.unevaluated_allocations);
+
                 println!("ok");
             }
         }

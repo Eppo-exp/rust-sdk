@@ -128,7 +128,9 @@ impl EvalFlagDetailsBuilder {
                 EvaluationFailure::FlagUnrecognizedOrDisabled => {
                     format!("Unrecognized or disabled flag: {}", self.flag_key)
                 }
-                EvaluationFailure::FlagDisabled => format!("Disabled flag: {}", self.flag_key),
+                EvaluationFailure::FlagDisabled => {
+                    format!("Unrecognized or disabled flag: {}", self.flag_key)
+                }
                 EvaluationFailure::DefaultAllocationNull => format!(
                     "No allocations matched. Falling back to \"Default Allocation\", serving NULL"
                 ),
@@ -156,11 +158,11 @@ impl EvalFlagDetailsBuilder {
                 .expect("there must be matched allocation");
 
             return if !has_rules {
-                format!("{subject_key} belongs to the range of traffic assigned to {variation_key:?} defined in allocation {allocation_key:?}")
+                format!("{subject_key} belongs to the range of traffic assigned to {variation_key:?} defined in allocation {allocation_key:?}.")
             } else if is_experiment || is_partial_rollout {
-                format!("Supplied attributes match rules defined in allocation {allocation_key:?} and {subject_key} belongs to the range of traffic assigned to {variation_key:?}")
+                format!("Supplied attributes match rules defined in allocation {allocation_key:?} and {subject_key} belongs to the range of traffic assigned to {variation_key:?}.")
             } else {
-                format!("Supplied attributes match rules defined in allocation {allocation_key:?}")
+                format!("Supplied attributes match rules defined in allocation {allocation_key:?}.")
             };
         }
 
@@ -276,9 +278,9 @@ impl<'b> EvalAllocationVisitor for EvalAllocationDetailsBuilder<'b> {
         self.allocation_details.allocation_evaluation_code = match result {
             Ok(_) => AllocationEvaluationCode::Match,
             Err(AllocationNonMatchReason::BeforeStartDate) => {
-                AllocationEvaluationCode::BeforeStartDate
+                AllocationEvaluationCode::BeforeStartTime
             }
-            Err(AllocationNonMatchReason::AfterEndDate) => AllocationEvaluationCode::AfterEndDate,
+            Err(AllocationNonMatchReason::AfterEndDate) => AllocationEvaluationCode::AfterEndTime,
             Err(AllocationNonMatchReason::FailingRule) => AllocationEvaluationCode::FailingRule,
             Err(AllocationNonMatchReason::TrafficExposureMiss) => {
                 AllocationEvaluationCode::TrafficExposureMiss

@@ -101,10 +101,10 @@ pub enum AllocationEvaluationCode {
     Unevaluated,
     /// The subject matched all conditions and this allocation was selected.
     Match,
-    /// Evaluation happened before required start date for this allocation.
-    BeforeStartDate,
-    /// Evaluation happened after required end date for this allocation.
-    AfterEndDate,
+    /// Evaluation happened before required start time for this allocation.
+    BeforeStartTime,
+    /// Evaluation happened after required end time for this allocation.
+    AfterEndTime,
     /// Subject failed all allocation rules.
     FailingRule,
     /// Subject matched all rules but missed due to traffic exposure.
