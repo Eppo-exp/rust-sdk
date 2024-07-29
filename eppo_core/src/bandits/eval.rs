@@ -174,7 +174,15 @@ impl BanditModelData {
 
         let best = scores
             .iter()
-            .max_by(|a, b| f64::total_cmp(a.1, b.1))
+            .max_by(|a, b| {
+                f64::total_cmp(a.1, b.1).then_with(|| {
+                    // In the case of multiple actions getting the same best score, we need to break
+                    // the tie deterministically.
+                    //
+                    // Compare action names next
+                    Ord::cmp(a.0, b.0)
+                })
+            })
             .map(|(k, v)| (*k, *v))?;
 
         let weights = self.weigh_actions(&scores, best);
