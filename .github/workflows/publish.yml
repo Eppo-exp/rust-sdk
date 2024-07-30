@@ -1,4 +1,19 @@
-name: Publish Crate
+# This workflow publishes releases to upstream registries (crates.io
+# for Rust crates, rubygems.org for Ruby gems).
+#
+# The release process is somewhat convoluted due to interdependencies
+# between packages (most notably, Ruby gem requires eppo_core to be
+# published beforehand and ruby-sdk/Cargo.lock to be updated with the
+# proper hash), so we cannot release all packages in one go.
+#
+# To workaround these complications, the release process is staged and
+# packages are released based on the release tag name.
+#
+# The following names are supported:
+# - eppo_core@*.*.* to publish eppo_core to crates.io.
+# - rust-sdk@*.*.* to publish Rust SDK.
+# - ruby-sdk@*.*.* to publish Ruby SDK.
+name: Publish Release
 
 on:
   release:
