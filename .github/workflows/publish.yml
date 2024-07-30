@@ -12,10 +12,7 @@ jobs:
   publish:
     name: Publish to Crates.io
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        toolchain:
-          - stable
+    if: ${{ startsWith(github.ref_name, 'eppo_core@') || startsWith(github.ref_name, 'rust-sdk@') }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
@@ -24,37 +21,28 @@ jobs:
       - run: npm ci
       - run: make test-data
       - name: Install Rust toolchain
-        run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+        run: rustup update stable && rustup default stable
       - name: Build Release
         run: cargo build --release --verbose
       - name: Test
         run: cargo test --verbose
       - name: Docs
         run: cargo doc --verbose
-      - name: Publish eppo_core library
-        run: |
-          VERSION=$(cargo pkgid | sed 's/.*#//')
-          if ! cargo search eppo_core | grep -q "^eppo_core = \"${VERSION}\""; then
-            cargo publish -p eppo_core
-          else
-            echo "eppo_core version ${VERSION} is already published, skipping."
-          fi
+      - name: Publish eppo_core
+        if: ${{ startsWith(github.ref_name, 'eppo_core@') }}
+        run: cargo publish -p eppo_core
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
-      - name: Publish Rust SDK
-        run: |
-          VERSION=$(cargo pkgid -p eppo | sed 's/.*#//')
-          if ! cargo search eppo | grep -q "^eppo = \"${VERSION}\""; then
-            cargo publish -p eppo
-          else
-            echo "eppo version ${VERSION} is already published, skipping."
-          fi
+      - name: Publish rust-sdk
+        if: ${{ startsWith(github.ref_name, 'rust-sdk@') }}
+        run: cargo publish -p eppo
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_IO_TOKEN }}
 
   publish_ruby:
     name: Publish to RubyGems
     runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref_name, 'ruby-sdk@') }}
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
