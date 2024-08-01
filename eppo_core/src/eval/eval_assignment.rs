@@ -97,15 +97,20 @@ fn get_assignment_with_visitor<V: EvalVisitor>(
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
 ) -> Result<Option<Assignment>, EvaluationError> {
-    let result = get_assignment_inner(
-        configuration,
-        visitor,
-        flag_key,
-        subject_key,
-        subject_attributes,
-        expected_type,
-        now,
-    );
+    let result = if let Some(config) = configuration {
+        visitor.on_configuration(config);
+
+        config.flags.eval_flag(
+            visitor,
+            &flag_key,
+            &subject_key,
+            &subject_attributes,
+            expected_type,
+            now,
+        )
+    } else {
+        Err(EvaluationFailure::ConfigurationMissing)
+    };
 
     visitor.on_result(&result);
 
@@ -146,31 +151,6 @@ fn get_assignment_with_visitor<V: EvalVisitor>(
             Ok(None)
         }
     }
-}
-
-fn get_assignment_inner<V: EvalVisitor>(
-    configuration: Option<&Configuration>,
-    visitor: &mut V,
-    flag_key: &str,
-    subject_key: &str,
-    subject_attributes: &Attributes,
-    expected_type: Option<VariationType>,
-    now: DateTime<Utc>,
-) -> Result<Assignment, EvaluationFailure> {
-    let Some(config) = configuration else {
-        return Err(EvaluationFailure::ConfigurationMissing);
-    };
-
-    visitor.on_configuration(config);
-
-    config.flags.eval_flag(
-        visitor,
-        &flag_key,
-        &subject_key,
-        &subject_attributes,
-        expected_type,
-        now,
-    )
 }
 
 impl UniversalFlagConfig {
