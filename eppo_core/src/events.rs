@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ufc::eval_details::EvaluationDetails, Attributes};
+use crate::{eval::eval_details::EvaluationDetails, Attributes};
 
 /// Events that can be emitted during evaluation of assignment or bandit. They need to be logged to
 /// analytics storage and fed back to Eppo for analysis.

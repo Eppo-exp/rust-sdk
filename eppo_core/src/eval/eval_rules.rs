@@ -143,7 +143,10 @@ impl ConditionOperator {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::ufc::{eval_visitor::NoopEvalVisitor, Condition, ConditionOperator, Rule};
+    use crate::{
+        eval::eval_visitor::NoopEvalVisitor,
+        ufc::{Condition, ConditionOperator, Rule},
+    };
 
     #[test]
     fn matches_regex() {

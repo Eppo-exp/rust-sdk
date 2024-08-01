@@ -1,21 +1,18 @@
 use std::collections::HashMap;
 
 use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
+use crate::bandits::{
+    BanditCategoricalAttributeCoefficient, BanditModelData, BanditNumericAttributeCoefficient,
+};
 use crate::events::{AssignmentEvent, BanditEvent};
 use crate::sharder::get_md5_shard;
-use crate::ufc::get_assignment;
-use crate::ufc::Assignment;
-use crate::ufc::AssignmentValue;
-use crate::ufc::VariationType;
+use crate::ufc::{Assignment, AssignmentValue, VariationType};
 use crate::Configuration;
 use crate::ContextAttributes;
 
-use super::BanditCategoricalAttributeCoefficient;
-use super::BanditModelData;
-use super::BanditNumericAttributeCoefficient;
+use super::get_assignment;
 
 #[derive(Debug)]
 struct BanditEvaluationDetails {
@@ -322,7 +319,7 @@ mod tests {
 
     use serde::{Deserialize, Serialize};
 
-    use crate::{bandits::get_bandit_action, Configuration, ContextAttributes};
+    use crate::{eval::get_bandit_action, Configuration, ContextAttributes};
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]

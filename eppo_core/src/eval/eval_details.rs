@@ -3,10 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{EvaluationError, EvaluationFailure},
+    ufc::{Condition, Shard, Value},
     AttributeValue, Attributes,
 };
-
-use super::{Condition, Shard, Value};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]

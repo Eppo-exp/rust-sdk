@@ -1,9 +1,10 @@
-use crate::{error::EvaluationFailure, AttributeValue, Configuration};
-
-use super::{
-    eval::AllocationNonMatchReason, Allocation, Assignment, Condition, Flag, Rule, Shard, Split,
-    Variation,
+use crate::{
+    error::EvaluationFailure,
+    ufc::{Allocation, Assignment, Condition, Flag, Rule, Shard, Split, Variation},
+    AttributeValue, Configuration,
 };
+
+use super::eval_assignment::AllocationNonMatchReason;
 
 pub(super) trait EvalVisitor {
     // Type-foo here basically means that AllocationVisitor may hold references to EvalFlagVisitor

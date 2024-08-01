@@ -2,12 +2,13 @@ use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
 
-use crate::{error::EvaluationFailure, AttributeValue, Attributes, Configuration, EvaluationError};
-
-use super::{
-    eval::AllocationNonMatchReason, eval_details::*, eval_visitor::*, Allocation, Assignment,
-    Condition, Rule, Shard, Split, Value,
+use crate::{
+    error::EvaluationFailure,
+    ufc::{Allocation, Assignment, Condition, Flag, Rule, Shard, Split, Value, Variation},
+    AttributeValue, Attributes, Configuration, EvaluationError,
 };
+
+use super::{eval_assignment::AllocationNonMatchReason, eval_details::*, eval_visitor::*};
 
 pub(crate) struct EvalFlagDetailsBuilder {
     flag_key: String,
@@ -207,13 +208,13 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
         self.environment_name = Some(configuration.flags.environment.name.clone());
     }
 
-    fn on_flag_configuration(&mut self, flag: &super::Flag) {
+    fn on_flag_configuration(&mut self, flag: &Flag) {
         self.allocation_keys_order.truncate(0);
         self.allocation_keys_order
             .extend(flag.allocations.iter().map(|it| &it.key).cloned());
     }
 
-    fn on_variation(&mut self, variation: &super::Variation) {
+    fn on_variation(&mut self, variation: &Variation) {
         self.variation_value = Some(variation.value.clone());
     }
 

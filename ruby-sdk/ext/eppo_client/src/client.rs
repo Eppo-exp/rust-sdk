@@ -1,11 +1,11 @@
 use std::{cell::RefCell, sync::Arc};
 
 use eppo_core::{
-    bandits::get_bandit_action,
     configuration_fetcher::ConfigurationFetcher,
     configuration_store::ConfigurationStore,
+    eval::{get_assignment, get_bandit_action},
     poller_thread::PollerThread,
-    ufc::{get_assignment, VariationType},
+    ufc::VariationType,
     Attributes, ContextAttributes,
 };
 use magnus::{error::Result, exception, prelude::*, Error, TryConvert, Value};

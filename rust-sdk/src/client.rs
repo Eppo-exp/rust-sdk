@@ -7,7 +7,8 @@ use crate::{
 
 use eppo_core::{
     configuration_store::ConfigurationStore,
-    ufc::{get_assignment, get_assignment_details, Assignment, VariationType},
+    eval::{get_assignment, get_assignment_details},
+    ufc::{Assignment, VariationType},
 };
 
 /// A client for Eppo API.
