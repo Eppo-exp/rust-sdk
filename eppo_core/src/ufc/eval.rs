@@ -2,6 +2,7 @@ use chrono::{DateTime, Utc};
 
 use crate::{
     error::{EvaluationError, EvaluationFailure},
+    events::AssignmentEvent,
     sharder::get_md5_shard,
     Attributes, Configuration,
 };
@@ -12,8 +13,8 @@ use super::{
     eval_visitor::{
         EvalAllocationVisitor, EvalRuleVisitor, EvalSplitVisitor, EvalVisitor, NoopEvalVisitor,
     },
-    Allocation, Assignment, AssignmentEvent, AssignmentValue, Flag, Shard, Split, Timestamp,
-    TryParse, UniversalFlagConfig, VariationType,
+    Allocation, Assignment, AssignmentValue, Flag, Shard, Split, Timestamp, TryParse,
+    UniversalFlagConfig, VariationType,
 };
 
 /// Evaluate the specified feature flag for the given subject and return assigned variation and

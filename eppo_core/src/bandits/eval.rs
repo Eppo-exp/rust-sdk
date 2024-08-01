@@ -4,16 +4,15 @@ use chrono::Utc;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::events::{AssignmentEvent, BanditEvent};
 use crate::sharder::get_md5_shard;
 use crate::ufc::get_assignment;
 use crate::ufc::Assignment;
-use crate::ufc::AssignmentEvent;
 use crate::ufc::AssignmentValue;
 use crate::ufc::VariationType;
 use crate::Configuration;
 use crate::ContextAttributes;
 
-use super::event::BanditEvent;
 use super::BanditCategoricalAttributeCoefficient;
 use super::BanditModelData;
 use super::BanditNumericAttributeCoefficient;

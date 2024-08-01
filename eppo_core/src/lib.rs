@@ -17,6 +17,7 @@
 pub mod bandits;
 pub mod configuration_fetcher;
 pub mod configuration_store;
+pub mod events;
 pub mod poller_thread;
 pub mod sharder;
 pub mod ufc;
