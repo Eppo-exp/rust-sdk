@@ -12,10 +12,10 @@ use crate::{
 pub enum FlagEvaluationCode {
     /// An allocation configured for this flag was matched for any reason.
     Match,
+    /// Configuration has not been fetched yet.
+    ConfigurationMissing,
     /// Flag does not exist or is not enabled for the environment in use.
     FlagUnrecognizedOrDisabled,
-    /// Flag is not enabled for the environment in use.
-    FlagDisabled,
     /// Default allocation is matched and is also serving NULL, resulting in the default value being
     /// assigned.
     DefaultAllocationNull,
@@ -150,7 +150,7 @@ impl From<Option<EvaluationFailure>> for FlagEvaluationCode {
 impl From<EvaluationFailure> for FlagEvaluationCode {
     fn from(value: EvaluationFailure) -> Self {
         match value {
-            EvaluationFailure::ConfigurationMissing => Self::FlagUnrecognizedOrDisabled,
+            EvaluationFailure::ConfigurationMissing => Self::ConfigurationMissing,
             EvaluationFailure::FlagUnrecognizedOrDisabled => Self::FlagUnrecognizedOrDisabled,
             EvaluationFailure::FlagDisabled => Self::FlagUnrecognizedOrDisabled,
             EvaluationFailure::DefaultAllocationNull => Self::DefaultAllocationNull,
