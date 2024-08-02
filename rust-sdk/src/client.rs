@@ -1,14 +1,15 @@
 use std::sync::Arc;
 
-#[cfg(doc)]
-use crate::Error;
 use crate::{
     poller::{PollerThread, PollerThreadConfig},
-    AssignmentValue, Attributes, ClientConfig, Result,
+    AssignmentValue, Attributes, ClientConfig, Error, EvaluationError, EvaluationResultWithDetails,
 };
 
-use eppo_core::ufc::VariationType;
-use eppo_core::{configuration_store::ConfigurationStore, ufc::Assignment};
+use eppo_core::{
+    configuration_store::ConfigurationStore,
+    eval::{get_assignment, get_assignment_details},
+    ufc::{Assignment, VariationType},
+};
 
 /// A client for Eppo API.
 ///
@@ -83,13 +84,6 @@ impl<'a> Client<'a> {
     /// safety. They can catch type errors even _before_ evaluating the assignment, which helps to
     /// detect errors if subject is not eligible for the flag allocation.
     ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
-    ///
     /// # Examples
     ///
     /// ```
@@ -113,7 +107,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<AssignmentValue>> {
+    ) -> Result<Option<AssignmentValue>, EvaluationError> {
         self.get_assignment_inner(flag_key, subject_key, subject_attributes, None, |x| x)
     }
 
@@ -127,14 +121,6 @@ impl<'a> Client<'a> {
     ///
     /// It is recommended to wait for the Eppo configuration to get fetched with
     /// [`PollerThread::wait_for_configuration()`].
-    ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::InvalidType`] if the requested flag has an invalid type or type conversion fails.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
     ///
     /// # Examples
     ///
@@ -153,7 +139,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<String>> {
+    ) -> Result<Option<String>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -178,14 +164,6 @@ impl<'a> Client<'a> {
     /// It is recommended to wait for the Eppo configuration to get fetched with
     /// [`PollerThread::wait_for_configuration()`].
     ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::InvalidType`] if the requested flag has an invalid type or type conversion fails.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
-    ///
     /// # Examples
     ///
     /// ```
@@ -203,7 +181,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<i64>> {
+    ) -> Result<Option<i64>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -228,14 +206,6 @@ impl<'a> Client<'a> {
     /// It is recommended to wait for the Eppo configuration to get fetched with
     /// [`PollerThread::wait_for_configuration()`].
     ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::InvalidType`] if the requested flag has an invalid type or type conversion fails.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
-    ///
     /// # Examples
     ///
     /// ```
@@ -253,7 +223,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<f64>> {
+    ) -> Result<Option<f64>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -278,14 +248,6 @@ impl<'a> Client<'a> {
     /// It is recommended to wait for the Eppo configuration to get fetched with
     /// [`PollerThread::wait_for_configuration()`].
     ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::InvalidType`] if the requested flag has an invalid type or type conversion fails.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
-    ///
     /// # Examples
     ///
     /// ```
@@ -303,7 +265,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<bool>> {
+    ) -> Result<Option<bool>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -328,14 +290,6 @@ impl<'a> Client<'a> {
     /// It is recommended to wait for the Eppo configuration to get fetched with
     /// [`PollerThread::wait_for_configuration()`].
     ///
-    /// # Errors
-    ///
-    /// Returns an error in the following cases:
-    /// - [`Error::FlagNotFound`] if the requested flag configuration was not found.
-    /// - [`Error::InvalidType`] if the requested flag has an invalid type or type conversion fails.
-    /// - [`Error::ConfigurationParseError`] or [`Error::ConfigurationError`] if the configuration
-    /// received from the server is invalid.
-    ///
     /// # Examples
     ///
     /// ```
@@ -354,7 +308,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &Attributes,
-    ) -> Result<Option<serde_json::Value>> {
+    ) -> Result<Option<serde_json::Value>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -375,10 +329,15 @@ impl<'a> Client<'a> {
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
         convert: impl FnOnce(AssignmentValue) -> T,
-    ) -> Result<Option<T>> {
+    ) -> Result<Option<T>, EvaluationError> {
         let config = self.configuration_store.get_configuration();
-        let assignment =
-            config.get_assignment(flag_key, subject_key, subject_attributes, expected_type)?;
+        let assignment = get_assignment(
+            config.as_ref().map(|it| it.as_ref()),
+            flag_key,
+            subject_key,
+            subject_attributes,
+            expected_type,
+        )?;
 
         let Some(Assignment { value, event }) = assignment else {
             return Ok(None);
@@ -394,8 +353,177 @@ impl<'a> Client<'a> {
         Ok(Some(convert(value)))
     }
 
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_assignment()`] or another detail-less function in
+    /// production.
+    ///
+    /// # Typed versions
+    ///
+    /// There are typed versions of this function:
+    /// - [`Client::get_string_assignment_details()`]
+    /// - [`Client::get_integer_assignment_details()`]
+    /// - [`Client::get_numeric_assignment_details()`]
+    /// - [`Client::get_boolean_assignment_details()`]
+    /// - [`Client::get_json_assignment_details()`]
+    ///
+    /// It is recommended to use typed versions of this function as they provide additional type
+    /// safety. They can catch type errors even _before_ evaluating the assignment, which helps to
+    /// detect errors if subject is not eligible for the flag allocation.
+    pub fn get_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> EvaluationResultWithDetails<AssignmentValue> {
+        self.get_assignment_details_inner(flag_key, subject_key, subject_attributes, None)
+    }
+
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_string_assignment()`] in production.
+    pub fn get_string_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> EvaluationResultWithDetails<String> {
+        self.get_assignment_details_inner(
+            flag_key,
+            subject_key,
+            subject_attributes,
+            Some(VariationType::String),
+        )
+        .map(|it| {
+            it.to_string()
+                .expect("the type should have been checked during evaluation")
+        })
+    }
+
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_integer_assignment()`] in production.
+    pub fn get_integer_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> EvaluationResultWithDetails<i64> {
+        self.get_assignment_details_inner(
+            flag_key,
+            subject_key,
+            subject_attributes,
+            Some(VariationType::Integer),
+        )
+        .map(|it| {
+            it.as_integer()
+                .expect("the type should have been checked during evaluation")
+        })
+    }
+
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_numeric_assignment()`] in production.
+    pub fn get_numeric_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> EvaluationResultWithDetails<f64> {
+        self.get_assignment_details_inner(
+            flag_key,
+            subject_key,
+            subject_attributes,
+            Some(VariationType::Numeric),
+        )
+        .map(|it| {
+            it.as_numeric()
+                .expect("the type should have been checked during evaluation")
+        })
+    }
+
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_boolean_assignment()`] in production.
+    pub fn get_boolean_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> EvaluationResultWithDetails<bool> {
+        self.get_assignment_details_inner(
+            flag_key,
+            subject_key,
+            subject_attributes,
+            Some(VariationType::Boolean),
+        )
+        .map(|it| {
+            it.as_boolean()
+                .expect("the type should have been checked during evaluation")
+        })
+    }
+
+    /// Get the assignment value for a given feature flag and subject, along with details of why
+    /// this value was selected.
+    ///
+    /// *NOTE:* It is a debug function and is slower due to the need to collect all the
+    /// details. Prefer using [`Client::get_json_assignment()`] in production.
+    pub fn get_json_assignment_details(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+    ) -> EvaluationResultWithDetails<serde_json::Value> {
+        self.get_assignment_details_inner(
+            flag_key,
+            subject_key,
+            subject_attributes,
+            Some(VariationType::Json),
+        )
+        .map(|it| {
+            it.to_json()
+                .expect("the type should have been checked during evaluation")
+        })
+    }
+
+    fn get_assignment_details_inner(
+        &self,
+        flag_key: &str,
+        subject_key: &str,
+        subject_attributes: &Attributes,
+        expected_type: Option<VariationType>,
+    ) -> EvaluationResultWithDetails<AssignmentValue> {
+        let config = self.configuration_store.get_configuration();
+        let (result, event) = get_assignment_details(
+            config.as_ref().map(|it| it.as_ref()),
+            flag_key,
+            subject_key,
+            subject_attributes,
+            expected_type,
+        );
+
+        if let Some(event) = event {
+            log::trace!(target: "eppo",
+                        event:serde;
+                        "logging assignment");
+            self.config.assignment_logger.log_assignment(event);
+        }
+
+        result
+    }
+
     /// Start a poller thread to fetch configuration from the server.
-    pub fn start_poller_thread(&mut self) -> Result<PollerThread> {
+    pub fn start_poller_thread(&mut self) -> Result<PollerThread, Error> {
         PollerThread::start(PollerThreadConfig {
             store: self.configuration_store.clone(),
             base_url: self.config.base_url.clone(),
@@ -411,7 +539,10 @@ mod tests {
     use crate::{client::AssignmentValue, Client, ClientConfig};
     use eppo_core::{
         configuration_store::ConfigurationStore,
-        ufc::{Allocation, Flag, Split, TryParse, UniversalFlagConfig, Variation, VariationType},
+        ufc::{
+            Allocation, Environment, Flag, Split, TryParse, UniversalFlagConfig, Variation,
+            VariationType,
+        },
         Configuration,
     };
 
@@ -440,8 +571,12 @@ mod tests {
         );
 
         // updating configuration after client is created
-        configuration_store.set_configuration(Configuration::new(
-            Some(UniversalFlagConfig {
+        configuration_store.set_configuration(Configuration::from_server_response(
+            UniversalFlagConfig {
+                created_at: chrono::Utc::now(),
+                environment: Environment {
+                    name: "test".to_owned(),
+                },
                 flags: [(
                     "flag".to_owned(),
                     TryParse::Parsed(Flag {
@@ -473,7 +608,7 @@ mod tests {
                 )]
                 .into(),
                 bandits: HashMap::new(),
-            }),
+            },
             None,
         ));
 

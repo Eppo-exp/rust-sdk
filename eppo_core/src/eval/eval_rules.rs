@@ -6,18 +6,26 @@ use crate::{
     AttributeValue, Attributes,
 };
 
+use super::eval_visitor::EvalRuleVisitor;
+
 impl Rule {
-    pub(crate) fn eval(&self, attributes: &Attributes) -> bool {
+    pub(super) fn eval<V: EvalRuleVisitor>(
+        &self,
+        visitor: &mut V,
+        attributes: &Attributes,
+    ) -> bool {
         self.conditions
             .iter()
-            .all(|condition| condition.eval(attributes))
+            .all(|condition| condition.eval(visitor, attributes))
     }
 }
 
 impl Condition {
-    fn eval(&self, attributes: &Attributes) -> bool {
-        self.operator
-            .eval(attributes.get(&self.attribute), &self.value)
+    fn eval<V: EvalRuleVisitor>(&self, visitor: &mut V, attributes: &Attributes) -> bool {
+        let attribute = attributes.get(&self.attribute);
+        let result = self.operator.eval(attribute, &self.value);
+        visitor.on_condition_eval(self, attribute, result);
+        result
     }
 }
 
@@ -135,7 +143,10 @@ impl ConditionOperator {
 mod tests {
     use std::collections::HashMap;
 
-    use crate::ufc::{Condition, ConditionOperator, Rule};
+    use crate::{
+        eval::eval_visitor::NoopEvalVisitor,
+        ufc::{Condition, ConditionOperator, Rule},
+    };
 
     #[test]
     fn matches_regex() {
@@ -287,7 +298,7 @@ mod tests {
     #[test]
     fn empty_rule() {
         let rule = Rule { conditions: vec![] };
-        assert!(rule.eval(&HashMap::from([])));
+        assert!(rule.eval(&mut NoopEvalVisitor, &HashMap::from([])));
     }
 
     #[test]
@@ -299,7 +310,10 @@ mod tests {
                 value: 10.0.into(),
             }],
         };
-        assert!(rule.eval(&HashMap::from([("age".into(), 11.0.into())])));
+        assert!(rule.eval(
+            &mut NoopEvalVisitor,
+            &HashMap::from([("age".into(), 11.0.into())])
+        ));
     }
 
     #[test]
@@ -318,9 +332,18 @@ mod tests {
                 },
             ],
         };
-        assert!(rule.eval(&HashMap::from([("age".into(), 20.0.into())])));
-        assert!(!rule.eval(&HashMap::from([("age".into(), 17.0.into())])));
-        assert!(!rule.eval(&HashMap::from([("age".into(), 110.0.into())])));
+        assert!(rule.eval(
+            &mut NoopEvalVisitor,
+            &HashMap::from([("age".into(), 20.0.into())])
+        ));
+        assert!(!rule.eval(
+            &mut NoopEvalVisitor,
+            &HashMap::from([("age".into(), 17.0.into())])
+        ));
+        assert!(!rule.eval(
+            &mut NoopEvalVisitor,
+            &HashMap::from([("age".into(), 110.0.into())])
+        ));
     }
 
     #[test]
@@ -332,6 +355,9 @@ mod tests {
                 value: 10.0.into(),
             }],
         };
-        assert!(!rule.eval(&HashMap::from([("name".into(), "alice".into())])));
+        assert!(!rule.eval(
+            &mut NoopEvalVisitor,
+            &HashMap::from([("name".into(), "alice".into())])
+        ));
     }
 }

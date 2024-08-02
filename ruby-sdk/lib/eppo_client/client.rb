@@ -48,6 +48,26 @@ module EppoClient
       get_assignment_inner(flag_key, subject_key, subject_attributes, "JSON", default_value)
     end
 
+    def get_string_assignment_details(flag_key, subject_key, subject_attributes, default_value)
+      get_assignment_details_inner(flag_key, subject_key, subject_attributes, "STRING", default_value)
+    end
+
+    def get_numeric_assignment_details(flag_key, subject_key, subject_attributes, default_value)
+      get_assignment_details_inner(flag_key, subject_key, subject_attributes, "NUMERIC", default_value)
+    end
+
+    def get_integer_assignment_details(flag_key, subject_key, subject_attributes, default_value)
+      get_assignment_details_inner(flag_key, subject_key, subject_attributes, "INTEGER", default_value)
+    end
+
+    def get_boolean_assignment_details(flag_key, subject_key, subject_attributes, default_value)
+      get_assignment_details_inner(flag_key, subject_key, subject_attributes, "BOOLEAN", default_value)
+    end
+
+    def get_json_assignment_details(flag_key, subject_key, subject_attributes, default_value)
+      get_assignment_details_inner(flag_key, subject_key, subject_attributes, "JSON", default_value)
+    end
+
     def get_bandit_action(flag_key, subject_key, subject_attributes, actions, default_variation)
       attributes = coerce_context_attributes(subject_attributes)
       actions = actions.to_h { |action, attributes| [action, coerce_context_attributes(attributes)] }
@@ -56,7 +76,22 @@ module EppoClient
       log_assignment(result[:assignment_event])
       log_bandit_action(result[:bandit_event])
 
-      return {:variation => result[:variation], :action=>result[:action]}
+      return {:variation => result[:variation], :action => result[:action]}
+    end
+
+    def get_bandit_action_details(flag_key, subject_key, subject_attributes, actions, default_variation)
+      attributes = coerce_context_attributes(subject_attributes)
+      actions = actions.to_h { |action, attributes| [action, coerce_context_attributes(attributes)] }
+      result, details = @core.get_bandit_action_details(flag_key, subject_key, attributes, actions, default_variation)
+
+      log_assignment(result[:assignment_event])
+      log_bandit_action(result[:bandit_event])
+
+      return {
+        :variation => result[:variation],
+        :action => result[:action],
+        :evaluationDetails => details
+      }
     end
 
     private
@@ -72,13 +107,29 @@ module EppoClient
 
         log_assignment(assignment[:event])
 
-        return assignment[:value][expected_type]
+        return assignment[:value][:value]
       rescue StandardError => error
         logger.debug("[Eppo SDK] Failed to get assignment: #{error}")
 
         # TODO: non-graceful mode?
         default_value
       end
+    end
+    # rubocop:enable Metrics/MethodLength
+
+    # rubocop:disable Metrics/MethodLength
+    def get_assignment_details_inner(flag_key, subject_key, subject_attributes, expected_type, default_value)
+      result, event = @core.get_assignment_details(flag_key, subject_key, subject_attributes, expected_type)
+      log_assignment(event)
+
+      if not result[:variation] then
+        result[:variation] = default_value
+      else
+        # unwrap from AssignmentValue to untyped value
+        result[:variation] = result[:variation][:value]
+      end
+
+      return result
     end
     # rubocop:enable Metrics/MethodLength
 

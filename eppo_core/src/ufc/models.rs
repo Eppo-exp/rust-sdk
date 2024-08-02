@@ -12,6 +12,10 @@ pub type Timestamp = chrono::DateTime<chrono::Utc>;
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UniversalFlagConfig {
+    /// When configuration was last updated.
+    pub created_at: Timestamp,
+    /// Environment this configuration belongs to.
+    pub environment: Environment,
     /// Flags configuration.
     ///
     /// Value is wrapped in `TryParse` so that if we fail to parse one flag (e.g., new server
@@ -21,6 +25,13 @@ pub struct UniversalFlagConfig {
     /// served separately.
     #[serde(default)]
     pub bandits: HashMap<String, Vec<BanditVariation>>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Environment {
+    /// Name of the environment.
+    pub name: String,
 }
 
 /// `TryParse` allows the subfield to fail parsing without failing the parsing of the whole
@@ -183,7 +194,7 @@ fn default_do_log() -> bool {
     true
 }
 
-#[derive(Debug, Serialize, Deserialize, From, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub struct Rule {
@@ -192,7 +203,7 @@ pub struct Rule {
 
 /// `Condition` is a check that given user `attribute` matches the condition `value` under the given
 /// `operator`.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub struct Condition {
@@ -232,7 +243,7 @@ pub enum ConditionOperator {
     IsNull,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 #[allow(missing_docs)]
 pub enum ConditionValue {
@@ -262,7 +273,7 @@ pub struct Split {
     pub extra_logging: HashMap<String, String>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub struct Shard {
@@ -270,7 +281,7 @@ pub struct Shard {
     pub ranges: Vec<ShardRange>,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub struct ShardRange {
@@ -314,6 +325,8 @@ mod tests {
         let ufc: UniversalFlagConfig = serde_json::from_str(
             &r#"
               {
+                "createdAt": "2024-07-18T00:00:00Z",
+                "environment": {"name": "test"},
                 "flags": {
                   "success": {
                     "key": "success",

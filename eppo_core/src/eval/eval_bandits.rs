@@ -1,38 +1,30 @@
 use std::collections::HashMap;
 
-use chrono::Utc;
-use serde::Deserialize;
-use serde::Serialize;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
-use crate::sharder::Md5Sharder;
-use crate::sharder::Sharder;
-use crate::ufc::Assignment;
-use crate::ufc::AssignmentEvent;
-use crate::ufc::AssignmentValue;
-use crate::ufc::VariationType;
-use crate::Configuration;
+use crate::bandits::{
+    BanditCategoricalAttributeCoefficient, BanditModelData, BanditNumericAttributeCoefficient,
+};
+use crate::error::EvaluationFailure;
+use crate::events::{AssignmentEvent, BanditEvent};
+use crate::sharder::get_md5_shard;
+use crate::ufc::{Assignment, AssignmentValue, VariationType};
 use crate::ContextAttributes;
+use crate::{Configuration, EvaluationError};
 
-use super::event::BanditEvent;
-use super::BanditCategoricalAttributeCoefficient;
-use super::BanditModelData;
-use super::BanditNumericAttributeCoefficient;
+use super::eval_assignment::get_assignment_with_visitor;
+use super::eval_details::EvaluationDetails;
+use super::eval_details_builder::EvalDetailsBuilder;
+use super::eval_visitor::{EvalBanditVisitor, NoopEvalVisitor};
 
 #[derive(Debug)]
 struct BanditEvaluationDetails {
-    pub flag_key: String,
-    pub subject_key: String,
-    pub subject_attributes: ContextAttributes,
     /// Selected action.
-    pub action_key: String,
-    /// Attributes of the selected action.
-    pub action_attributes: ContextAttributes,
-    /// Score of the selected action.
-    pub action_score: f64,
-    pub action_weight: f64,
-    pub gamma: f64,
+    action_key: String,
+    action_weight: f64,
     /// Distance between best and selected actions' scores.
-    pub optimality_gap: f64,
+    optimality_gap: f64,
 }
 
 struct Action<'a> {
@@ -44,111 +36,201 @@ struct Action<'a> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BanditResult {
     /// Selected variation from the feature flag.
-    variation: String,
+    pub variation: String,
     /// Selected action if any.
-    action: Option<String>,
+    pub action: Option<String>,
     /// Flag assignment event that needs to be logged to analytics storage.
-    assignment_event: Option<AssignmentEvent>,
+    pub assignment_event: Option<AssignmentEvent>,
     /// Bandit assignment event that needs to be logged to analytics storage.
-    bandit_event: Option<BanditEvent>,
+    pub bandit_event: Option<BanditEvent>,
 }
 
-impl Configuration {
-    /// Evaluate the specified string feature flag for the given subject. If resulting variation is
-    /// a bandit, evaluate the bandit to return the action.
-    pub fn get_bandit_action(
-        &self,
-        flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &ContextAttributes,
-        actions: &HashMap<String, ContextAttributes>,
-        default_variation: &str,
-    ) -> BanditResult {
-        let assignment = self
-            .get_assignment(
-                flag_key,
-                subject_key,
-                &subject_attributes.to_generic_attributes(),
-                Some(VariationType::String),
-            )
-            .unwrap_or_default()
-            .unwrap_or_else(|| Assignment {
-                value: AssignmentValue::String(default_variation.to_owned()),
-                event: None,
-            });
+/// Evaluate the specified string feature flag for the given subject. If resulting variation is
+/// a bandit, evaluate the bandit to return the action.
+pub fn get_bandit_action(
+    configuration: Option<&Configuration>,
+    flag_key: &str,
+    subject_key: &str,
+    subject_attributes: &ContextAttributes,
+    actions: &HashMap<String, ContextAttributes>,
+    default_variation: &str,
+) -> BanditResult {
+    let now = Utc::now();
+    get_bandit_action_with_visitor(
+        &mut NoopEvalVisitor,
+        configuration,
+        flag_key,
+        subject_key,
+        subject_attributes,
+        actions,
+        default_variation,
+        now,
+    )
+}
 
-        let variation = assignment
-            .value
-            .to_string()
-            .expect("flag assignment in bandit evaluation is always a string");
+/// Evaluate the specified string feature flag for the given subject. If resulting variation is
+/// a bandit, evaluate the bandit to return the action. In addition, return evaluation details.
+pub fn get_bandit_action_details(
+    configuration: Option<&Configuration>,
+    flag_key: &str,
+    subject_key: &str,
+    subject_attributes: &ContextAttributes,
+    actions: &HashMap<String, ContextAttributes>,
+    default_variation: &str,
+) -> (BanditResult, EvaluationDetails) {
+    let now = Utc::now();
+    let mut builder = EvalDetailsBuilder::new(
+        flag_key.to_owned(),
+        subject_key.to_owned(),
+        subject_attributes.to_generic_attributes(),
+        now,
+    );
+    let result = get_bandit_action_with_visitor(
+        &mut builder,
+        configuration,
+        flag_key,
+        subject_key,
+        subject_attributes,
+        actions,
+        default_variation,
+        now,
+    );
+    let details = builder.build();
+    (result, details)
+}
 
-        let Some(bandit_key) = self.get_bandit_key(flag_key, &variation) else {
-            // It's not a bandit variation, just return it.
-            return BanditResult {
-                variation,
-                action: None,
-                assignment_event: assignment.event,
-                bandit_event: None,
-            };
+/// Evaluate the specified string feature flag for the given subject. If resulting variation is
+/// a bandit, evaluate the bandit to return the action.
+fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
+    visitor: &mut V,
+    configuration: Option<&Configuration>,
+    flag_key: &str,
+    subject_key: &str,
+    subject_attributes: &ContextAttributes,
+    actions: &HashMap<String, ContextAttributes>,
+    default_variation: &str,
+    now: DateTime<Utc>,
+) -> BanditResult {
+    let Some(configuration) = configuration else {
+        let result = BanditResult {
+            variation: default_variation.to_owned(),
+            action: None,
+            assignment_event: None,
+            bandit_event: None,
         };
+        visitor.on_result(Err(EvaluationFailure::ConfigurationMissing), &result);
+        return result;
+    };
 
-        let Some(bandit) = self.get_bandit(bandit_key) else {
-            // We've evaluated a flag that resulted in a bandit but now we cannot find the bandit
-            // configuration and we cannot proceed.
-            //
-            // This should normally never happen as it means that there's a mismatch between the
-            // general UFC config and bandits config.
-            log::warn!(target: "eppo", bandit_key; "unable to find bandit configuration");
-            return BanditResult {
-                variation,
-                action: None,
-                assignment_event: assignment.event,
-                bandit_event: None,
-            };
-        };
+    visitor.on_configuration(configuration);
 
-        let Some(evaluation) =
-            bandit
-                .model_data
-                .evaluate(flag_key, subject_key, subject_attributes, actions)
-        else {
-            // We've evaluated a flag but now bandit evaluation failed. (Likely to user supplying
-            // empty actions, or NaN attributes.)
-            return BanditResult {
-                variation,
-                action: None,
-                assignment_event: assignment.event,
-                bandit_event: None,
-            };
-        };
+    let assignment = get_assignment_with_visitor(
+        Some(configuration),
+        &mut visitor.visit_assignment(),
+        flag_key,
+        subject_key,
+        &subject_attributes.to_generic_attributes(),
+        Some(VariationType::String),
+        now,
+    )
+    .unwrap_or_default()
+    .unwrap_or_else(|| Assignment {
+        value: AssignmentValue::String(default_variation.to_owned()),
+        event: None,
+    });
 
-        let bandit_event = BanditEvent {
-            flag_key: flag_key.to_owned(),
-            bandit_key: bandit_key.to_owned(),
-            subject: subject_key.to_owned(),
-            action: evaluation.action_key.clone(),
-            action_probability: evaluation.action_weight,
-            optimality_gap: evaluation.optimality_gap,
-            model_version: bandit.model_version.clone(),
-            timestamp: Utc::now().to_rfc3339(),
-            subject_numeric_attributes: evaluation.subject_attributes.numeric,
-            subject_categorical_attributes: evaluation.subject_attributes.categorical,
-            action_numeric_attributes: evaluation.action_attributes.numeric,
-            action_categorical_attributes: evaluation.action_attributes.categorical,
-            meta_data: [(
-                "eppoCoreVersion".to_owned(),
-                env!("CARGO_PKG_VERSION").to_owned(),
-            )]
-            .into(),
-        };
+    let variation = assignment
+        .value
+        .to_string()
+        .expect("flag assignment in bandit evaluation is always a string");
 
-        return BanditResult {
+    let Some(bandit_key) = configuration.get_bandit_key(flag_key, &variation) else {
+        // It's not a bandit variation, just return it.
+        let result = BanditResult {
             variation,
-            action: Some(evaluation.action_key),
+            action: None,
             assignment_event: assignment.event,
-            bandit_event: Some(bandit_event),
+            bandit_event: None,
         };
-    }
+        visitor.on_result(Err(EvaluationFailure::NonBanditVariation), &result);
+        return result;
+    };
+
+    visitor.on_bandit_key(bandit_key);
+
+    let Some(bandit) = configuration.get_bandit(bandit_key) else {
+        // We've evaluated a flag that resulted in a bandit but now we cannot find the bandit
+        // configuration and we cannot proceed.
+        //
+        // This should normally never happen as it means that there's a mismatch between the
+        // general UFC config and bandits config.
+        log::warn!(target: "eppo", bandit_key; "unable to find bandit configuration");
+        let result = BanditResult {
+            variation,
+            action: None,
+            assignment_event: assignment.event,
+            bandit_event: None,
+        };
+        visitor.on_result(
+            Err(EvaluationFailure::Error(
+                EvaluationError::UnexpectedConfigurationError,
+            )),
+            &result,
+        );
+        return result;
+    };
+
+    let evaluation =
+        match bandit
+            .model_data
+            .evaluate(flag_key, subject_key, subject_attributes, actions)
+        {
+            Ok(evaluation) => evaluation,
+            Err(err) => {
+                // We've evaluated a flag but now bandit evaluation failed. (Likely to user supplying
+                // empty actions, or NaN attributes.)
+                //
+                // Abort evaluation and return default variant.
+                let result = BanditResult {
+                    variation,
+                    action: None,
+                    assignment_event: assignment.event,
+                    bandit_event: None,
+                };
+                visitor.on_result(Err(err), &result);
+                return result;
+            }
+        };
+
+    let action_attributes = actions[&evaluation.action_key].clone();
+    let bandit_event = BanditEvent {
+        flag_key: flag_key.to_owned(),
+        bandit_key: bandit_key.to_owned(),
+        subject: subject_key.to_owned(),
+        action: evaluation.action_key.clone(),
+        action_probability: evaluation.action_weight,
+        optimality_gap: evaluation.optimality_gap,
+        model_version: bandit.model_version.clone(),
+        timestamp: now.to_rfc3339(),
+        subject_numeric_attributes: subject_attributes.numeric.clone(),
+        subject_categorical_attributes: subject_attributes.categorical.clone(),
+        action_numeric_attributes: action_attributes.numeric,
+        action_categorical_attributes: action_attributes.categorical,
+        meta_data: [(
+            "eppoCoreVersion".to_owned(),
+            env!("CARGO_PKG_VERSION").to_owned(),
+        )]
+        .into(),
+    };
+
+    let result = BanditResult {
+        variation,
+        action: Some(evaluation.action_key),
+        assignment_event: assignment.event,
+        bandit_event: Some(bandit_event),
+    };
+    visitor.on_result(Ok(()), &result);
+    return result;
 }
 
 impl BanditModelData {
@@ -158,9 +240,13 @@ impl BanditModelData {
         subject_key: &str,
         subject_attributes: &ContextAttributes,
         actions: &HashMap<String, ContextAttributes>,
-    ) -> Option<BanditEvaluationDetails> {
+    ) -> Result<BanditEvaluationDetails, EvaluationFailure> {
         // total_shards is not configurable at the moment.
         const TOTAL_SHARDS: u64 = 10_000;
+
+        if actions.len() == 0 {
+            return Err(EvaluationFailure::NoActionsSuppliedForBandit);
+        }
 
         let scores = actions
             .iter()
@@ -183,7 +269,11 @@ impl BanditModelData {
                     Ord::cmp(a.0, b.0)
                 })
             })
-            .map(|(k, v)| (*k, *v))?;
+            .map(|(k, v)| (*k, *v))
+            .ok_or_else(|| {
+                debug_assert!(false, "scores should contain at least one action");
+                EvaluationFailure::NoActionsSuppliedForBandit
+            })?;
 
         let weights = self.weigh_actions(&scores, best);
 
@@ -195,18 +285,15 @@ impl BanditModelData {
             let mut shuffled_actions = actions.keys().map(|x| x.as_str()).collect::<Vec<_>>();
             // Sort actions by their shard value. Use action key as tie breaker.
             shuffled_actions.sort_by_cached_key(|&action_key| {
-                let hash = Md5Sharder.get_shard(
-                    format!("{flag_key}-{subject_key}-{action_key}"),
-                    TOTAL_SHARDS,
-                );
+                let hash =
+                    get_md5_shard(&[flag_key, "-", subject_key, "-", action_key], TOTAL_SHARDS);
                 (hash, action_key)
             });
             shuffled_actions
         };
 
-        let selection_hash =
-            (Md5Sharder.get_shard(format!("{flag_key}-{subject_key}"), TOTAL_SHARDS) as f64)
-                / (TOTAL_SHARDS as f64);
+        let selection_hash = (get_md5_shard(&[flag_key, "-", subject_key], TOTAL_SHARDS) as f64)
+            / (TOTAL_SHARDS as f64);
 
         let selected_action = {
             let mut cumulative_weight = 0.0;
@@ -216,20 +303,19 @@ impl BanditModelData {
                     cumulative_weight += weights[action_key];
                     cumulative_weight > selection_hash
                 })
-                .or_else(|| shuffled_actions.last())?
+                .or_else(|| shuffled_actions.last())
+                .ok_or_else(|| {
+                    debug_assert!(false, "shuffled_actions should contain at least one action");
+                    EvaluationFailure::NoActionsSuppliedForBandit
+                })?
         };
 
         let optimality_gap = best.1 - scores[selected_action];
 
-        Some(BanditEvaluationDetails {
-            flag_key: flag_key.to_owned(),
-            subject_key: subject_key.to_owned(),
-            subject_attributes: subject_attributes.to_owned(),
+        Ok(BanditEvaluationDetails {
             action_key: selected_action.to_owned(),
-            action_attributes: actions[selected_action].to_owned(),
-            action_score: scores[selected_action],
+            // action_attributes: actions[selected_action].to_owned(),
             action_weight: weights[selected_action],
-            gamma: self.gamma,
             optimality_gap,
         })
     }
@@ -317,7 +403,7 @@ mod tests {
 
     use serde::{Deserialize, Serialize};
 
-    use crate::{Configuration, ContextAttributes};
+    use crate::{eval::get_bandit_action, Configuration, ContextAttributes};
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -377,7 +463,7 @@ mod tests {
         )
         .unwrap();
 
-        let config = Configuration::new(Some(config), Some(bandits));
+        let config = Configuration::from_server_response(config, Some(bandits));
 
         for entry in read_dir("../sdk-test-data/ufc/bandit-tests/").unwrap() {
             let entry = entry.unwrap();
@@ -405,7 +491,8 @@ mod tests {
                     .map(|x| (x.action_key, x.attributes.into()))
                     .collect();
 
-                let result = config.get_bandit_action(
+                let result = get_bandit_action(
+                    Some(&config),
                     &test.flag,
                     &subject.subject_key,
                     &subject.subject_attributes.into(),
