@@ -29,12 +29,13 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.ref_name, 'eppo_core@') || startsWith(github.ref_name, 'rust-sdk@') }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: actions/setup-node@v3
         with:
           node-version: '20'
       - run: npm ci
-      - run: make test-data
       - name: Install Rust toolchain
         run: rustup update stable && rustup default stable
       - name: Build Release
@@ -59,7 +60,9 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.ref_name, 'ruby-sdk@') }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
       - uses: actions/setup-node@v3
         with:
           node-version: '20'

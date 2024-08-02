@@ -1,0 +1,3 @@
+[submodule "sdk-test-data"]
+	path = sdk-test-data
+	url = https://github.com/Eppo-exp/sdk-test-data.git

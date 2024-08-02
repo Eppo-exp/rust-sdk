@@ -23,19 +23,6 @@ help: Makefile
 	@echo "usage: make <target>"
 	@sed -n 's/^##//p' $<
 
-## test-data
-testDataDir := sdk-test-data
-branchName := main
-githubRepoLink := https://github.com/Eppo-exp/sdk-test-data.git
-.PHONY: test-data
-test-data:
-	rm -rf ${testDataDir}
-	git clone -b ${branchName} --depth 1 --single-branch ${githubRepoLink} ${testDataDir}
-
-${testDataDir}:
-	rm -rf ${testDataDir}
-	git clone -b ${branchName} --depth 1 --single-branch ${githubRepoLink} ${testDataDir}
-
 .PHONY: test
 test: ${testDataDir}
 	npm test
