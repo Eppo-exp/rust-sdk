@@ -4,9 +4,29 @@ use crate::{
     AttributeValue, Configuration,
 };
 
-use super::eval_assignment::AllocationNonMatchReason;
+use super::{eval_assignment::AllocationNonMatchReason, eval_bandits::BanditResult};
 
-pub(super) trait EvalVisitor {
+pub(super) trait EvalBanditVisitor {
+    type AssignmentVisitor<'a>: EvalAssignmentVisitor + 'a
+    where
+        Self: 'a;
+
+    /// Called when (if) evaluation gets configuration.
+    fn on_configuration(&mut self, configuration: &Configuration);
+
+    fn visit_assignment<'a>(&'a mut self) -> Self::AssignmentVisitor<'a>;
+
+    /// Called when bandit key is known.
+    fn on_bandit_key(&mut self, key: &str);
+
+    /// Called when result of bandit evaluation is known.
+    ///
+    /// Note that unlike assignment evaluation, bandit evaluation still returns a variation in case
+    /// of failure, so failure and result case are not exclusive.
+    fn on_result(&mut self, failure: Result<(), EvaluationFailure>, result: &BanditResult);
+}
+
+pub(super) trait EvalAssignmentVisitor {
     // Type-foo here basically means that AllocationVisitor may hold references to EvalFlagVisitor
     // but should not outlive it.
     type AllocationVisitor<'a>: EvalAllocationVisitor + 'a
@@ -18,15 +38,18 @@ pub(super) trait EvalVisitor {
     #[inline]
     fn on_configuration(&mut self, configuration: &Configuration) {}
 
+    /// Called when evaluation finds the flag configuration.
     #[allow(unused_variables)]
     #[inline]
     fn on_flag_configuration(&mut self, flag: &Flag) {}
 
+    /// Called before evaluation an allocation.
+    fn visit_allocation<'a>(&'a mut self, allocation: &Allocation) -> Self::AllocationVisitor<'a>;
+
+    /// Called when variation has been found for the evaluation.
     #[allow(unused_variables)]
     #[inline]
     fn on_variation(&mut self, variation: &Variation) {}
-
-    fn visit_allocation<'a>(&'a mut self, allocation: &Allocation) -> Self::AllocationVisitor<'a>;
 
     /// Called with evaluation result.
     #[allow(unused_variables)]
@@ -43,10 +66,14 @@ pub(super) trait EvalAllocationVisitor {
     where
         Self: 'a;
 
+    /// Called before evaluating a rule.
     fn visit_rule<'a>(&'a mut self, rule: &Rule) -> Self::RuleVisitor<'a>;
 
+    /// Called before evaluating a split.
     fn visit_split<'a>(&'a mut self, split: &Split) -> Self::SplitVisitor<'a>;
 
+    /// Called when allocation evaluation result is known. This functions gets passed either the
+    /// split matched, or the reason why this allocation was not matched.
     #[allow(unused_variables)]
     #[inline]
     fn on_result(&mut self, result: Result<&Split, AllocationNonMatchReason>) {}
@@ -83,7 +110,25 @@ pub(super) trait EvalSplitVisitor {
 /// It is designed so that all calls to it are optimized away (zero-cost).
 pub(super) struct NoopEvalVisitor;
 
-impl EvalVisitor for NoopEvalVisitor {
+impl EvalBanditVisitor for NoopEvalVisitor {
+    type AssignmentVisitor<'a> = NoopEvalVisitor;
+
+    #[inline]
+    fn on_configuration(&mut self, _configuration: &Configuration) {}
+
+    #[inline]
+    fn on_bandit_key(&mut self, _key: &str) {}
+
+    #[inline]
+    fn visit_assignment<'a>(&'a mut self) -> NoopEvalVisitor {
+        NoopEvalVisitor
+    }
+
+    #[inline]
+    fn on_result(&mut self, _failure: Result<(), EvaluationFailure>, _result: &BanditResult) {}
+}
+
+impl EvalAssignmentVisitor for NoopEvalVisitor {
     type AllocationVisitor<'a> = NoopEvalVisitor;
 
     #[inline]

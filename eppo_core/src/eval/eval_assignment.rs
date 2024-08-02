@@ -13,9 +13,10 @@ use crate::{
 
 use super::{
     eval_details::EvaluationResultWithDetails,
-    eval_details_builder::EvalFlagDetailsBuilder,
+    eval_details_builder::EvalDetailsBuilder,
     eval_visitor::{
-        EvalAllocationVisitor, EvalRuleVisitor, EvalSplitVisitor, EvalVisitor, NoopEvalVisitor,
+        EvalAllocationVisitor, EvalAssignmentVisitor, EvalRuleVisitor, EvalSplitVisitor,
+        NoopEvalVisitor,
     },
 };
 
@@ -52,7 +53,7 @@ pub fn get_assignment_details(
     Option<AssignmentEvent>,
 ) {
     let now = Utc::now();
-    let mut details_builder = EvalFlagDetailsBuilder::new(
+    let mut details_builder = EvalDetailsBuilder::new(
         flag_key.to_owned(),
         subject_key.to_owned(),
         subject_attributes.to_owned(),
@@ -88,7 +89,8 @@ pub fn get_assignment_details(
     (result_with_details, event)
 }
 
-fn get_assignment_with_visitor<V: EvalVisitor>(
+// Exposed for use in bandit evaluation.
+pub(super) fn get_assignment_with_visitor<V: EvalAssignmentVisitor>(
     configuration: Option<&Configuration>,
     visitor: &mut V,
     flag_key: &str,
@@ -155,7 +157,7 @@ fn get_assignment_with_visitor<V: EvalVisitor>(
 
 impl UniversalFlagConfig {
     /// Evaluate the flag for the given subject, expecting `expected_type` type.
-    fn eval_flag<V: EvalVisitor>(
+    fn eval_flag<V: EvalAssignmentVisitor>(
         &self,
         visitor: &mut V,
         flag_key: &str,
@@ -202,7 +204,7 @@ impl Flag {
         }
     }
 
-    fn eval<V: EvalVisitor>(
+    fn eval<V: EvalAssignmentVisitor>(
         &self,
         visitor: &mut V,
         subject_key: &str,
@@ -545,7 +547,7 @@ mod tests {
                 assert_eq!(actual.environment_name, expected.environment_name);
                 assert_eq!(
                     actual.flag_evaluation_code,
-                    FlagEvaluationCode::from(expected.flag_evaluation_code)
+                    Some(FlagEvaluationCode::from(expected.flag_evaluation_code))
                 );
                 if expected.flag_evaluation_code != TruncatedFlagEvaluationCode::AssignmentError {
                     // Assignment errors never happen in Rust and we generate different description.

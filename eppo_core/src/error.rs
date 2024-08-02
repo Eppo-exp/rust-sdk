@@ -105,4 +105,10 @@ pub(crate) enum EvaluationFailure {
     /// being assigned.
     #[error("defaut allocation is matched and is serving NULL")]
     DefaultAllocationNull,
+
+    #[error("flag resolved to a non-bandit variation")]
+    NonBanditVariation,
+
+    #[error("no actions were supplied to bandit evaluation")]
+    NoActionsSuppliedForBandit,
 }

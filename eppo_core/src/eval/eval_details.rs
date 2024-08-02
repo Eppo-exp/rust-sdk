@@ -24,6 +24,20 @@ pub enum FlagEvaluationCode {
     /// Configuration received from the server is invalid for the SDK. This should normally never
     /// happen and is likely a signal that you should update SDK.
     UnexpectedConfigurationError,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum BanditEvaluationCode {
+    /// Found a bandit action.
+    Match,
+    /// Configuration has not been fetched yet.
+    ConfigurationMissing,
+    /// Configuration received from the server is invalid for the SDK. This should normally never
+    /// happen and is likely a signal that you should update SDK.
+    UnexpectedConfigurationError,
+    /// Assignment evaluated to a non-bandit variation.
+    NonBanditVariation,
     /// `get_bandit_action` was called without supplying actions.
     NoActionsSuppliedForBandit,
 }
@@ -47,7 +61,7 @@ impl<T> EvaluationResultWithDetails<T> {
     }
 }
 
-/// Details about feature flag evaluation.
+/// Details about feature flag or bandit evaluation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EvaluationDetails {
@@ -66,7 +80,8 @@ pub struct EvaluationDetails {
     /// Environment the configuration belongs to. None if configuration hasn't been fetched yet.
     pub environment_name: Option<String>,
 
-    pub flag_evaluation_code: FlagEvaluationCode,
+    pub bandit_evaluation_code: Option<BanditEvaluationCode>,
+    pub flag_evaluation_code: Option<FlagEvaluationCode>,
     pub flag_evaluation_description: String,
 
     /// Key of the selected variation.
@@ -141,9 +156,12 @@ pub struct ShardEvaluationDetails {
     pub shard_value: u64,
 }
 
-impl From<Option<EvaluationFailure>> for FlagEvaluationCode {
-    fn from(value: Option<EvaluationFailure>) -> Self {
-        value.map(|it| it.into()).unwrap_or(Self::Match)
+impl From<Result<(), EvaluationFailure>> for FlagEvaluationCode {
+    fn from(value: Result<(), EvaluationFailure>) -> Self {
+        match value {
+            Ok(()) => Self::Match,
+            Err(err) => err.into(),
+        }
     }
 }
 
@@ -155,6 +173,14 @@ impl From<EvaluationFailure> for FlagEvaluationCode {
             EvaluationFailure::FlagDisabled => Self::FlagUnrecognizedOrDisabled,
             EvaluationFailure::DefaultAllocationNull => Self::DefaultAllocationNull,
             EvaluationFailure::Error(err) => err.into(),
+            EvaluationFailure::NonBanditVariation
+            | EvaluationFailure::NoActionsSuppliedForBandit => {
+                debug_assert!(
+                    false,
+                    "{value:?} should never be emitted by flag evaluation"
+                );
+                Self::UnexpectedConfigurationError
+            }
         }
     }
 }
@@ -167,6 +193,53 @@ impl From<EvaluationError> for FlagEvaluationCode {
                 Self::UnexpectedConfigurationError
             }
             EvaluationError::UnexpectedConfigurationError => Self::UnexpectedConfigurationError,
+        }
+    }
+}
+
+impl From<Result<(), EvaluationFailure>> for BanditEvaluationCode {
+    fn from(value: Result<(), EvaluationFailure>) -> Self {
+        match value {
+            Ok(()) => Self::Match,
+            Err(err) => err.into(),
+        }
+    }
+}
+
+impl From<EvaluationFailure> for BanditEvaluationCode {
+    fn from(value: EvaluationFailure) -> Self {
+        match value {
+            EvaluationFailure::Error(err) => err.into(),
+            EvaluationFailure::ConfigurationMissing => Self::ConfigurationMissing,
+            EvaluationFailure::FlagUnrecognizedOrDisabled
+            | EvaluationFailure::FlagDisabled
+            | EvaluationFailure::DefaultAllocationNull => {
+                debug_assert!(
+                    false,
+                    "{value:?} should never be emitted by bandit evaluation"
+                );
+                Self::UnexpectedConfigurationError
+            }
+            EvaluationFailure::NonBanditVariation => Self::NonBanditVariation,
+            EvaluationFailure::NoActionsSuppliedForBandit => Self::NoActionsSuppliedForBandit,
+        }
+    }
+}
+
+impl From<EvaluationError> for BanditEvaluationCode {
+    fn from(value: EvaluationError) -> Self {
+        match value {
+            EvaluationError::TypeMismatch { .. } => {
+                debug_assert!(
+                    false,
+                    "{value:?} should never be emitted by bandit evaluation"
+                );
+                Self::UnexpectedConfigurationError
+            }
+            EvaluationError::UnexpectedConfigurationError => Self::UnexpectedConfigurationError,
+            EvaluationError::UnexpectedConfigurationParseError => {
+                Self::UnexpectedConfigurationError
+            }
         }
     }
 }

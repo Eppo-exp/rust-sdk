@@ -8,9 +8,15 @@ use crate::{
     AttributeValue, Attributes, Configuration, EvaluationError,
 };
 
-use super::{eval_assignment::AllocationNonMatchReason, eval_details::*, eval_visitor::*};
+use super::{
+    eval_assignment::AllocationNonMatchReason, eval_bandits::BanditResult, eval_details::*,
+    eval_visitor::*,
+};
 
-pub(crate) struct EvalFlagDetailsBuilder {
+/// An evaluation visitor that builds [`EvaluationDetails`] along the way.
+///
+/// It works with both assignment and bandit evaluation.
+pub(crate) struct EvalDetailsBuilder {
     flag_key: String,
     subject_key: String,
     subject_attributes: Attributes,
@@ -20,10 +26,13 @@ pub(crate) struct EvalFlagDetailsBuilder {
     configuration_published_at: Option<DateTime<Utc>>,
     environment_name: Option<String>,
 
-    evaluation_failure: Option<EvaluationFailure>,
-
+    flag_evaluation_failure: Option<Result<(), EvaluationFailure>>,
     variation_key: Option<String>,
     variation_value: Option<Value>,
+
+    bandit_evaluation_failure: Option<Result<(), EvaluationFailure>>,
+    bandit_key: Option<String>,
+    bandit_action: Option<String>,
 
     /// Matched details on allocation and split if any.
     matched_details: Option<MatchedDetails>,
@@ -33,6 +42,7 @@ pub(crate) struct EvalFlagDetailsBuilder {
     allocation_eval_results: HashMap<String, AllocationEvaluationDetails>,
 }
 
+/// Interim struct to construct `flag_evaluation_details` later.
 struct MatchedDetails {
     has_rules: bool,
     is_experiment: bool,
@@ -55,14 +65,14 @@ pub(crate) struct EvalSplitDetailsBuilder<'a> {
     split_details: &'a mut SplitEvaluationDetails,
 }
 
-impl EvalFlagDetailsBuilder {
+impl EvalDetailsBuilder {
     pub fn new(
         flag_key: String,
         subject_key: String,
         subject_attributes: Attributes,
         now: DateTime<Utc>,
-    ) -> EvalFlagDetailsBuilder {
-        EvalFlagDetailsBuilder {
+    ) -> EvalDetailsBuilder {
+        EvalDetailsBuilder {
             flag_key,
             subject_key,
             subject_attributes,
@@ -70,9 +80,12 @@ impl EvalFlagDetailsBuilder {
             configuration_fetched_at: None,
             configuration_published_at: None,
             environment_name: None,
-            evaluation_failure: None,
+            flag_evaluation_failure: None,
             variation_key: None,
             variation_value: None,
+            bandit_evaluation_failure: None,
+            bandit_key: None,
+            bandit_action: None,
             matched_details: None,
             allocation_keys_order: Vec::new(),
             allocation_eval_results: HashMap::new(),
@@ -80,7 +93,7 @@ impl EvalFlagDetailsBuilder {
     }
 
     pub fn build(mut self) -> EvaluationDetails {
-        let flag_evaluation_description = self.build_description();
+        let flag_evaluation_description = self.build_flag_evaluation_description();
         EvaluationDetails {
             flag_key: self.flag_key,
             subject_key: self.subject_key,
@@ -89,12 +102,13 @@ impl EvalFlagDetailsBuilder {
             config_fetched_at: self.configuration_fetched_at,
             config_published_at: self.configuration_published_at,
             environment_name: self.environment_name,
-            flag_evaluation_code: self.evaluation_failure.into(),
+            bandit_evaluation_code: self.bandit_evaluation_failure.map(|it| it.into()),
+            flag_evaluation_code: self.flag_evaluation_failure.map(|it| it.into()),
             flag_evaluation_description,
             variation_key: self.variation_key,
             variation_value: self.variation_value,
-            bandit_key: None,
-            bandit_action: None,
+            bandit_key: self.bandit_key,
+            bandit_action: self.bandit_action,
             allocations: self
                 .allocation_keys_order
                 .into_iter()
@@ -113,8 +127,12 @@ impl EvalFlagDetailsBuilder {
         }
     }
 
-    fn build_description(&self) -> String {
-        if let Some(failure) = &self.evaluation_failure {
+    fn build_flag_evaluation_description(&self) -> String {
+        if self.flag_evaluation_failure.is_none() {
+            return "Flag evaluation was not attempted".to_owned();
+        }
+
+        if let Some(Err(failure)) = &self.flag_evaluation_failure {
             return match failure {
                 EvaluationFailure::Error(EvaluationError::TypeMismatch { expected, found }) => {
                     format!("Variation value does not have the correct type. Found: {:?} != {:?} for flag {}", found, expected, self.flag_key)
@@ -135,6 +153,20 @@ impl EvalFlagDetailsBuilder {
                 EvaluationFailure::DefaultAllocationNull => format!(
                     "No allocations matched. Falling back to \"Default Allocation\", serving NULL"
                 ),
+                EvaluationFailure::NonBanditVariation => {
+                    debug_assert!(
+                        false,
+                        "{failure:?} should never be emitted by flag evaluation"
+                    );
+                    format!("Flag evaluated to a non-bandit allocation")
+                }
+                EvaluationFailure::NoActionsSuppliedForBandit => {
+                    debug_assert!(
+                        false,
+                        "{failure:?} should never be emitted by flag evaluation"
+                    );
+                    format!("No actions were supplied for bandit evaluation")
+                }
             };
         }
 
@@ -175,7 +207,55 @@ impl EvalFlagDetailsBuilder {
     }
 }
 
-impl EvalVisitor for EvalFlagDetailsBuilder {
+impl EvalBanditVisitor for EvalDetailsBuilder {
+    type AssignmentVisitor<'a> = &'a mut Self;
+
+    fn on_configuration(&mut self, configuration: &Configuration) {
+        // delegate to assignment visitor
+        EvalAssignmentVisitor::on_configuration(self, configuration)
+    }
+
+    fn on_bandit_key(&mut self, key: &str) {
+        self.bandit_key = Some(key.to_owned());
+    }
+
+    fn visit_assignment<'a>(&'a mut self) -> Self::AssignmentVisitor<'a> {
+        self
+    }
+
+    fn on_result(&mut self, failure: Result<(), EvaluationFailure>, result: &BanditResult) {
+        self.bandit_evaluation_failure = Some(failure);
+        self.bandit_action = result.action.clone();
+    }
+}
+
+impl<'b> EvalAssignmentVisitor for &'b mut EvalDetailsBuilder {
+    type AllocationVisitor<'a> =
+        <EvalDetailsBuilder as EvalAssignmentVisitor>::AllocationVisitor<'a>
+    where Self: 'a;
+
+    fn visit_allocation<'a>(&'a mut self, allocation: &Allocation) -> Self::AllocationVisitor<'a> {
+        EvalAssignmentVisitor::visit_allocation(*self, allocation)
+    }
+
+    fn on_configuration(&mut self, configuration: &Configuration) {
+        EvalAssignmentVisitor::on_configuration(*self, configuration)
+    }
+
+    fn on_flag_configuration(&mut self, flag: &Flag) {
+        EvalAssignmentVisitor::on_flag_configuration(*self, flag)
+    }
+
+    fn on_variation(&mut self, variation: &Variation) {
+        EvalAssignmentVisitor::on_variation(*self, variation)
+    }
+
+    fn on_result(&mut self, result: &Result<Assignment, EvaluationFailure>) {
+        EvalAssignmentVisitor::on_result(*self, result)
+    }
+}
+
+impl EvalAssignmentVisitor for EvalDetailsBuilder {
     type AllocationVisitor<'a> = EvalAllocationDetailsBuilder<'a>
     where
         Self: 'a;
@@ -219,7 +299,10 @@ impl EvalVisitor for EvalFlagDetailsBuilder {
     }
 
     fn on_result(&mut self, result: &Result<Assignment, EvaluationFailure>) {
-        self.evaluation_failure = result.as_ref().err().copied();
+        self.flag_evaluation_failure = Some(match result {
+            Ok(_) => Ok(()),
+            Err(failure) => Err(*failure),
+        });
     }
 }
 

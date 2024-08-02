@@ -7,4 +7,4 @@ mod eval_visitor;
 pub mod eval_details;
 
 pub use eval_assignment::{get_assignment, get_assignment_details};
-pub use eval_bandits::get_bandit_action;
+pub use eval_bandits::{get_bandit_action, get_bandit_action_details};
