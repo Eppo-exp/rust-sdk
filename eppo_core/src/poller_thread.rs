@@ -11,6 +11,54 @@ use crate::configuration_fetcher::ConfigurationFetcher;
 use crate::configuration_store::ConfigurationStore;
 use crate::{Error, Result};
 
+/// Configuration for [`PollerThread`].
+// Not implementing `Copy` as we may add non-copyable fields in the future.
+#[derive(Debug, Clone)]
+pub struct PollerThreadConfig {
+    /// Interval to wait between requests for configuration.
+    ///
+    /// Defaults to [`PollerThreadConfig::DEFAULT_POLL_INTERVAL`].
+    pub interval: Duration,
+    /// Jitter applies a randomized duration to wait between requests for configuration. This helps
+    /// to avoid multiple server instances synchronizing and producing spiky network load.
+    ///
+    /// Defaults to [`PollerThreadConfig::DEFAULT_POLL_JITTER`].
+    pub jitter: Duration,
+}
+
+impl PollerThreadConfig {
+    /// Default value for [`PollerThreadConfig::interval`].
+    pub const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(5 * 60);
+    /// Default value for [`PollerThreadConfig::jitter`].
+    pub const DEFAULT_POLL_JITTER: Duration = Duration::from_secs(30);
+
+    /// Create a new `PollerThreadConfig` using default configuration.
+    pub fn new() -> PollerThreadConfig {
+        PollerThreadConfig::default()
+    }
+
+    /// Update poll interval with `interval`.
+    pub fn with_interval(mut self, interval: Duration) -> PollerThreadConfig {
+        self.interval = interval;
+        self
+    }
+
+    /// Update poll interval jitter with `jitter`.
+    pub fn with_jitter(mut self, jitter: Duration) -> PollerThreadConfig {
+        self.jitter = jitter;
+        self
+    }
+}
+
+impl Default for PollerThreadConfig {
+    fn default() -> PollerThreadConfig {
+        PollerThreadConfig {
+            interval: PollerThreadConfig::DEFAULT_POLL_INTERVAL,
+            jitter: PollerThreadConfig::DEFAULT_POLL_JITTER,
+        }
+    }
+}
+
 /// A configuration poller thread.
 ///
 /// The poller thread polls the server periodically to fetch the latest configuration using
@@ -27,9 +75,6 @@ pub struct PollerThread {
     result: Arc<(Mutex<Option<Result<()>>>, Condvar)>,
 }
 
-const POLL_INTERVAL: Duration = Duration::from_secs(5 * 60);
-const POLL_JITTER: Duration = Duration::from_secs(30);
-
 impl PollerThread {
     /// Starts the configuration poller thread.
     ///
@@ -43,8 +88,27 @@ impl PollerThread {
     /// This method can return the following errors:
     /// - IO Error if poller thread failed to start.
     pub fn start(
+        fetcher: ConfigurationFetcher,
+        store: Arc<ConfigurationStore>,
+    ) -> std::io::Result<PollerThread> {
+        PollerThread::start_with_config(fetcher, store, PollerThreadConfig::default())
+    }
+
+    /// Starts the configuration poller thread with the provided configuration.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` with the `PollerThread` instance if successful, or an `Error` if an issue
+    /// occurs.
+    ///
+    /// # Errors
+    ///
+    /// This method can return the following errors:
+    /// - IO Error if poller thread failed to start.
+    pub fn start_with_config(
         mut fetcher: ConfigurationFetcher,
         store: Arc<ConfigurationStore>,
+        config: PollerThreadConfig,
     ) -> std::io::Result<PollerThread> {
         let (stop_sender, stop_receiver) = std::sync::mpsc::channel::<()>();
 
@@ -79,7 +143,7 @@ impl PollerThread {
                             }
                         };
 
-                        let timeout = jitter(POLL_INTERVAL, POLL_JITTER);
+                        let timeout = config.interval + jitter(config.jitter);
                         match stop_receiver.recv_timeout(timeout) {
                             Err(RecvTimeoutError::Timeout) => {
                                 // Timed out. Loop to fetch new configuration.
@@ -199,7 +263,7 @@ impl PollerThread {
     }
 }
 
-/// Apply a random jitter to `interval`.
-fn jitter(interval: Duration, jitter: Duration) -> Duration {
-    interval + thread_rng().gen_range(Duration::ZERO..jitter)
+/// Returns a duration uniformly distributed between 0 and `jitter`.
+fn jitter(jitter: Duration) -> Duration {
+    thread_rng().gen_range(Duration::ZERO..jitter)
 }
