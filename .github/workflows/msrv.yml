@@ -38,6 +38,13 @@ jobs:
           then
               cargo install cargo-msrv --locked
           fi
+
+      - name: Override eppo_core for testing against local version
+        run: |
+          mkdir -p ~/.cargo/
+          echo "[patch.crates-io.eppo_core]" >> "${CARGO_HOME:-$HOME/.cargo}/config.toml"
+          echo "path = '$PWD/eppo_core'" >> "${CARGO_HOME:-$HOME/.cargo}/config.toml"
+
       - name: Verify MSRV for each package
         run: |
           for dir in eppo_core rust-sdk ruby-sdk/ext/eppo_client; do

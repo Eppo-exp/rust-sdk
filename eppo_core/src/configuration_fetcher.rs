@@ -1,6 +1,4 @@
 //! An HTTP client that fetches configuration from the server.
-use std::sync::Arc;
-
 use reqwest::{StatusCode, Url};
 
 use crate::{bandits::BanditResponse, ufc::UniversalFlagConfig, Configuration, Error, Result};
@@ -55,7 +53,7 @@ impl ConfigurationFetcher {
             Some(self.fetch_bandits_configuration()?)
         };
 
-        Ok(Configuration::new(Some(ufc), bandits))
+        Ok(Configuration::from_server_response(ufc, bandits))
     }
 
     fn fetch_ufc_configuration(&mut self) -> Result<UniversalFlagConfig> {

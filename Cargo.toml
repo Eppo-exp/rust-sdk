@@ -3,4 +3,9 @@ resolver = "2"
 members = [
   "eppo_core",
   "rust-sdk",
+  "ruby-sdk/ext/eppo_client",
 ]
+
+[patch.crates-io]
+# Local override for development.
+eppo_core = { path = './eppo_core' }

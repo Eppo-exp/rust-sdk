@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
+
 use crate::ufc::VariationType;
 
 /// Represents a result type for operations in the Eppo SDK.
@@ -12,32 +14,12 @@ use crate::ufc::VariationType;
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Enum representing possible errors that can occur in the Eppo SDK.
-// TODO: split the error into `EvaluationError` and the rest.
 #[derive(thiserror::Error, Debug, Clone)]
 #[non_exhaustive]
 pub enum Error {
-    /// The requested flag configuration was not found.
-    #[error("flag not found")]
-    FlagNotFound,
-
-    /// Requested flag has invalid type.
-    #[error("invalid flag type (expected: {expected:?}, found: {found:?})")]
-    InvalidType {
-        /// Expected type of the flag.
-        expected: VariationType,
-        /// Actual type of the flag.
-        found: VariationType,
-    },
-
-    /// An error occurred while parsing the configuration (server sent unexpected response). It is
-    /// recommended to upgrade the Eppo SDK.
-    #[error("error parsing configuration, try upgrading Eppo SDK")]
-    ConfigurationParseError,
-
-    /// Configuration received from the server is invalid for the SDK. This should normally never
-    /// happen and is likely a signal that you should update SDK.
-    #[error("configuration error, try upgrading Eppo SDK")]
-    ConfigurationError,
+    /// Error evaluating a flag.
+    #[error(transparent)]
+    EvaluationError(EvaluationError),
 
     /// Invalid base URL configuration.
     #[error("invalid base_url configuration")]
@@ -71,4 +53,62 @@ impl From<reqwest::Error> for Error {
     fn from(value: reqwest::Error) -> Self {
         Error::Network(Arc::new(value.without_url()))
     }
+}
+
+/// Enum representing possible errors that can occur during evaluation.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[non_exhaustive]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum EvaluationError {
+    /// Requested flag has invalid type.
+    #[error("invalid flag type (expected: {expected:?}, found: {found:?})")]
+    TypeMismatch {
+        /// Expected type of the flag.
+        expected: VariationType,
+        /// Actual type of the flag.
+        found: VariationType,
+    },
+
+    /// Configuration received from the server is invalid for the SDK. This should normally never
+    /// happen and is likely a signal that you should update SDK.
+    #[error("unexpected configuration received from the server, try upgrading Eppo SDK")]
+    UnexpectedConfigurationError,
+
+    /// An error occurred while parsing the configuration (server sent unexpected response). It is
+    /// recommended to upgrade the Eppo SDK.
+    #[error("error parsing configuration, try upgrading Eppo SDK")]
+    UnexpectedConfigurationParseError,
+}
+
+/// Enum representing all possible reasons that could result in evaluation returning an error or
+/// default assignment.
+#[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub(crate) enum EvaluationFailure {
+    /// True evaluation error that should be returned to the user.
+    #[error(transparent)]
+    Error(EvaluationError),
+
+    /// Configuration has not been fetched yet.
+    #[error("configuration has not been fetched yet")]
+    ConfigurationMissing,
+
+    /// The requested flag configuration was not found. It either does not exist or is disabled.
+    #[error("flag is missing in configuration, it is either unrecognized or disabled")]
+    FlagUnrecognizedOrDisabled,
+
+    /// Flag is found in configuration but it is disabled.
+    #[error("flag is disabled")]
+    FlagDisabled,
+
+    /// Default allocation is matched and is also serving `NULL`, resulting in the default value
+    /// being assigned.
+    #[error("defaut allocation is matched and is serving NULL")]
+    DefaultAllocationNull,
+
+    #[error("flag resolved to a non-bandit variation")]
+    NonBanditVariation,
+
+    #[error("no actions were supplied to bandit evaluation")]
+    NoActionsSuppliedForBandit,
 }

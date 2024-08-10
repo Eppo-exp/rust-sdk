@@ -1,8 +1,6 @@
-use std::collections::HashMap;
-
 use serde::{Deserialize, Serialize};
 
-use crate::Attributes;
+use crate::events::AssignmentEvent;
 
 /// Result of assignment evaluation.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -16,7 +14,7 @@ pub struct Assignment {
 
 /// Enum representing values assigned to a subject as a result of feature flag evaluation.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+#[serde(tag = "type", content = "value", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AssignmentValue {
     /// A string value.
     String(String),
@@ -231,31 +229,4 @@ impl AssignmentValue {
             _ => None,
         }
     }
-}
-
-/// Represents an event capturing the assignment of a feature flag to a subject and its logging
-/// details.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct AssignmentEvent {
-    /// The key of the feature flag being assigned.
-    pub feature_flag: String,
-    /// The key of the allocation that the subject was assigned to.
-    pub allocation: String,
-    /// The key of the experiment associated with the assignment.
-    pub experiment: String,
-    /// The specific variation assigned to the subject.
-    pub variation: String,
-    /// The key identifying the subject receiving the assignment.
-    pub subject: String,
-    /// Custom attributes of the subject relevant to the assignment.
-    pub subject_attributes: Attributes,
-    /// The timestamp indicating when the assignment event occurred.
-    pub timestamp: String,
-    /// Additional metadata such as SDK language and version.
-    pub meta_data: HashMap<String, String>,
-    /// Additional user-defined logging fields for capturing extra information related to the
-    /// assignment.
-    #[serde(flatten)]
-    pub extra_logging: HashMap<String, String>,
 }
