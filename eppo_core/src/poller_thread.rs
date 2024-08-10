@@ -143,7 +143,7 @@ impl PollerThread {
                             }
                         };
 
-                        let timeout = config.interval + jitter(config.jitter);
+                        let timeout = jitter(config.interval, config.jitter);
                         match stop_receiver.recv_timeout(timeout) {
                             Err(RecvTimeoutError::Timeout) => {
                                 // Timed out. Loop to fetch new configuration.
@@ -263,7 +263,32 @@ impl PollerThread {
     }
 }
 
-/// Returns a duration uniformly distributed between 0 and `jitter`.
-fn jitter(jitter: Duration) -> Duration {
-    thread_rng().gen_range(Duration::ZERO..jitter)
+/// Apply randomized `jitter` to `interval`.
+fn jitter(interval: Duration, jitter: Duration) -> Duration {
+    Duration::saturating_sub(interval, thread_rng().gen_range(Duration::ZERO..jitter))
+}
+
+#[cfg(test)]
+mod jitter_tests {
+    use std::time::Duration;
+
+    #[test]
+    fn jitter_is_subtractive() {
+        let interval = Duration::from_secs(30);
+        let jitter = Duration::from_secs(30);
+
+        let result = super::jitter(interval, jitter);
+
+        assert!(result <= interval, "{result:?} must be <= {interval:?}");
+    }
+
+    #[test]
+    fn jitter_truncates_to_zero() {
+        let interval = Duration::ZERO;
+        let jitter = Duration::from_secs(30);
+
+        let result = super::jitter(interval, jitter);
+
+        assert_eq!(result, Duration::ZERO);
+    }
 }
