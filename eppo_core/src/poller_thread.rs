@@ -67,7 +67,9 @@ pub struct PollerThread {
     join_handle: std::thread::JoinHandle<()>,
 
     /// Used to send a stop command to the poller thread.
-    stop_sender: std::sync::mpsc::Sender<()>,
+    // TODO: take a look at `std::thread::park_timeout()`. It could be used to build simpler
+    // synchronization.
+    stop_sender: std::sync::mpsc::SyncSender<()>,
 
     /// Holds `None` if configuration hasn't been fetched yet. Holds `Some(Ok(()))` if configuration
     /// has been fetches successfully. Holds `Some(Err(...))` if there was an error fetching the
@@ -110,7 +112,11 @@ impl PollerThread {
         store: Arc<ConfigurationStore>,
         config: PollerThreadConfig,
     ) -> std::io::Result<PollerThread> {
-        let (stop_sender, stop_receiver) = std::sync::mpsc::channel::<()>();
+        // Using `sync_channel` here as it makes `stop_sender` `Sync` (shareable between
+        // threads). Buffer size of 1 should be enough for our use case as we're sending a stop
+        // command and we can simply `try_send()` and ignore if the buffer is full (another thread
+        // has send a stop command already).
+        let (stop_sender, stop_receiver) = std::sync::mpsc::sync_channel::<()>(1);
 
         let result = Arc::new((Mutex::new(None), Condvar::new()));
 
@@ -227,9 +233,11 @@ impl PollerThread {
     ///
     /// This function does not wait for the thread to actually stop.
     pub fn stop(&self) {
-        // Error means that the receiver was dropped (thread exited). Ignoring it as there's nothing
-        // useful we can do—thread is already stopped.
-        let _ = self.stop_sender.send(());
+        // Error means that the receiver was dropped (thread exited) or the channel buffer is
+        // full. First case can be ignored it as there's nothing useful we can do—thread is already
+        // stopped. Second case can be ignored as it indicates that another thread already sent a
+        // stop command and the thread will stop anyway.
+        let _ = self.stop_sender.try_send(());
     }
 
     /// Stop the poller thread and block waiting for it to exit.
