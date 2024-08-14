@@ -70,6 +70,10 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.0'
+      - name: Check Cargo.lock
+        # Ensure that Cargo.lock matches Cargo.toml
+        run: cargo update --workspace --locked --verbose
+        working-directory: ruby-sdk
       - name: Install dependencies
         run: bundle install
         working-directory: ruby-sdk
