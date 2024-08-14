@@ -265,8 +265,11 @@ impl BanditModelData {
                     // In the case of multiple actions getting the same best score, we need to break
                     // the tie deterministically.
                     //
-                    // Compare action names next
-                    Ord::cmp(a.0, b.0)
+                    // Compare action names next.
+                    //
+                    // We're reversing the comparison, so that before-ordered name is considered
+                    // higher and wins the best score.
+                    Ord::cmp(a.0, b.0).reverse()
                 })
             })
             .map(|(k, v)| (*k, *v))
