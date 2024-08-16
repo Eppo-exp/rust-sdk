@@ -12,6 +12,8 @@ Gem::Specification.new do |spec|
   spec.homepage = "https://github.com/Eppo-exp/ruby-sdk"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0.0"
+  # RubyGems 3.3.11 is the first version with Rust support:
+  # https://blog.rubygems.org/2022/04/07/3.3.11-released.html
   spec.required_rubygems_version = ">= 3.3.11"
 
   spec.metadata = {
