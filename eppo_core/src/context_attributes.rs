@@ -42,14 +42,13 @@ where
                         acc.numeric.insert(key.to_owned(), value);
                     }
                     AttributeValue::Boolean(value) => {
-                        // TBD: shall we ignore boolean attributes instead?
-                        //
                         // One argument for including it here is that this basically guarantees that
                         // assignment evaluation inside bandit evaluation works the same way as if
                         // `get_assignment()` was called with generic `Attributes`.
                         //
-                        // We can go a step further and remove `AttributeValue::Boolean` altogether,
-                        // forcing it to be converted to a string before any evaluation.
+                        // We can go a step further and remove `AttributeValue::Boolean` altogether
+                        // (from `eppo_core`), forcing it to be converted to a string before any
+                        // evaluation.
                         acc.categorical.insert(key.to_owned(), value.to_string());
                     }
                     AttributeValue::Null => {

@@ -1,3 +1,4 @@
+//! Helpers for Python SDK implementation.
 use pyo3::prelude::*;
 
 /// Similar to [`pyo3::ToPyObject`] but allows the conversion to fail.
