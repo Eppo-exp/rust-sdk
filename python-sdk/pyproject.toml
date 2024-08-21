@@ -1,0 +1,25 @@
+[build-system]
+requires = ["maturin>=1.7,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "eppo-server-sdk"
+description = "Eppo SDK for Python"
+readme = "README.md"
+authors = [{ name = "Eppo", email = "eppo-team@geteppo.com" }]
+license = { file = "LICENSE" }
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "License :: OSI Approved :: MIT License",
+]
+dynamic = ["version"]
+[project.urls]
+"Bug Tracker" = "https://github.com/Eppo-exp/rust-sdk/issues"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "eppo_client._eppo_client"

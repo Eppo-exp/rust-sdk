@@ -20,6 +20,8 @@ pub mod configuration_store;
 pub mod eval;
 pub mod events;
 pub mod poller_thread;
+#[cfg(feature = "pyo3")]
+pub mod pyo3;
 pub mod sharder;
 pub mod ufc;
 

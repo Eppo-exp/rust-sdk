@@ -46,3 +46,34 @@ impl From<&str> for AttributeValue {
         Self::String(value.to_owned())
     }
 }
+
+#[cfg(feature = "pyo3")]
+mod pyo3_impl {
+    use pyo3::{exceptions::PyTypeError, prelude::*, types::*};
+
+    use super::*;
+
+    impl<'py> FromPyObject<'py> for AttributeValue {
+        fn extract_bound(value: &Bound<'py, PyAny>) -> PyResult<AttributeValue> {
+            if let Ok(s) = value.downcast::<PyString>() {
+                return Ok(AttributeValue::String(s.extract()?));
+            }
+            // In Python, Bool inherits from Int, so it must be checked first here.
+            if let Ok(s) = value.downcast::<PyBool>() {
+                return Ok(AttributeValue::Boolean(s.extract()?));
+            }
+            if let Ok(s) = value.downcast::<PyFloat>() {
+                return Ok(AttributeValue::Number(s.extract()?));
+            }
+            if let Ok(s) = value.downcast::<PyInt>() {
+                return Ok(AttributeValue::Number(s.extract()?));
+            }
+            if let Ok(_) = value.downcast::<PyNone>() {
+                return Ok(AttributeValue::Null);
+            }
+            Err(PyTypeError::new_err(
+                "invalid type for subject attribute value",
+            ))
+        }
+    }
+}
