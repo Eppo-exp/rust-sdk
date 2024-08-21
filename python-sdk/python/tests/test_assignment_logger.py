@@ -1,6 +1,6 @@
 from typing import Dict
 
-from eppo_client import AssignmentLogger
+from eppo_client.assignment_logger import AssignmentLogger
 
 
 def test_can_inherit_assignment_logger():

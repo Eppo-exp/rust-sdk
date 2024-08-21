@@ -4,8 +4,11 @@ import pytest
 from time import sleep
 
 import eppo_client
+from eppo_client.assignment_logger import AssignmentLogger
 
-TEST_DIR = "../sdk-test-data/ufc/tests"
+TEST_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "../../../sdk-test-data/ufc/tests"
+)
 test_data = []
 for file_name in os.listdir(TEST_DIR):
     with open("{}/{}".format(TEST_DIR, file_name)) as test_case_json:
@@ -19,10 +22,10 @@ MOCK_BASE_URL = "http://localhost:8378/"
 @pytest.fixture(scope="session", autouse=True)
 def init_fixture():
     eppo_client.init(
-        eppo_client.Config(
+        eppo_client.config.Config(
             base_url=MOCK_BASE_URL + "ufc/api",
             api_key="dummy",
-            assignment_logger=eppo_client.AssignmentLogger(),
+            assignment_logger=AssignmentLogger(),
         )
     )
     sleep(0.1)  # wait for initialization
