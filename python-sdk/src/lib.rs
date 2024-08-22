@@ -14,4 +14,7 @@ mod eppo_client {
         config::Config,
         init::{get_instance, init},
     };
+
+    #[pymodule_export]
+    use eppo_core::ContextAttributes;
 }

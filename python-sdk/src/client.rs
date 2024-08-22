@@ -1,7 +1,7 @@
-use std::{sync::Arc, time::Duration};
+use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
 
 use pyo3::{
-    exceptions::PyRuntimeError,
+    exceptions::{PyRuntimeError, PyTypeError},
     intern,
     prelude::*,
     types::{PyBool, PyFloat, PyInt, PyString},
@@ -11,12 +11,15 @@ use pyo3::{
 use eppo_core::{
     configuration_fetcher::ConfigurationFetcher,
     configuration_store::ConfigurationStore,
-    eval::{eval_details::EvaluationResultWithDetails, get_assignment, get_assignment_details},
+    eval::{
+        eval_details::EvaluationResultWithDetails, get_assignment, get_assignment_details,
+        get_bandit_action, BanditResult,
+    },
     events::AssignmentEvent,
     poller_thread::{PollerThread, PollerThreadConfig},
     pyo3::TryToPyObject,
     ufc::VariationType,
-    Attributes,
+    Attributes, ContextAttributes,
 };
 
 use crate::{assignment_logger::AssignmentLogger, config::Config};
@@ -26,10 +29,24 @@ pub struct EvaluationResult {
     variation: Py<PyAny>,
     action: Option<Py<PyString>>,
     /// Optional evaluation details.
-    evaluation_details: Py<PyAny>,
+    evaluation_details: Option<Py<PyAny>>,
 }
 #[pymethods]
 impl EvaluationResult {
+    #[new]
+    #[pyo3(signature = (variation, action=None, evaluation_details=None))]
+    fn new(
+        variation: Py<PyAny>,
+        action: Option<Py<PyString>>,
+        evaluation_details: Option<Py<PyAny>>,
+    ) -> EvaluationResult {
+        EvaluationResult {
+            variation,
+            action,
+            evaluation_details,
+        }
+    }
+
     fn __repr__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         use pyo3::types::PyList;
 
@@ -41,7 +58,10 @@ impl EvaluationResult {
                 intern!(py, ", action=").clone(),
                 self.action.to_object(py).into_bound(py).repr()?,
                 intern!(py, ", evaluation_details=").clone(),
-                self.evaluation_details.bind(py).repr()?,
+                self.evaluation_details
+                    .to_object(py)
+                    .into_bound(py)
+                    .repr()?,
                 intern!(py, ")").clone(),
             ],
         );
@@ -69,8 +89,21 @@ impl EvaluationResult {
         Ok(EvaluationResult {
             variation,
             action: action.map(|it| PyString::new_bound(py, &it).unbind()),
-            evaluation_details: evaluation_details.try_to_pyobject(py)?,
+            evaluation_details: Some(evaluation_details.try_to_pyobject(py)?),
         })
+    }
+
+    fn from_bandit_result(py: Python, result: BanditResult) -> EvaluationResult {
+        let variation = result.variation.into_py(py);
+        let action = result
+            .action
+            .map(|it| PyString::new_bound(py, &it).unbind());
+
+        EvaluationResult {
+            variation,
+            action,
+            evaluation_details: None,
+        }
     }
 }
 
@@ -245,6 +278,32 @@ impl EppoClient {
         )
     }
 
+    fn get_bandit_action(
+        slf: &Bound<EppoClient>,
+        flag_key: &str,
+        subject_key: &str,
+        #[pyo3(from_py_with = "context_attributes_from_py")] subject_attributes: RefOrOwned<
+            ContextAttributes,
+            PyRef<ContextAttributes>,
+        >,
+        #[pyo3(from_py_with = "actions_from_py")] actions: HashMap<String, ContextAttributes>,
+        default: &str,
+    ) -> PyResult<EvaluationResult> {
+        let this = slf.get();
+        let configuration = this.configuration_store.get_configuration();
+
+        let result = get_bandit_action(
+            configuration.as_ref().map(|it| it.as_ref()),
+            flag_key,
+            subject_key,
+            &subject_attributes,
+            &actions,
+            default,
+        );
+
+        Ok(EvaluationResult::from_bandit_result(slf.py(), result))
+    }
+
     // Implementing [Garbage Collector integration][1] in case user's `AssignmentLogger` holds a
     // reference to `EppoClient`. This will allow the GC to detect this cycle and break it.
     //
@@ -255,6 +314,60 @@ impl EppoClient {
     fn __clear__(&self) {
         // We're frozen and don't hold mutable Python references, so there's nothing to clear.
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+enum RefOrOwned<T, Ref>
+where
+    Ref: Deref<Target = T>,
+{
+    Ref(Ref),
+    Owned(T),
+}
+impl<T, Ref> Deref for RefOrOwned<T, Ref>
+where
+    Ref: Deref<Target = T>,
+{
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        match self {
+            RefOrOwned::Ref(r) => r,
+            RefOrOwned::Owned(owned) => owned,
+        }
+    }
+}
+
+fn context_attributes_from_py<'py>(
+    obj: &'py Bound<'py, PyAny>,
+) -> PyResult<RefOrOwned<ContextAttributes, PyRef<'py, ContextAttributes>>> {
+    if let Ok(attrs) = obj.downcast::<ContextAttributes>() {
+        return Ok(RefOrOwned::Ref(attrs.borrow()));
+    }
+    if let Ok(attrs) = Attributes::extract_bound(obj) {
+        return Ok(RefOrOwned::Owned(attrs.into()));
+    }
+    Err(PyTypeError::new_err(format!(
+        "attributes must be either ContextAttributes or Attributes"
+    )))
+}
+
+fn actions_from_py(obj: &Bound<PyAny>) -> PyResult<HashMap<String, ContextAttributes>> {
+    if let Ok(result) = FromPyObject::extract_bound(&obj) {
+        return Ok(result);
+    }
+
+    if let Ok(result) = HashMap::<String, Attributes>::extract_bound(&obj) {
+        let result = result
+            .into_iter()
+            .map(|(name, attrs)| (name, ContextAttributes::from(attrs)))
+            .collect();
+        return Ok(result);
+    }
+
+    Err(PyTypeError::new_err(format!(
+        "action attributes must be either ContextAttributes or Attributes"
+    )))
 }
 
 // Rust-only methods
