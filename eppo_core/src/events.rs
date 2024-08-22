@@ -63,15 +63,37 @@ pub struct BanditEvent {
     pub meta_data: HashMap<String, String>,
 }
 
+impl AssignmentEvent {
+    pub fn add_sdk_metadata(&mut self, name: String, version: String) {
+        self.meta_data.insert("sdkName".to_owned(), name);
+        self.meta_data.insert("sdkVersion".to_owned(), version);
+    }
+}
+
+impl BanditEvent {
+    pub fn add_sdk_metadata(&mut self, name: String, version: String) {
+        self.meta_data.insert("sdkName".to_owned(), name);
+        self.meta_data.insert("sdkVersion".to_owned(), version);
+    }
+}
+
 #[cfg(feature = "pyo3")]
 mod pyo3_impl {
     use pyo3::{PyObject, PyResult, Python};
 
     use crate::pyo3::TryToPyObject;
 
-    use super::AssignmentEvent;
+    use super::{AssignmentEvent, BanditEvent};
 
     impl TryToPyObject for AssignmentEvent {
+        fn try_to_pyobject(&self, py: Python) -> PyResult<PyObject> {
+            serde_pyobject::to_pyobject(py, self)
+                .map(|it| it.unbind())
+                .map_err(|err| err.0)
+        }
+    }
+
+    impl TryToPyObject for BanditEvent {
         fn try_to_pyobject(&self, py: Python) -> PyResult<PyObject> {
             serde_pyobject::to_pyobject(py, self)
                 .map(|it| it.unbind())

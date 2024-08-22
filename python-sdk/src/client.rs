@@ -15,7 +15,7 @@ use eppo_core::{
         eval_details::EvaluationResultWithDetails, get_assignment, get_assignment_details,
         get_bandit_action, BanditResult,
     },
-    events::AssignmentEvent,
+    events::{AssignmentEvent, BanditEvent},
     poller_thread::{PollerThread, PollerThreadConfig},
     pyo3::TryToPyObject,
     ufc::VariationType,
@@ -289,10 +289,11 @@ impl EppoClient {
         #[pyo3(from_py_with = "actions_from_py")] actions: HashMap<String, ContextAttributes>,
         default: &str,
     ) -> PyResult<EvaluationResult> {
+        let py = slf.py();
         let this = slf.get();
         let configuration = this.configuration_store.get_configuration();
 
-        let result = get_bandit_action(
+        let mut result = get_bandit_action(
             configuration.as_ref().map(|it| it.as_ref()),
             flag_key,
             subject_key,
@@ -301,7 +302,14 @@ impl EppoClient {
             default,
         );
 
-        Ok(EvaluationResult::from_bandit_result(slf.py(), result))
+        if let Some(event) = result.assignment_event.take() {
+            let _ = this.log_assignment_event(py, event);
+        }
+        if let Some(event) = result.bandit_event.take() {
+            let _ = this.log_bandit_event(py, event);
+        }
+
+        Ok(EvaluationResult::from_bandit_result(py, result))
     }
 
     // Implementing [Garbage Collector integration][1] in case user's `AssignmentLogger` holds a
@@ -480,10 +488,20 @@ impl EppoClient {
     }
 
     /// Try to log assignment event using `self.assignment_logger`.
-    pub fn log_assignment_event(&self, py: Python, event: AssignmentEvent) -> PyResult<()> {
+    pub fn log_assignment_event(&self, py: Python, mut event: AssignmentEvent) -> PyResult<()> {
+        event.add_sdk_metadata("python".to_owned(), env!("CARGO_PKG_VERSION").to_owned());
         let event = event.try_to_pyobject(py)?;
         self.assignment_logger
             .call_method1(py, intern!(py, "log_assignment"), (event,))?;
+        Ok(())
+    }
+
+    /// Try to log bandit event using `self.assignment_logger`.
+    pub fn log_bandit_event(&self, py: Python, mut event: BanditEvent) -> PyResult<()> {
+        event.add_sdk_metadata("python".to_owned(), env!("CARGO_PKG_VERSION").to_owned());
+        let event = event.try_to_pyobject(py)?;
+        self.assignment_logger
+            .call_method1(py, intern!(py, "log_bandit_action"), (event,))?;
         Ok(())
     }
 
