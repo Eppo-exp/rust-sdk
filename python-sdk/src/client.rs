@@ -1,4 +1,12 @@
-use std::{collections::HashMap, ops::Deref, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    ops::Deref,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 
 use pyo3::{
     exceptions::{PyRuntimeError, PyTypeError},
@@ -112,6 +120,7 @@ pub struct EppoClient {
     configuration_store: Arc<ConfigurationStore>,
     poller_thread: PollerThread,
     assignment_logger: Py<AssignmentLogger>,
+    is_graceful_mode: AtomicBool,
 }
 
 #[pymethods]
@@ -312,6 +321,11 @@ impl EppoClient {
         Ok(EvaluationResult::from_bandit_result(py, result))
     }
 
+    fn set_is_graceful_mode(&self, is_graceful_mode: bool) {
+        self.is_graceful_mode
+            .store(is_graceful_mode, Ordering::Release);
+    }
+
     // Implementing [Garbage Collector integration][1] in case user's `AssignmentLogger` holds a
     // reference to `EppoClient`. This will allow the GC to detect this cycle and break it.
     //
@@ -412,6 +426,7 @@ impl EppoClient {
                     PyRuntimeError::new_err(format!("Config.assignment_logger is None"))
                 })?
                 .clone_ref(py),
+            is_graceful_mode: AtomicBool::new(config.is_graceful_mode),
         })
     }
 
@@ -437,8 +452,7 @@ impl EppoClient {
         let assignment = match result {
             Ok(assignment) => assignment,
             Err(err) => {
-                let graceful_mode = true;
-                if graceful_mode {
+                if self.is_graceful_mode.load(Ordering::Acquire) {
                     None
                 } else {
                     return Err(PyErr::new::<PyRuntimeError, _>(err.to_string()));
