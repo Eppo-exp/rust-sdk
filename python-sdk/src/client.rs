@@ -55,6 +55,16 @@ impl EvaluationResult {
         }
     }
 
+    fn to_string(&self, py: Python) -> PyResult<Py<PyString>> {
+        // use pyo3::types::PyAnyMethods;
+        let s = if let Some(action) = &self.action {
+            action.clone_ref(py)
+        } else {
+            self.variation.bind(py).str()?.unbind()
+        };
+        Ok(s)
+    }
+
     fn __repr__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         use pyo3::types::PyList;
 
