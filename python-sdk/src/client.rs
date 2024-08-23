@@ -20,8 +20,9 @@ use eppo_core::{
     configuration_fetcher::ConfigurationFetcher,
     configuration_store::ConfigurationStore,
     eval::{
-        eval_details::EvaluationResultWithDetails, get_assignment, get_assignment_details,
-        get_bandit_action, BanditResult,
+        eval_details::{EvaluationDetails, EvaluationResultWithDetails},
+        get_assignment, get_assignment_details, get_bandit_action, get_bandit_action_details,
+        BanditResult,
     },
     events::{AssignmentEvent, BanditEvent},
     poller_thread::{PollerThread, PollerThreadConfig},
@@ -111,17 +112,27 @@ impl EvaluationResult {
         })
     }
 
-    fn from_bandit_result(py: Python, result: BanditResult) -> EvaluationResult {
+    fn from_bandit_result(
+        py: Python,
+        result: BanditResult,
+        details: Option<EvaluationDetails>,
+    ) -> PyResult<EvaluationResult> {
         let variation = result.variation.into_py(py);
         let action = result
             .action
             .map(|it| PyString::new_bound(py, &it).unbind());
 
-        EvaluationResult {
+        let evaluation_details = if let Some(details) = details {
+            Some(details.try_to_pyobject(py)?)
+        } else {
+            None
+        };
+
+        Ok(EvaluationResult {
             variation,
             action,
-            evaluation_details: None,
-        }
+            evaluation_details,
+        })
     }
 }
 
@@ -297,11 +308,60 @@ impl EppoClient {
         )
     }
 
+    /// Determines the bandit action for a given subject based on the provided bandit key and subject attributes.
+    ///
+    /// This method performs the following steps:
+    /// 1. Retrieves the experiment assignment for the given bandit key and subject.
+    /// 2. Checks if the assignment matches the bandit key. If not, it means the subject is not allocated in the bandit,
+    ///    and the method returns a EvaluationResult with the assignment.
+    /// 3. Evaluates the bandit action using the bandit evaluator.
+    /// 4. Logs the bandit action event.
+    /// 5. Returns the EvaluationResult containing the selected action key and the assignment.
+    ///
+    /// Args:
+    ///     flag_key (str): The feature flag key that contains the bandit as one of the variations.
+    ///     subject_key (str): The key identifying the subject.
+    ///     subject_context (Union[ContextAttributes, Attributes]): The subject context.
+    ///         If supplying an ActionAttributes, it gets converted to an ActionContexts instance
+    ///     actions (Union[ActionContexts, ActionAttributes]): The dictionary that maps action keys
+    ///         to their context of actions with their contexts.
+    ///         If supplying an ActionAttributes, it gets converted to an ActionContexts instance.
+    ///     default (str): The default variation to use if an error is encountered retrieving the
+    ///         assigned variation.
+    ///
+    /// Returns:
+    ///     EvaluationResult: The result containing either the bandit action if the subject is part of the bandit,
+    ///                   or the assignment if they are not. The EvaluationResult includes:
+    ///                   - variation (str): The assignment key indicating the subject's variation.
+    ///                   - action (Optional[str]): The key of the selected action if the subject was assigned one
+    ///                     by the bandit.
+    ///
+    /// Example:
+    /// result = client.get_bandit_action(
+    ///     "flag_key",
+    ///     "subject_key",
+    ///     ContextAttributes(
+    ///         numeric_attributes={"age": 25},
+    ///         categorical_attributes={"country": "USA"}),
+    ///     {
+    ///         "action1": ContextAttributes(
+    ///             numeric_attributes={"price": 10.0},
+    ///             categorical_attributes={"category": "A"}
+    ///         ),
+    ///         "action2": {"price": 10.0, "category": "B"}
+    ///         "action3": ContextAttributes.empty(),
+    ///     },
+    ///     "default"
+    /// )
+    /// if result.action:
+    ///     do_action(result.variation)
+    /// else:
+    ///     do_status_quo()
     fn get_bandit_action(
         slf: &Bound<EppoClient>,
         flag_key: &str,
         subject_key: &str,
-        #[pyo3(from_py_with = "context_attributes_from_py")] subject_attributes: RefOrOwned<
+        #[pyo3(from_py_with = "context_attributes_from_py")] subject_context: RefOrOwned<
             ContextAttributes,
             PyRef<ContextAttributes>,
         >,
@@ -316,7 +376,7 @@ impl EppoClient {
             configuration.as_ref().map(|it| it.as_ref()),
             flag_key,
             subject_key,
-            &subject_attributes,
+            &subject_context,
             &actions,
             default,
         );
@@ -328,7 +388,42 @@ impl EppoClient {
             let _ = this.log_bandit_event(py, event);
         }
 
-        Ok(EvaluationResult::from_bandit_result(py, result))
+        EvaluationResult::from_bandit_result(py, result, None)
+    }
+
+    /// Same as get_bandit_action() but returns EvaluationResult with evaluation_details.
+    fn get_bandit_action_details(
+        slf: &Bound<EppoClient>,
+        flag_key: &str,
+        subject_key: &str,
+        #[pyo3(from_py_with = "context_attributes_from_py")] subject_context: RefOrOwned<
+            ContextAttributes,
+            PyRef<ContextAttributes>,
+        >,
+        #[pyo3(from_py_with = "actions_from_py")] actions: HashMap<String, ContextAttributes>,
+        default: &str,
+    ) -> PyResult<EvaluationResult> {
+        let py = slf.py();
+        let this = slf.get();
+        let configuration = this.configuration_store.get_configuration();
+
+        let (mut result, details) = get_bandit_action_details(
+            configuration.as_ref().map(|it| it.as_ref()),
+            flag_key,
+            subject_key,
+            &subject_context,
+            &actions,
+            default,
+        );
+
+        if let Some(event) = result.assignment_event.take() {
+            let _ = this.log_assignment_event(py, event);
+        }
+        if let Some(event) = result.bandit_event.take() {
+            let _ = this.log_bandit_event(py, event);
+        }
+
+        EvaluationResult::from_bandit_result(py, result, Some(details))
     }
 
     fn set_is_graceful_mode(&self, is_graceful_mode: bool) {

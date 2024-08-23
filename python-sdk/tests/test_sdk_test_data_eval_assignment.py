@@ -1,7 +1,4 @@
-import os
-import json
 import pytest
-from time import sleep
 
 import eppo_client
 from eppo_client.assignment_logger import AssignmentLogger
