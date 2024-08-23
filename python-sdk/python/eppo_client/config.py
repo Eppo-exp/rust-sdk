@@ -1,4 +1,4 @@
-from eppo_client import Config, AssignmentLogger
+from eppo_client import ClientConfig as Config, AssignmentLogger
 
 import warnings
 

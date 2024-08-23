@@ -5,7 +5,7 @@ use eppo_core::{configuration_fetcher::DEFAULT_BASE_URL, poller_thread::PollerTh
 use crate::assignment_logger::AssignmentLogger;
 
 #[pyclass(module = "eppo_client", get_all, set_all)]
-pub struct Config {
+pub struct ClientConfig {
     pub(crate) api_key: String,
     pub(crate) base_url: String,
     pub(crate) assignment_logger: Option<Py<AssignmentLogger>>,
@@ -15,7 +15,7 @@ pub struct Config {
 }
 
 #[pymethods]
-impl Config {
+impl ClientConfig {
     #[new]
     #[pyo3(signature = (
             api_key,
@@ -33,14 +33,14 @@ impl Config {
         is_graceful_mode: bool,
         poll_interval_seconds: u64,
         poll_jitter_seconds: u64,
-    ) -> PyResult<Config> {
+    ) -> PyResult<ClientConfig> {
         if api_key.is_empty() {
             return Err(PyValueError::new_err(
                 "Invalid value for api_key: cannot be blank",
             ));
         }
 
-        Ok(Config {
+        Ok(ClientConfig {
             api_key,
             base_url,
             assignment_logger: Some(assignment_logger),

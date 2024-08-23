@@ -2,7 +2,7 @@ use std::sync::{Mutex, RwLock};
 
 use pyo3::{exceptions::PyException, prelude::*};
 
-use crate::{client::EppoClient, config::Config};
+use crate::{client::EppoClient, client_config::ClientConfig};
 
 // TODO: use `pyo3::sync::GILProtected` instead?
 static CLIENT_INSTANCE: RwLock<Option<Py<EppoClient>>> = RwLock::new(None);
@@ -16,7 +16,7 @@ static CLIENT_INSTANCE: RwLock<Option<Py<EppoClient>>> = RwLock::new(None);
 /// :param config: client configuration containing the API Key
 /// :type config: Config
 #[pyfunction]
-pub fn init(config: Bound<Config>) -> PyResult<Py<EppoClient>> {
+pub fn init(config: Bound<ClientConfig>) -> PyResult<Py<EppoClient>> {
     initialize_pyo3_log();
 
     let py = config.py();

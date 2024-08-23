@@ -31,7 +31,7 @@ use eppo_core::{
     Attributes, ContextAttributes,
 };
 
-use crate::{assignment_logger::AssignmentLogger, config::Config};
+use crate::{assignment_logger::AssignmentLogger, client_config::ClientConfig};
 
 #[pyclass(frozen, get_all, module = "eppo_client")]
 pub struct EvaluationResult {
@@ -536,7 +536,7 @@ fn actions_from_py(obj: &Bound<PyAny>) -> PyResult<HashMap<String, ContextAttrib
 
 // Rust-only methods
 impl EppoClient {
-    pub fn new(py: Python, config: &Config) -> PyResult<EppoClient> {
+    pub fn new(py: Python, config: &ClientConfig) -> PyResult<EppoClient> {
         let configuration_store = Arc::new(ConfigurationStore::new());
         let poller_thread = PollerThread::start_with_config(
             ConfigurationFetcher::new(
