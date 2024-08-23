@@ -7,36 +7,14 @@ import eppo_client
 from eppo_client.assignment_logger import AssignmentLogger
 from eppo_client.bandit import ContextAttributes, BanditResult
 
-TEST_DIR = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "../../../sdk-test-data/ufc/bandit-tests",
-)
-test_data = []
-for file_name in os.listdir(TEST_DIR):
-    # dynamic-typing tests allow passing arbitrary/invalid values to
-    # ContextAttributes. Our implementation is more strongly typed and
-    # checks that attributes have proper types and throws TypeError
-    # otherwise (at ContextAttributes construction, not
-    # evaluation). Therefore, these tests are not applicable.
-    if not file_name.endswith(".dynamic-typing.json"):
-        with open("{}/{}".format(TEST_DIR, file_name)) as test_case_json:
-            test_case_dict = json.load(test_case_json)
-            test_case_dict["file_name"] = file_name
-            test_data.append(test_case_dict)
+from .util import load_test_files, init
 
-MOCK_BASE_URL = "http://localhost:8378/"
+test_data = load_test_files("bandit-tests")
 
 
 @pytest.fixture(scope="session", autouse=True)
 def init_fixture():
-    eppo_client.init(
-        eppo_client.config.Config(
-            base_url=MOCK_BASE_URL + "bandit/api",
-            api_key="dummy",
-            assignment_logger=AssignmentLogger(),
-        )
-    )
-    sleep(0.1)  # wait for initialization
+    init("bandit")
     yield
 
 
