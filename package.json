@@ -3,7 +3,7 @@
   "scripts": {
     "test": "npm run with-server 'npm-run-all test:*'",
     "test:rust": "cargo test",
-    "test:python": "cd python-sdk && maturin develop && pytest",
+    "test:python": "cd python-sdk && pytest",
     "test:ruby": "cd ruby-sdk && bundle exec rake test",
     "with-server": "start-server-and-test start-mock-server http://127.0.0.1:8378",
     "start-mock-server": "npm start --prefix ./mock-server"

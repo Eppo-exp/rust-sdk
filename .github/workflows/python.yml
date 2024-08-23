@@ -6,6 +6,7 @@
 # Manually modified:
 # - tag filter in Release job to only trigger on python-sdk@ tags
 # - added checkout with submodules
+# - replaced `pytest` with `npm run with-server test:python`
 name: Python SDK
 
 on:
@@ -67,7 +68,8 @@ jobs:
           source .venv/bin/activate
           pip install eppo-server-sdk --find-links dist --force-reinstall
           pip install pytest
-          cd ./python-sdk && pytest
+          npm ci
+          npm run with-server test:python
       - name: pytest
         if: ${{ !startsWith(matrix.platform.target, 'x86') && matrix.platform.target != 'ppc64' }}
         uses: uraimo/run-on-arch-action@v2
@@ -77,12 +79,13 @@ jobs:
           githubToken: ${{ github.token }}
           install: |
             apt-get update
-            apt-get install -y --no-install-recommends python3 python3-pip
+            apt-get install -y --no-install-recommends python3 python3-pip nodejs
             pip3 install -U pip pytest
           run: |
             set -e
             pip3 install eppo-server-sdk --find-links dist --force-reinstall
-            cd ./python-sdk && pytest
+            npm ci
+            npm run with-server test:python
 
   musllinux:
     runs-on: ${{ matrix.platform.runner }}
@@ -124,12 +127,13 @@ jobs:
           options: -v ${{ github.workspace }}:/io -w /io
           run: |
             set -e
-            apk add py3-pip py3-virtualenv
+            apk add py3-pip py3-virtualenv nodejs npm
             python3 -m virtualenv .venv
             source .venv/bin/activate
             pip install eppo-server-sdk --no-index --find-links dist --force-reinstall
             pip install pytest
-            cd ./python-sdk && pytest
+            npm ci
+            npm run with-server test:python
       - name: pytest
         if: ${{ !startsWith(matrix.platform.target, 'x86') }}
         uses: uraimo/run-on-arch-action@v2
@@ -138,14 +142,15 @@ jobs:
           distro: alpine_latest
           githubToken: ${{ github.token }}
           install: |
-            apk add py3-virtualenv
+            apk add py3-virtualenv nodejs npm
           run: |
             set -e
             python3 -m virtualenv .venv
             source .venv/bin/activate
             pip install pytest
             pip install eppo-server-sdk --find-links dist --force-reinstall
-            cd ./python-sdk && pytest
+            npm ci
+            npm run with-server test:python
 
   windows:
     runs-on: ${{ matrix.platform.runner }}
@@ -184,7 +189,8 @@ jobs:
           source .venv/Scripts/activate
           pip install eppo-server-sdk --find-links dist --force-reinstall
           pip install pytest
-          cd ./python-sdk && pytest
+          npm ci
+          npm run with-server test:python
 
   macos:
     runs-on: ${{ matrix.platform.runner }}
@@ -220,7 +226,8 @@ jobs:
           source .venv/bin/activate
           pip install eppo-server-sdk --find-links dist --force-reinstall
           pip install pytest
-          cd ./python-sdk && pytest
+          npm ci
+          npm run with-server test:python
 
   sdist:
     runs-on: ubuntu-latest
