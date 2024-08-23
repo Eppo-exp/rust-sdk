@@ -12,7 +12,7 @@ use pyo3::{
     exceptions::{PyRuntimeError, PyTypeError},
     intern,
     prelude::*,
-    types::{PyBool, PyFloat, PyInt, PyString},
+    types::{PyBool, PyFloat, PyInt, PySet, PyString},
     PyTraverseError, PyVisit,
 };
 
@@ -349,6 +349,28 @@ impl EppoClient {
     fn wait_for_initialization(&self, py: Python) -> PyResult<()> {
         py.allow_threads(|| self.poller_thread.wait_for_configuration())
             .map_err(|err| PyRuntimeError::new_err(err.to_string()))
+    }
+
+    // Returns a set of all flag keys that have been initialized.
+    // This can be useful to debug the initialization process.
+    fn get_flag_keys<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<PySet>> {
+        let config = self.configuration_store.get_configuration();
+        match config {
+            Some(config) => PySet::new_bound(py, config.flags.flags.keys()),
+            None => PySet::empty_bound(py),
+        }
+    }
+
+    // Returns a set of all bandit keys that have been initialized.
+    // This can be useful to debug the initialization process.
+    fn get_bandit_keys<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<PySet>> {
+        let config = self.configuration_store.get_configuration();
+        match config {
+            Some(config) => {
+                PySet::new_bound(py, config.bandits.iter().flat_map(|it| it.bandits.keys()))
+            }
+            None => PySet::empty_bound(py),
+        }
     }
 
     // Implementing [Garbage Collector integration][1] in case user's `AssignmentLogger` holds a
