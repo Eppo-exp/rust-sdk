@@ -8,6 +8,8 @@ mod init;
 
 #[pymodule(module = "eppo_client", name = "_eppo_client")]
 mod eppo_client {
+    use pyo3::prelude::*;
+
     #[pymodule_export]
     use crate::{
         assignment_logger::AssignmentLogger,
@@ -19,4 +21,10 @@ mod eppo_client {
 
     #[pymodule_export]
     use eppo_core::ContextAttributes;
+
+    #[pymodule_init]
+    fn module_init(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        m.add("__version__", env!("CARGO_PKG_VERSION"))?;
+        Ok(())
+    }
 }

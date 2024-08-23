@@ -11,3 +11,11 @@ def test_config():
 
 def test_assignment_logger():
     from eppo_client.assignment_logger import AssignmentLogger
+
+
+def test_bandit():
+    from eppo_client.bandit import BanditResult
+
+
+def test_version():
+    from eppo_client.version import __version__
