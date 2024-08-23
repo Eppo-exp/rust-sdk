@@ -31,7 +31,9 @@ use eppo_core::{
     Attributes, ContextAttributes,
 };
 
-use crate::{assignment_logger::AssignmentLogger, client_config::ClientConfig};
+use crate::{
+    assignment_logger::AssignmentLogger, client_config::ClientConfig, configuration::Configuration,
+};
 
 #[pyclass(frozen, get_all, module = "eppo_client")]
 pub struct EvaluationResult {
@@ -444,6 +446,12 @@ impl EppoClient {
     fn wait_for_initialization(&self, py: Python) -> PyResult<()> {
         py.allow_threads(|| self.poller_thread.wait_for_configuration())
             .map_err(|err| PyRuntimeError::new_err(err.to_string()))
+    }
+
+    fn get_configuration(&self) -> Option<Configuration> {
+        self.configuration_store
+            .get_configuration()
+            .map(Configuration::new)
     }
 
     // Returns a set of all flag keys that have been initialized.
