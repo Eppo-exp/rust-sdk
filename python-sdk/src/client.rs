@@ -336,6 +336,21 @@ impl EppoClient {
             .store(is_graceful_mode, Ordering::Release);
     }
 
+    // Returns True if the client has successfully initialized the flag configuration and is ready
+    // to serve requests.
+    fn is_initialized(&self) -> bool {
+        let config = self.configuration_store.get_configuration();
+        config.is_some()
+    }
+
+    /// Wait for configuration to get fetches.
+    ///
+    /// This method releases GIL, so other Python thread can make progress.
+    fn wait_for_initialization(&self, py: Python) -> PyResult<()> {
+        py.allow_threads(|| self.poller_thread.wait_for_configuration())
+            .map_err(|err| PyRuntimeError::new_err(err.to_string()))
+    }
+
     // Implementing [Garbage Collector integration][1] in case user's `AssignmentLogger` holds a
     // reference to `EppoClient`. This will allow the GC to detect this cycle and break it.
     //
