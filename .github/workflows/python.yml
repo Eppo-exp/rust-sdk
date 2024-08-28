@@ -135,7 +135,10 @@ jobs:
             npm ci
             npm run with-server test:python
       - name: pytest
-        if: ${{ !startsWith(matrix.platform.target, 'x86') }}
+        # `npm ci` just hangs on Alpine armv7 now.
+        # Disabling tests until this issue is fixed:
+        # https://github.com/nodejs/docker-node/issues/1829
+        if: ${{ !startsWith(matrix.platform.target, 'x86') && matrix.platform.target != 'armv7' }}
         uses: uraimo/run-on-arch-action@v2
         with:
           arch: ${{ matrix.platform.target }}
