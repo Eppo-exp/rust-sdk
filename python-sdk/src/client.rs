@@ -574,7 +574,7 @@ impl EppoClient {
                     ),
                     configuration_store.clone(),
                     PollerThreadConfig {
-                        interval: Duration::from_secs(poll_interval_seconds),
+                        interval: Duration::from_secs(poll_interval_seconds.into()),
                         jitter: Duration::from_secs(config.poll_jitter_seconds),
                     },
                 )

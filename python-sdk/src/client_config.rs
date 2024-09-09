@@ -1,3 +1,5 @@
+use std::num::NonZeroU64;
+
 use pyo3::{exceptions::PyValueError, prelude::*, PyTraverseError, PyVisit};
 
 use eppo_core::{configuration_fetcher::DEFAULT_BASE_URL, poller_thread::PollerThreadConfig};
@@ -10,7 +12,7 @@ pub struct ClientConfig {
     pub(crate) base_url: String,
     pub(crate) assignment_logger: Option<Py<AssignmentLogger>>,
     pub(crate) is_graceful_mode: bool,
-    pub(crate) poll_interval_seconds: Option<u64>,
+    pub(crate) poll_interval_seconds: Option<NonZeroU64>,
     pub(crate) poll_jitter_seconds: u64,
     pub(crate) initial_configuration: Option<Py<Configuration>>,
 }
@@ -24,7 +26,7 @@ impl ClientConfig {
             base_url=DEFAULT_BASE_URL.to_owned(),
             assignment_logger,
             is_graceful_mode=true,
-            poll_interval_seconds=Some(PollerThreadConfig::DEFAULT_POLL_INTERVAL.as_secs()),
+            poll_interval_seconds=Some(NonZeroU64::new(PollerThreadConfig::DEFAULT_POLL_INTERVAL.as_secs()).unwrap()),
             poll_jitter_seconds=PollerThreadConfig::DEFAULT_POLL_JITTER.as_secs(),
             initial_configuration=None
         ))]
@@ -33,7 +35,7 @@ impl ClientConfig {
         base_url: String,
         assignment_logger: Py<AssignmentLogger>,
         is_graceful_mode: bool,
-        poll_interval_seconds: Option<u64>,
+        poll_interval_seconds: Option<NonZeroU64>,
         poll_jitter_seconds: u64,
         initial_configuration: Option<Py<Configuration>>,
     ) -> PyResult<ClientConfig> {

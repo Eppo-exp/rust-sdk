@@ -52,3 +52,12 @@ class TestConfig:
     def test_can_set_assignment_logger_to_another_logger(self):
         config = Config(api_key="test-key", assignment_logger=AssignmentLogger())
         config.assignment_logger = AssignmentLogger()
+
+    @pytest.mark.rust_only
+    def test_poll_interval_seconds_cannot_be_0(self):
+        with pytest.raises(ValueError):
+            Config(
+                api_key="test-key",
+                assignment_logger=AssignmentLogger(),
+                poll_interval_seconds=0,
+            )
