@@ -8,7 +8,9 @@ pub struct AssignmentLogger {}
 #[pymethods]
 impl AssignmentLogger {
     #[new]
-    fn new() -> AssignmentLogger {
+    #[pyo3(signature = (*args, **kwargs))]
+    #[allow(unused_variables)]
+    fn new(args: &Bound<'_, PyAny>, kwargs: Option<&Bound<'_, PyAny>>) -> AssignmentLogger {
         AssignmentLogger {}
     }
 

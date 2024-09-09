@@ -12,6 +12,10 @@
 # [2]: https://www.maturin.rs/project_layout#pure-rust-project
 from ._eppo_client import *
 
+# re-exports
+from eppo_client.assignment_logger import AssignmentCacheLogger
+from eppo_client.bandit import BanditResult
+
 __doc__ = _eppo_client.__doc__
 if hasattr(_eppo_client, "__all__"):
     __all__ = _eppo_client.__all__

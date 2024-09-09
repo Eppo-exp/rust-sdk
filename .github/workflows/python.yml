@@ -84,7 +84,7 @@ jobs:
           python3 -m venv .venv
           source .venv/bin/activate
           pip install eppo-server-sdk --find-links dist --force-reinstall
-          pip install pytest
+          pip install pytest cachetools
           npm ci
           npm run with-server test:python
       - name: pytest
@@ -97,7 +97,7 @@ jobs:
           install: |
             apt-get update
             apt-get install -y --no-install-recommends python3 python3-pip nodejs npm
-            pip3 install -U pip pytest
+            pip3 install -U pip pytest cachetools
           run: |
             set -ex
             pip3 install eppo-server-sdk --find-links dist --force-reinstall
@@ -148,7 +148,7 @@ jobs:
             python3 -m virtualenv .venv
             source .venv/bin/activate
             pip install eppo-server-sdk --no-index --find-links dist --force-reinstall
-            pip install pytest
+            pip install pytest cachetools
             npm ci
             npm run with-server test:python
       - name: pytest
@@ -167,7 +167,7 @@ jobs:
             set -ex
             python3 -m virtualenv .venv
             source .venv/bin/activate
-            pip install pytest
+            pip install pytest cachetools
             pip install eppo-server-sdk --find-links dist --force-reinstall
             npm ci
             npm run with-server test:python
@@ -208,7 +208,7 @@ jobs:
           python3 -m venv .venv
           source .venv/Scripts/activate
           pip install eppo-server-sdk --find-links dist --force-reinstall
-          pip install pytest
+          pip install pytest cachetools
           npm ci
           npm run with-server test:python
 
@@ -245,7 +245,7 @@ jobs:
           python3 -m venv .venv
           source .venv/bin/activate
           pip install eppo-server-sdk --find-links dist --force-reinstall
-          pip install pytest
+          pip install pytest cachetools
           npm ci
           npm run with-server test:python
 
