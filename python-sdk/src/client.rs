@@ -74,7 +74,7 @@ impl EvaluationResult {
         let pieces = PyList::new_bound(
             py,
             [
-                intern!(py, "EvaluationResultWithDetails(variation=").clone(),
+                intern!(py, "EvaluationResult(variation=").clone(),
                 self.variation.bind(py).repr()?,
                 intern!(py, ", action=").clone(),
                 self.action.to_object(py).into_bound(py).repr()?,
