@@ -19,6 +19,13 @@ dynamic = ["version"]
 [project.urls]
 "Bug Tracker" = "https://github.com/Eppo-exp/rust-sdk/issues"
 
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "cachetools",
+  "types-cachetools"
+]
+
 [tool.maturin]
 features = ["pyo3/extension-module"]
 python-source = "python"

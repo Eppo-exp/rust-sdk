@@ -428,6 +428,12 @@ impl EppoClient {
         EvaluationResult::from_bandit_result(py, result, Some(details))
     }
 
+    fn get_configuration(&self) -> Option<Configuration> {
+        self.configuration_store
+            .get_configuration()
+            .map(Configuration::new)
+    }
+
     fn set_configuration(&self, configuration: &Configuration) {
         self.configuration_store
             .set_configuration(Arc::clone(&configuration.configuration));
@@ -457,14 +463,10 @@ impl EppoClient {
         }
     }
 
-    fn get_configuration(&self) -> Option<Configuration> {
-        self.configuration_store
-            .get_configuration()
-            .map(Configuration::new)
-    }
-
-    // Returns a set of all flag keys that have been initialized.
-    // This can be useful to debug the initialization process.
+    /// Returns a set of all flag keys that have been initialized.
+    /// This can be useful to debug the initialization process.
+    ///
+    /// Deprecated. Use EppoClient.get_configuration() instead.
     fn get_flag_keys<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<PySet>> {
         let config = self.configuration_store.get_configuration();
         match config {
@@ -473,8 +475,10 @@ impl EppoClient {
         }
     }
 
-    // Returns a set of all bandit keys that have been initialized.
-    // This can be useful to debug the initialization process.
+    /// Returns a set of all bandit keys that have been initialized.
+    /// This can be useful to debug the initialization process.
+    ///
+    /// Deprecated. Use EppoClient.get_configuration() instead.
     fn get_bandit_keys<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<PySet>> {
         let config = self.configuration_store.get_configuration();
         match config {
