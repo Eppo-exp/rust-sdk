@@ -141,7 +141,7 @@ impl EvaluationResult {
 #[pyclass(frozen, module = "eppo_client")]
 pub struct EppoClient {
     configuration_store: Arc<ConfigurationStore>,
-    poller_thread: PollerThread,
+    poller_thread: Option<PollerThread>,
     assignment_logger: Py<AssignmentLogger>,
     is_graceful_mode: AtomicBool,
 }
@@ -428,6 +428,11 @@ impl EppoClient {
         EvaluationResult::from_bandit_result(py, result, Some(details))
     }
 
+    fn set_configuration(&self, configuration: &Configuration) {
+        self.configuration_store
+            .set_configuration(Arc::clone(&configuration.configuration));
+    }
+
     fn set_is_graceful_mode(&self, is_graceful_mode: bool) {
         self.is_graceful_mode
             .store(is_graceful_mode, Ordering::Release);
@@ -444,8 +449,12 @@ impl EppoClient {
     ///
     /// This method releases GIL, so other Python thread can make progress.
     fn wait_for_initialization(&self, py: Python) -> PyResult<()> {
-        py.allow_threads(|| self.poller_thread.wait_for_configuration())
-            .map_err(|err| PyRuntimeError::new_err(err.to_string()))
+        if let Some(poller) = &self.poller_thread {
+            py.allow_threads(|| poller.wait_for_configuration())
+                .map_err(|err| PyRuntimeError::new_err(err.to_string()))
+        } else {
+            Err(PyRuntimeError::new_err("poller is disabled"))
+        }
     }
 
     fn get_configuration(&self) -> Option<Configuration> {
@@ -546,25 +555,36 @@ fn actions_from_py(obj: &Bound<PyAny>) -> PyResult<HashMap<String, ContextAttrib
 impl EppoClient {
     pub fn new(py: Python, config: &ClientConfig) -> PyResult<EppoClient> {
         let configuration_store = Arc::new(ConfigurationStore::new());
-        let poller_thread = PollerThread::start_with_config(
-            ConfigurationFetcher::new(
-                eppo_core::configuration_fetcher::ConfigurationFetcherConfig {
-                    base_url: config.base_url.clone(),
-                    api_key: config.api_key.clone(),
-                    sdk_name: "python".to_owned(),
-                    sdk_version: env!("CARGO_PKG_VERSION").to_owned(),
-                },
-            ),
-            configuration_store.clone(),
-            PollerThreadConfig {
-                interval: Duration::from_secs(config.poll_interval_seconds),
-                jitter: Duration::from_secs(config.poll_jitter_seconds),
-            },
-        )
-        .map_err(|err| {
-            // This should normally never happen.
-            PyRuntimeError::new_err(format!("unable to start poller thread: {err}"))
-        })?;
+        if let Some(configuration) = &config.initial_configuration {
+            let configuration = Arc::clone(&configuration.get().configuration);
+            configuration_store.set_configuration(configuration);
+        }
+
+        let poller_thread = config
+            .poll_interval_seconds
+            .map(|poll_interval_seconds| {
+                PollerThread::start_with_config(
+                    ConfigurationFetcher::new(
+                        eppo_core::configuration_fetcher::ConfigurationFetcherConfig {
+                            base_url: config.base_url.clone(),
+                            api_key: config.api_key.clone(),
+                            sdk_name: "python".to_owned(),
+                            sdk_version: env!("CARGO_PKG_VERSION").to_owned(),
+                        },
+                    ),
+                    configuration_store.clone(),
+                    PollerThreadConfig {
+                        interval: Duration::from_secs(poll_interval_seconds),
+                        jitter: Duration::from_secs(config.poll_jitter_seconds),
+                    },
+                )
+            })
+            .transpose()
+            .map_err(|err| {
+                // This should normally never happen.
+                PyRuntimeError::new_err(format!("unable to start poller thread: {err}"))
+            })?;
+
         Ok(EppoClient {
             configuration_store,
             poller_thread,
@@ -670,9 +690,11 @@ impl EppoClient {
     }
 
     pub fn shutdown(&self) {
-        // Using `.stop()` instead of `.shutdown()` here because we don't need to wait for the
-        // poller thread to exit.
-        self.poller_thread.stop();
+        if let Some(poller) = &self.poller_thread {
+            // Using `.stop()` instead of `.shutdown()` here because we don't need to wait for the
+            // poller thread to exit.
+            poller.stop();
+        }
     }
 }
 

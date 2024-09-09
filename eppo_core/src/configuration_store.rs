@@ -34,8 +34,7 @@ impl ConfigurationStore {
     }
 
     /// Set new configuration.
-    pub fn set_configuration(&self, config: Configuration) {
-        let config = Arc::new(config);
+    pub fn set_configuration(&self, config: Arc<Configuration>) {
         let mut configuration_slot = self
             .configuration
             .write()

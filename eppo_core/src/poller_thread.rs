@@ -136,7 +136,7 @@ impl PollerThread {
                         let result = fetcher.fetch_configuration();
                         match result {
                             Ok(configuration) => {
-                                store.set_configuration(configuration);
+                                store.set_configuration(Arc::new(configuration));
                                 update_result(Ok(()))
                             }
                             Err(err @ (Error::Unauthorized | Error::InvalidBaseUrl(_))) => {
