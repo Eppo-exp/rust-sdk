@@ -28,7 +28,7 @@ pub struct PollerThreadConfig {
 
 impl PollerThreadConfig {
     /// Default value for [`PollerThreadConfig::interval`].
-    pub const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(5 * 60);
+    pub const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(30);
     /// Default value for [`PollerThreadConfig::jitter`].
     pub const DEFAULT_POLL_JITTER: Duration = Duration::from_secs(30);
 
