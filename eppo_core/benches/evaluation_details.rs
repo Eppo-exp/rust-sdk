@@ -4,7 +4,7 @@ use std::fs::File;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
 
 use eppo_core::{
-    ufc::{get_assignment, get_assignment_details},
+    eval::{get_assignment, get_assignment_details},
     Configuration,
 };
 

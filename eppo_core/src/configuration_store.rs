@@ -65,7 +65,7 @@ mod tests {
         {
             let store = store.clone();
             let _ = std::thread::spawn(move || {
-                store.set_configuration(Configuration::from_server_response(
+                store.set_configuration(Arc::new(Configuration::from_server_response(
                     UniversalFlagConfig {
                         created_at: Utc::now(),
                         environment: Environment {
@@ -75,7 +75,7 @@ mod tests {
                         bandits: HashMap::new(),
                     },
                     None,
-                ))
+                )))
             })
             .join();
         }
