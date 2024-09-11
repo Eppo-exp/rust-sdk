@@ -1,6 +1,6 @@
 # Eppo Python SDK
 
-[![Test and lint SDK](https://github.com/Eppo-exp/rust-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/Eppo-exp/rust-sdk/actions/workflows/ci.yml)
+[![Test and lint SDK](https://github.com/Eppo-exp/rust-sdk/actions/workflows/python.yml/badge.svg)](https://github.com/Eppo-exp/rust-sdk/actions/workflows/python.yml)
 
 [Eppo](https://www.geteppo.com/) is a modular flagging and experimentation analysis tool. Eppo's Python SDK is built to make assignments in multi-user server side contexts. Before proceeding you'll need an Eppo account.
 
@@ -11,6 +11,8 @@
 - Progressive rollouts
 - A/B/n experiments
 - Mutually exclusive experiments (Layers)
+- Holdouts
+- Contextual multi-armed bandits
 - Dynamic configuration
 
 ## Installation
@@ -29,7 +31,9 @@ Begin by initializing a singleton instance of Eppo's client. Once initialized, t
 import eppo_client
 from eppo_client import Config, AssignmentLogger
 
-client_config = Config(api_key="<SDK-KEY-FROM-DASHBOARD>")
+client_config = Config(
+    api_key="<SDK-KEY-FROM-DASHBOARD>", assignment_logger=AssignmentLogger()
+)
 eppo_client.init(client_config)
 ```
 
@@ -42,7 +46,7 @@ import eppo_client
 client = eppo_client.get_instance()
 user = get_current_user()
 
-variation = eppoClient.get_boolean_assignment(
+variation = client.get_boolean_assignment(
     'show-new-feature',
     user.id,
     { 'country': user.country },
@@ -68,7 +72,7 @@ Each function has the same signature, but returns the type in the function name.
 get_boolean_assignment(
     flag_key: str,
     subject_key: str,
-    subject_attributes: Dict[str, Any],
+    subject_attributes: Dict[str, Union[str, int, float, bool, None]],
     default_value: bool
 ) -> bool:
   ```
@@ -81,7 +85,7 @@ The `init` function accepts the following optional configuration arguments.
 | ------ | ----- | ----- | ----- |
 | **`assignment_logger`**  | AssignmentLogger | A callback that sends each assignment to your data warehouse. Required only for experiment analysis. See [example](#assignment-logger) below. | `None` |
 | **`is_graceful_mode`** | bool | When true, gracefully handles all exceptions within the assignment function and returns the default value. | `True` |
-| **`poll_interval_seconds`** | int | The interval in seconds at which the SDK polls for configuration updates. | `300` |
+| **`poll_interval_seconds`** | int | The interval in seconds at which the SDK polls for configuration updates. | `30` |
 | **`poll_jitter_seconds`** | int | The jitter in seconds to add to the poll interval. | `30` |
 
 ## Assignment logger
@@ -91,7 +95,7 @@ To use the Eppo SDK for experiments that require analysis, pass in a callback lo
 The code below illustrates an example implementation of a logging callback using [Segment](https://segment.com/), but you can use any system you'd like. The only requirement is that the SDK receives a `log_assignment` callback function. Here we define an implementation of the Eppo `SegmentAssignmentLogger` interface containing a single function named `log_assignment`:
 
 ```python
-from eppo_client import AssignmentLogger
+from eppo_client import AssignmentLogger, Config
 import analytics
 
 # Connect to Segment.
@@ -108,7 +112,7 @@ client_config = Config(api_key="<SDK-KEY-FROM-DASHBOARD>", assignment_logger=Seg
 
 To support the use-case of needing to bootstrap a front-end client, the Eppo SDK provides a function to export flag configurations to a JSON string.
 
-Use the `get_flag_configurations` function to export flag configurations to a JSON string and then send it to the front-end client.
+Use the `Configuration.get_flags_configuration` function to export flag configurations to a JSON string and then send it to the front-end client.
 
 ```python
 from fastapi import JSONResponse
@@ -117,13 +121,10 @@ import eppo_client
 import json
 
 client = eppo_client.get_instance()
-flag_configurations = client.get_flag_configurations()
-
-# Convert flag configurations to a JSON string
-flag_config_json = json.dumps(flag_configurations)
+flags_configuration = client.get_configuration().get_flags_configuration()
 
 # Create a JSONResponse object with the stringified JSON
-response = JSONResponse(content={"flagConfigurations": flag_config_json})
+response = JSONResponse(content={"flagsConfiguration": flags_configuration})
 ```
 
 ## Philosophy
