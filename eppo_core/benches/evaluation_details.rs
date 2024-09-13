@@ -128,6 +128,35 @@ fn criterion_benchmark(c: &mut Criterion) {
         });
         group.finish();
     }
+
+    {
+        let mut group = c.benchmark_group("regex-flag");
+        group.throughput(Throughput::Elements(1));
+        let attributes = [("email".into(), "test@gmail.com".into())].into();
+        group.bench_function("get_assignment", |b| {
+            b.iter(|| {
+                get_assignment(
+                    black_box(Some(&configuration)),
+                    black_box("regex-flag"),
+                    black_box("subject1"),
+                    black_box(&attributes),
+                    black_box(None),
+                )
+            })
+        });
+        group.bench_function("get_assignment_details", |b| {
+            b.iter(|| {
+                get_assignment_details(
+                    black_box(Some(&configuration)),
+                    black_box("regex-flag"),
+                    black_box("subject1"),
+                    black_box(&attributes),
+                    black_box(None),
+                )
+            })
+        });
+        group.finish();
+    }
 }
 
 criterion_group!(
