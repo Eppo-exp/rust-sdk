@@ -4,7 +4,7 @@ use chrono::{DateTime, Utc};
 
 use crate::{
     error::EvaluationFailure,
-    ufc::{Allocation, Assignment, Condition, Flag, Rule, Shard, Split, Value, Variation},
+    ufc::{Allocation, Assignment, Condition, ConditionWire, Flag, Rule, Shard, Split, Value, Variation},
     AttributeValue, Attributes, Configuration, EvaluationError,
 };
 
@@ -384,9 +384,23 @@ impl<'a> EvalRuleVisitor for EvalRuleDetailsBuilder<'a> {
             .conditions
             .push(ConditionEvaluationDetails {
                 matched: result,
-                condition: condition.clone(),
+                condition: condition.clone().into(),
                 attribute_value: attribute_value.cloned(),
             });
+    }
+
+    fn on_condition_skip(
+        &mut self,
+        condition: &serde_json::Value,
+    ) {
+        let condition = match serde_json::from_value::<ConditionWire>(condition.clone()) {
+            Ok(condition_wire) => condition_wire,
+            Err(err) => {
+                log::warn!("condition cannot be parsed: {err:?}");
+            return;
+            }
+        };
+        self.rule_details.conditions.push(ConditionEvaluationDetails { condition, attribute_value: None, matched: false });
     }
 
     fn on_result(&mut self, result: bool) {
