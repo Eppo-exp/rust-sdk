@@ -1,7 +1,11 @@
 use std::collections::HashMap;
 
 use derive_more::From;
+use regex::Regex;
+use semver::Version;
 use serde::{Deserialize, Serialize};
+
+use crate::{Error, EvaluationError};
 
 use super::AssignmentValue;
 
@@ -45,7 +49,15 @@ pub enum TryParse<T> {
     /// Successfully parsed.
     Parsed(T),
     /// Parsing failed.
+    ///
+    /// This holds the generic JSON value, so even if parsing originally failed, we could serialize
+    /// the value back to JSON.
     ParseFailed(serde_json::Value),
+}
+impl<T> From<T> for TryParse<T> {
+    fn from(value: T) -> TryParse<T> {
+        TryParse::Parsed(value)
+    }
 }
 impl<T> From<TryParse<T>> for Result<T, serde_json::Value> {
     fn from(value: TryParse<T>) -> Self {
@@ -194,22 +206,240 @@ fn default_do_log() -> bool {
     true
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub struct Rule {
-    pub conditions: Vec<Condition>,
+    pub conditions: Vec<TryParse<Condition>>,
 }
 
 /// `Condition` is a check that given user `attribute` matches the condition `value` under the given
 /// `operator`.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ConditionWire", into = "ConditionWire")]
+pub struct Condition {
+    pub attribute: Box<str>,
+    pub check: ConditionCheck,
+}
+
+#[derive(Debug, Clone)]
+pub enum ConditionCheck {
+    Comparison {
+        operator: ComparisonOperator,
+        comparand: Comparand,
+    },
+    Regex {
+        expected_match: bool,
+        // As regex is supplied by user, we allow regex parse failure to not fail parsing and
+        // evaluation. Invalid regexes are simply ignored.
+        regex: Regex,
+    },
+    Membership {
+        expected_membership: bool,
+        values: Box<[Box<str>]>,
+    },
+    Null {
+        expected_null: bool,
+    },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum ComparisonOperator {
+    Gte,
+    Gt,
+    Lte,
+    Lt,
+}
+
+impl From<ComparisonOperator> for ConditionOperator {
+    fn from(value: ComparisonOperator) -> ConditionOperator {
+        match value {
+            ComparisonOperator::Gte => ConditionOperator::Gte,
+            ComparisonOperator::Gt => ConditionOperator::Gt,
+            ComparisonOperator::Lte => ConditionOperator::Lte,
+            ComparisonOperator::Lt => ConditionOperator::Lt,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, PartialOrd, From)]
+pub enum Comparand {
+    Version(Version),
+    Number(f64),
+}
+
+impl From<Comparand> for ConditionValue {
+    fn from(value: Comparand) -> ConditionValue {
+        let s = match value {
+            Comparand::Version(v) => v.to_string(),
+            Comparand::Number(n) => n.to_string(),
+        };
+        ConditionValue::Single(s.into())
+    }
+}
+
+/// Wire (JSON) format for the `Condition`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
-pub struct Condition {
+pub struct ConditionWire {
+    pub attribute: Box<str>,
     pub operator: ConditionOperator,
-    pub attribute: String,
     pub value: ConditionValue,
+}
+
+impl From<Condition> for ConditionWire {
+    fn from(condition: Condition) -> Self {
+        let (operator, value) = match condition.check {
+            ConditionCheck::Comparison {
+                operator,
+                comparand,
+            } => (operator.into(), comparand.into()),
+            ConditionCheck::Regex {
+                expected_match,
+                regex,
+            } => (
+                if expected_match {
+                    ConditionOperator::Matches
+                } else {
+                    ConditionOperator::NotMatches
+                },
+                regex.as_str().into(),
+            ),
+            ConditionCheck::Membership {
+                expected_membership,
+                values,
+            } => (
+                if expected_membership {
+                    ConditionOperator::OneOf
+                } else {
+                    ConditionOperator::NotOneOf
+                },
+                ConditionValue::Multiple(values),
+            ),
+            ConditionCheck::Null { expected_null } => {
+                (ConditionOperator::IsNull, expected_null.into())
+            }
+        };
+        ConditionWire {
+            attribute: condition.attribute,
+            operator,
+            value,
+        }
+    }
+}
+
+impl From<ConditionWire> for Option<Condition> {
+    fn from(value: ConditionWire) -> Self {
+        Condition::try_from(value).ok()
+    }
+}
+
+impl TryFrom<ConditionWire> for Condition {
+    type Error = Error;
+
+    fn try_from(condition: ConditionWire) -> Result<Self, Self::Error> {
+        let attribute = condition.attribute;
+        let check = match condition.operator {
+            ConditionOperator::Matches | ConditionOperator::NotMatches => {
+                let expected_match = condition.operator == ConditionOperator::Matches;
+
+                let regex_string = match condition.value {
+                    ConditionValue::Single(Value::String(s)) => s,
+                    _ => {
+                        log::warn!(
+                            "failed to parse condition: {:?} condition with non-string condition value",
+                            condition.operator
+                        );
+                        return Err(Error::EvaluationError(
+                            EvaluationError::UnexpectedConfigurationParseError,
+                        ));
+                    }
+                };
+                let regex = match Regex::new(&regex_string) {
+                    Ok(regex) => regex,
+                    Err(err) => {
+                        log::warn!("failed to parse condition: failed to compile regex {regex_string:?}: {err:?}");
+                        return Err(Error::EvaluationError(
+                            EvaluationError::UnexpectedConfigurationParseError,
+                        ));
+                    }
+                };
+
+                ConditionCheck::Regex {
+                    expected_match,
+                    regex,
+                }
+            }
+            ConditionOperator::Gte
+            | ConditionOperator::Gt
+            | ConditionOperator::Lte
+            | ConditionOperator::Lt => {
+                let operator = match condition.operator {
+                    ConditionOperator::Gte => ComparisonOperator::Gte,
+                    ConditionOperator::Gt => ComparisonOperator::Gt,
+                    ConditionOperator::Lte => ComparisonOperator::Lte,
+                    ConditionOperator::Lt => ComparisonOperator::Lt,
+                    _ => unreachable!(),
+                };
+
+                let condition_version = match &condition.value {
+                    ConditionValue::Single(Value::String(s)) => Version::parse(s).ok(),
+                    _ => None,
+                };
+
+                if let Some(condition_version) = condition_version {
+                    ConditionCheck::Comparison {
+                        operator,
+                        comparand: Comparand::Version(condition_version),
+                    }
+                } else {
+                    // numeric comparison
+                    let condition_value = match &condition.value {
+                        ConditionValue::Single(Value::Number(n)) => Some(*n),
+                        ConditionValue::Single(Value::String(s)) => s.parse().ok(),
+                        _ => None,
+                    };
+                    let Some(condition_value) = condition_value else {
+                        log::warn!("failed to parse condition: comparision value is neither regex, nor number: {:?}", condition.value);
+                        return Err(Error::EvaluationError(
+                            EvaluationError::UnexpectedConfigurationParseError,
+                        ));
+                    };
+                    ConditionCheck::Comparison {
+                        operator,
+                        comparand: Comparand::Number(condition_value),
+                    }
+                }
+            }
+            ConditionOperator::OneOf | ConditionOperator::NotOneOf => {
+                let expected_membership = condition.operator == ConditionOperator::OneOf;
+                let values = match condition.value {
+                    ConditionValue::Multiple(v) => v,
+                    _ => {
+                        log::warn!("failed to parse condition: membership condition with non-array value: {:?}", condition.value);
+                        return Err(Error::EvaluationError(
+                            EvaluationError::UnexpectedConfigurationParseError,
+                        ));
+                    }
+                };
+                ConditionCheck::Membership {
+                    expected_membership,
+                    values,
+                }
+            }
+            ConditionOperator::IsNull => {
+                let ConditionValue::Single(Value::Boolean(expected_null)) = condition.value else {
+                    log::warn!("failed to parse condition: IS_NULL condition with non-boolean condition value");
+                    return Err(Error::EvaluationError(
+                        EvaluationError::UnexpectedConfigurationParseError,
+                    ));
+                };
+                ConditionCheck::Null { expected_null }
+            }
+        };
+        Ok(Condition { attribute, check })
+    }
 }
 
 /// Possible condition types.
@@ -249,7 +479,7 @@ pub enum ConditionOperator {
 pub enum ConditionValue {
     Single(Value),
     // Only string arrays are currently supported.
-    Multiple(Vec<String>),
+    Multiple(Box<[Box<str>]>),
 }
 
 impl<T: Into<Value>> From<T> for ConditionValue {
@@ -259,7 +489,7 @@ impl<T: Into<Value>> From<T> for ConditionValue {
 }
 impl From<Vec<String>> for ConditionValue {
     fn from(value: Vec<String>) -> Self {
-        Self::Multiple(value)
+        Self::Multiple(value.into_iter().map(|it| it.into()).collect())
     }
 }
 

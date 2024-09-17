@@ -80,15 +80,18 @@ pub(super) trait EvalAllocationVisitor {
 }
 
 pub(super) trait EvalRuleVisitor {
-    #[allow(unused_variables)]
-    #[inline]
+    /// Called when condition is skipped due to being invalid (e.g., regex cannot be compiled or
+    /// server response is ill-formatted).
+    ///
+    /// `condition` is original server response.
+    fn on_condition_skip(&mut self, condition: &serde_json::Value);
+
     fn on_condition_eval(
         &mut self,
         condition: &Condition,
         attribute_value: Option<&AttributeValue>,
         result: bool,
-    ) {
-    }
+    );
 
     #[allow(unused_variables)]
     #[inline]
@@ -153,6 +156,18 @@ impl EvalAllocationVisitor for NoopEvalVisitor {
     }
 }
 
-impl EvalRuleVisitor for NoopEvalVisitor {}
+impl EvalRuleVisitor for NoopEvalVisitor {
+    #[inline]
+    fn on_condition_skip(&mut self, _condition: &serde_json::Value) {}
+
+    #[inline]
+    fn on_condition_eval(
+        &mut self,
+        _condition: &Condition,
+        _attribute_value: Option<&AttributeValue>,
+        _result: bool,
+    ) {
+    }
+}
 
 impl EvalSplitVisitor for NoopEvalVisitor {}

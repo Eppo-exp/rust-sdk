@@ -41,6 +41,17 @@ pub enum AttributeValue {
     /// A null value or absence of value.
     Null,
 }
+
+impl AttributeValue {
+    pub fn as_str(&self) -> Option<&str> {
+        if let AttributeValue::String(s) = self {
+            Some(s.as_str())
+        } else {
+            None
+        }
+    }
+}
+
 impl From<&str> for AttributeValue {
     fn from(value: &str) -> Self {
         Self::String(value.to_owned())

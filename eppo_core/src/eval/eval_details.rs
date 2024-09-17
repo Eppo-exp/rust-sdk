@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{EvaluationError, EvaluationFailure},
-    ufc::{Condition, Shard, Value},
+    ufc::{ConditionWire, Shard, Value},
     AttributeValue, Attributes,
 };
 
@@ -135,7 +135,7 @@ pub struct RuleEvaluationDetails {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConditionEvaluationDetails {
-    pub condition: Condition,
+    pub condition: ConditionWire,
     pub attribute_value: Option<AttributeValue>,
     pub matched: bool,
 }
