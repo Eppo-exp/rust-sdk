@@ -1,6 +1,6 @@
 [package]
 name = "eppo_core"
-version = "2.0.0"
+version = "3.0.0"
 edition = "2021"
 description = "Eppo SDK core library"
 repository = "https://github.com/Eppo-exp/rust-sdk"
@@ -8,6 +8,10 @@ license = "MIT"
 keywords = ["eppo", "feature-flags"]
 categories = ["config"]
 rust-version = "1.71.1"
+
+[features]
+# Add implementation of `FromPyObject`/`ToPyObject` for some types.
+pyo3 = ["dep:pyo3", "dep:serde-pyobject"]
 
 [dependencies]
 chrono = { version = "0.4.38", features = ["serde"] }
@@ -22,6 +26,10 @@ serde = { version = "1.0.198", features = ["derive"] }
 serde_json = "1.0.116"
 thiserror = "1.0.60"
 url = "2.5.0"
+
+# pyo3 dependencies
+pyo3 = { version = "0.22.0", optional = true, default-features = false }
+serde-pyobject = { version = "0.4.0", optional = true}
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }

@@ -571,7 +571,7 @@ mod tests {
         );
 
         // updating configuration after client is created
-        configuration_store.set_configuration(Configuration::from_server_response(
+        configuration_store.set_configuration(Arc::new(Configuration::from_server_response(
             UniversalFlagConfig {
                 created_at: chrono::Utc::now(),
                 environment: Environment {
@@ -610,7 +610,7 @@ mod tests {
                 bandits: HashMap::new(),
             },
             None,
-        ));
+        )));
 
         assert_eq!(
             client

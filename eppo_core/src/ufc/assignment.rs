@@ -230,3 +230,28 @@ impl AssignmentValue {
         }
     }
 }
+
+#[cfg(feature = "pyo3")]
+mod pyo3_impl {
+    use pyo3::prelude::*;
+
+    use crate::pyo3::TryToPyObject;
+
+    use super::*;
+
+    impl TryToPyObject for AssignmentValue {
+        fn try_to_pyobject(&self, py: Python) -> PyResult<PyObject> {
+            let obj = match self {
+                AssignmentValue::String(s) => s.to_object(py),
+                AssignmentValue::Integer(i) => i.to_object(py),
+                AssignmentValue::Numeric(n) => n.to_object(py),
+                AssignmentValue::Boolean(b) => b.to_object(py),
+                AssignmentValue::Json(j) => match serde_pyobject::to_pyobject(py, j) {
+                    Ok(it) => it.unbind(),
+                    Err(err) => return Err(err.0),
+                },
+            };
+            Ok(obj)
+        }
+    }
+}

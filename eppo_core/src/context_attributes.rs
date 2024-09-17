@@ -7,6 +7,7 @@ use crate::{AttributeValue, Attributes};
 /// `ContextAttributes` are subject or action attributes split by their semantics.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(module = "eppo_client"))]
 pub struct ContextAttributes {
     /// Numeric attributes are quantitative (e.g., real numbers) and define a scale.
     ///
@@ -42,14 +43,13 @@ where
                         acc.numeric.insert(key.to_owned(), value);
                     }
                     AttributeValue::Boolean(value) => {
-                        // TBD: shall we ignore boolean attributes instead?
-                        //
                         // One argument for including it here is that this basically guarantees that
                         // assignment evaluation inside bandit evaluation works the same way as if
                         // `get_assignment()` was called with generic `Attributes`.
                         //
-                        // We can go a step further and remove `AttributeValue::Boolean` altogether,
-                        // forcing it to be converted to a string before any evaluation.
+                        // We can go a step further and remove `AttributeValue::Boolean` altogether
+                        // (from `eppo_core`), forcing it to be converted to a string before any
+                        // evaluation.
                         acc.categorical.insert(key.to_owned(), value.to_string());
                     }
                     AttributeValue::Null => {
@@ -72,5 +72,68 @@ impl ContextAttributes {
             result.insert(key.clone(), AttributeValue::String(value.clone()));
         }
         result
+    }
+}
+
+#[cfg(feature = "pyo3")]
+mod pyo3_impl {
+    use std::collections::HashMap;
+
+    use pyo3::prelude::*;
+
+    use crate::Attributes;
+
+    use super::ContextAttributes;
+
+    #[pymethods]
+    impl ContextAttributes {
+        #[new]
+        fn new(
+            numeric_attributes: HashMap<String, f64>,
+            categorical_attributes: HashMap<String, String>,
+        ) -> ContextAttributes {
+            ContextAttributes {
+                numeric: numeric_attributes,
+                categorical: categorical_attributes,
+            }
+        }
+
+        /// Create an empty Attributes instance with no numeric or categorical attributes.
+        ///
+        /// Returns:
+        ///     ContextAttributes: An instance of the ContextAttributes class with empty dictionaries
+        ///         for numeric and categorical attributes.
+        #[staticmethod]
+        fn empty() -> ContextAttributes {
+            ContextAttributes::default()
+        }
+
+        /// Create an ContextAttributes instance from a dictionary of attributes.
+
+        /// Args:
+        ///     attributes (Dict[str, Union[float, int, bool, str]]): A dictionary where keys are attribute names
+        ///         and values are attribute values which can be of type float, int, bool, or str.
+
+        /// Returns:
+        ///     ContextAttributes: An instance of the ContextAttributes class
+        ///         with numeric and categorical attributes separated.
+        #[staticmethod]
+        fn from_dict(attributes: Attributes) -> ContextAttributes {
+            attributes.into()
+        }
+
+        /// Note that this copies internal attributes, so changes to returned value won't have
+        /// effect. This may be mitigated by setting numeric attributes again.
+        #[getter]
+        fn get_numeric_attributes(&self, py: Python) -> PyObject {
+            self.numeric.to_object(py)
+        }
+
+        /// Note that this copies internal attributes, so changes to returned value won't have
+        /// effect. This may be mitigated by setting categorical attributes again.
+        #[getter]
+        fn get_categorical_attributes(&self, py: Python) -> PyObject {
+            self.categorical.to_object(py)
+        }
     }
 }

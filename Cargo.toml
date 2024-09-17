@@ -3,6 +3,7 @@ resolver = "2"
 members = [
   "eppo_core",
   "rust-sdk",
+  "python-sdk",
   "ruby-sdk/ext/eppo_client",
 ]
 

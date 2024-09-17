@@ -243,3 +243,20 @@ impl From<EvaluationError> for BanditEvaluationCode {
         }
     }
 }
+
+#[cfg(feature = "pyo3")]
+mod pyo3_impl {
+    use pyo3::prelude::*;
+
+    use crate::pyo3::TryToPyObject;
+
+    use super::EvaluationDetails;
+
+    impl TryToPyObject for EvaluationDetails {
+        fn try_to_pyobject(&self, py: Python) -> PyResult<PyObject> {
+            serde_pyobject::to_pyobject(py, self)
+                .map(|it| it.unbind())
+                .map_err(|err| err.0)
+        }
+    }
+}

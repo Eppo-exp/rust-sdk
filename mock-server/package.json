@@ -1,7 +1,8 @@
 {
   "private": true,
+  "type": "module",
   "scripts": {
-    "prestart": "./prepare.sh",
+    "prestart": "node ./prepare.js",
     "start": "http-server -p 8378 -a 127.0.0.1 --cors"
   },
   "dependencies": {
