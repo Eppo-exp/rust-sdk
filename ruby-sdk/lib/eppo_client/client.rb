@@ -144,7 +144,6 @@ module EppoClient
       # events for both flag assignment and bandit actions.
       event = event.to_h { |key, value| [key.to_sym, value]}
 
-      enrich_event_metadata(event)
       begin
         @assignment_logger.log_assignment(event)
       rescue EppoClient::AssignmentLoggerError
@@ -158,7 +157,6 @@ module EppoClient
     def log_bandit_action(event)
       if not event then return end
 
-      enrich_event_metadata(event)
       begin
         @assignment_logger.log_bandit_action(event)
       rescue EppoClient::AssignmentLoggerError
@@ -167,11 +165,6 @@ module EppoClient
         logger = Logger.new($stdout)
         logger.error("[Eppo SDK] Error logging bandit action event: #{error}")
       end
-    end
-
-    def enrich_event_metadata(event)
-      event[:metaData]["sdkName"] = "ruby"
-      event[:metaData]["sdkVersion"] = EppoClient::VERSION
     end
 
     def coerce_context_attributes(attributes)

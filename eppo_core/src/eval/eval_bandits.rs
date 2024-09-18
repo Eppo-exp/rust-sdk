@@ -10,8 +10,8 @@ use crate::error::EvaluationFailure;
 use crate::events::{AssignmentEvent, BanditEvent};
 use crate::sharder::get_md5_shard;
 use crate::ufc::{Assignment, AssignmentValue, VariationType};
-use crate::ContextAttributes;
 use crate::{Configuration, EvaluationError};
+use crate::{ContextAttributes, SdkMetadata};
 
 use super::eval_assignment::get_assignment_with_visitor;
 use super::eval_details::EvaluationDetails;
@@ -54,8 +54,9 @@ pub fn get_bandit_action(
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
     default_variation: &str,
+    now: DateTime<Utc>,
+    meta: &SdkMetadata,
 ) -> BanditResult {
-    let now = Utc::now();
     get_bandit_action_with_visitor(
         &mut NoopEvalVisitor,
         configuration,
@@ -65,6 +66,7 @@ pub fn get_bandit_action(
         actions,
         default_variation,
         now,
+        meta,
     )
 }
 
@@ -77,8 +79,9 @@ pub fn get_bandit_action_details(
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
     default_variation: &str,
+    now: DateTime<Utc>,
+    meta: &SdkMetadata,
 ) -> (BanditResult, EvaluationDetails) {
-    let now = Utc::now();
     let mut builder = EvalDetailsBuilder::new(
         flag_key.to_owned(),
         subject_key.to_owned(),
@@ -94,6 +97,7 @@ pub fn get_bandit_action_details(
         actions,
         default_variation,
         now,
+        meta,
     );
     let details = builder.build();
     (result, details)
@@ -110,6 +114,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     actions: &HashMap<String, ContextAttributes>,
     default_variation: &str,
     now: DateTime<Utc>,
+    meta: &SdkMetadata,
 ) -> BanditResult {
     let Some(configuration) = configuration else {
         let result = BanditResult {
@@ -132,6 +137,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
         &subject_attributes.to_generic_attributes(),
         Some(VariationType::String),
         now,
+        meta,
     )
     .unwrap_or_default()
     .unwrap_or_else(|| Assignment {
@@ -216,10 +222,14 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
         subject_categorical_attributes: subject_attributes.categorical.clone(),
         action_numeric_attributes: action_attributes.numeric,
         action_categorical_attributes: action_attributes.categorical,
-        meta_data: [(
-            "eppoCoreVersion".to_owned(),
-            env!("CARGO_PKG_VERSION").to_owned(),
-        )]
+        meta_data: [
+            ("sdkName".to_owned(), meta.name.to_owned()),
+            ("sdkVersion".to_owned(), meta.version.to_owned()),
+            (
+                "eppoCoreVersion".to_owned(),
+                env!("CARGO_PKG_VERSION").to_owned(),
+            ),
+        ]
         .into(),
     };
 
@@ -404,9 +414,10 @@ mod tests {
         fs::{read_dir, File},
     };
 
+    use chrono::Utc;
     use serde::{Deserialize, Serialize};
 
-    use crate::{eval::get_bandit_action, Configuration, ContextAttributes};
+    use crate::{eval::get_bandit_action, Configuration, ContextAttributes, SdkMetadata};
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -501,6 +512,11 @@ mod tests {
                     &subject.subject_attributes.into(),
                     &actions,
                     &test.default_value,
+                    Utc::now(),
+                    &SdkMetadata {
+                        name: "test",
+                        version: "0.1.0",
+                    },
                 );
 
                 assert_eq!(

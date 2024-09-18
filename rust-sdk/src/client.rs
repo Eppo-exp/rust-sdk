@@ -3,11 +3,12 @@ use std::sync::Arc;
 use crate::{
     poller::{PollerThread, PollerThreadConfig},
     AssignmentValue, Attributes, ClientConfig, Error, EvaluationError, EvaluationResultWithDetails,
+    SDK_METADATA,
 };
 
 use eppo_core::{
     configuration_store::ConfigurationStore,
-    eval::{get_assignment, get_assignment_details},
+    eval::{Evaluator, EvaluatorConfig},
     ufc::{Assignment, VariationType},
 };
 
@@ -31,8 +32,9 @@ use eppo_core::{
 /// client.start_poller_thread();
 /// ```
 pub struct Client<'a> {
-    configuration_store: Arc<ConfigurationStore>,
     config: ClientConfig<'a>,
+    configuration_store: Arc<ConfigurationStore>,
+    evaluator: Evaluator,
 }
 
 impl<'a> Client<'a> {
@@ -43,20 +45,21 @@ impl<'a> Client<'a> {
     /// let client = Client::new(ClientConfig::from_api_key("api-key"));
     /// ```
     pub fn new(config: ClientConfig<'a>) -> Self {
-        Client {
-            configuration_store: Arc::new(ConfigurationStore::new()),
-            config,
-        }
+        Client::new_with_configuration_store(config, Arc::new(ConfigurationStore::new()))
     }
 
-    #[cfg(test)]
     fn new_with_configuration_store(
         config: ClientConfig<'a>,
         configuration_store: Arc<ConfigurationStore>,
     ) -> Self {
+        let evaluator = Evaluator::new(EvaluatorConfig {
+            configuration_store: configuration_store.clone(),
+            sdk_metadata: SDK_METADATA.clone(),
+        });
         Self {
             configuration_store,
             config,
+            evaluator,
         }
     }
 
@@ -330,9 +333,7 @@ impl<'a> Client<'a> {
         expected_type: Option<VariationType>,
         convert: impl FnOnce(AssignmentValue) -> T,
     ) -> Result<Option<T>, EvaluationError> {
-        let config = self.configuration_store.get_configuration();
-        let assignment = get_assignment(
-            config.as_ref().map(|it| it.as_ref()),
+        let assignment = self.evaluator.get_assignment(
             flag_key,
             subject_key,
             subject_attributes,
@@ -503,9 +504,7 @@ impl<'a> Client<'a> {
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
     ) -> EvaluationResultWithDetails<AssignmentValue> {
-        let config = self.configuration_store.get_configuration();
-        let (result, event) = get_assignment_details(
-            config.as_ref().map(|it| it.as_ref()),
+        let (result, event) = self.evaluator.get_assignment_details(
             flag_key,
             subject_key,
             subject_attributes,

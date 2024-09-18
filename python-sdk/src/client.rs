@@ -21,14 +21,13 @@ use eppo_core::{
     configuration_store::ConfigurationStore,
     eval::{
         eval_details::{EvaluationDetails, EvaluationResultWithDetails},
-        get_assignment, get_assignment_details, get_bandit_action, get_bandit_action_details,
-        BanditResult,
+        BanditResult, Evaluator, EvaluatorConfig,
     },
     events::{AssignmentEvent, BanditEvent},
     poller_thread::{PollerThread, PollerThreadConfig},
     pyo3::TryToPyObject,
     ufc::VariationType,
-    Attributes, ContextAttributes,
+    Attributes, ContextAttributes, SdkMetadata,
 };
 
 use crate::{
@@ -141,6 +140,7 @@ impl EvaluationResult {
 #[pyclass(frozen, module = "eppo_client")]
 pub struct EppoClient {
     configuration_store: Arc<ConfigurationStore>,
+    evaluator: Evaluator,
     poller_thread: Option<PollerThread>,
     assignment_logger: Py<AssignmentLogger>,
     is_graceful_mode: AtomicBool,
@@ -372,10 +372,8 @@ impl EppoClient {
     ) -> PyResult<EvaluationResult> {
         let py = slf.py();
         let this = slf.get();
-        let configuration = this.configuration_store.get_configuration();
 
-        let mut result = get_bandit_action(
-            configuration.as_ref().map(|it| it.as_ref()),
+        let mut result = this.evaluator.get_bandit_action(
             flag_key,
             subject_key,
             &subject_context,
@@ -407,10 +405,8 @@ impl EppoClient {
     ) -> PyResult<EvaluationResult> {
         let py = slf.py();
         let this = slf.get();
-        let configuration = this.configuration_store.get_configuration();
 
-        let (mut result, details) = get_bandit_action_details(
-            configuration.as_ref().map(|it| it.as_ref()),
+        let (mut result, details) = this.evaluator.get_bandit_action_details(
             flag_key,
             subject_key,
             &subject_context,
@@ -564,6 +560,16 @@ impl EppoClient {
             configuration_store.set_configuration(configuration);
         }
 
+        let sdk_metadata = SdkMetadata {
+            name: "python",
+            version: env!("CARGO_PKG_VERSION"),
+        };
+
+        let evaluator = Evaluator::new(EvaluatorConfig {
+            configuration_store: configuration_store.clone(),
+            sdk_metadata: sdk_metadata.clone(),
+        });
+
         let poller_thread = config
             .poll_interval_seconds
             .map(|poll_interval_seconds| {
@@ -572,8 +578,7 @@ impl EppoClient {
                         eppo_core::configuration_fetcher::ConfigurationFetcherConfig {
                             base_url: config.base_url.clone(),
                             api_key: config.api_key.clone(),
-                            sdk_name: "python".to_owned(),
-                            sdk_version: env!("CARGO_PKG_VERSION").to_owned(),
+                            sdk_metadata,
                         },
                     ),
                     configuration_store.clone(),
@@ -591,6 +596,7 @@ impl EppoClient {
 
         Ok(EppoClient {
             configuration_store,
+            evaluator,
             poller_thread,
             assignment_logger: config
                 .assignment_logger
@@ -613,10 +619,7 @@ impl EppoClient {
         expected_type: Option<VariationType>,
         default: Py<PyAny>,
     ) -> PyResult<PyObject> {
-        let config = self.configuration_store.get_configuration();
-
-        let result = get_assignment(
-            config.as_ref().map(AsRef::as_ref),
+        let result = self.evaluator.get_assignment(
             &flag_key,
             &subject_key,
             &subject_attributes,
@@ -656,10 +659,7 @@ impl EppoClient {
         expected_type: Option<VariationType>,
         default: Py<PyAny>,
     ) -> PyResult<EvaluationResult> {
-        let config = self.configuration_store.get_configuration();
-
-        let (result, event) = get_assignment_details(
-            config.as_ref().map(AsRef::as_ref),
+        let (result, event) = self.evaluator.get_assignment_details(
             &flag_key,
             &subject_key,
             &subject_attributes,
@@ -676,8 +676,7 @@ impl EppoClient {
     }
 
     /// Try to log assignment event using `self.assignment_logger`.
-    pub fn log_assignment_event(&self, py: Python, mut event: AssignmentEvent) -> PyResult<()> {
-        event.add_sdk_metadata("python".to_owned(), env!("CARGO_PKG_VERSION").to_owned());
+    pub fn log_assignment_event(&self, py: Python, event: AssignmentEvent) -> PyResult<()> {
         let event = event.try_to_pyobject(py)?;
         self.assignment_logger
             .call_method1(py, intern!(py, "log_assignment"), (event,))?;
@@ -685,8 +684,7 @@ impl EppoClient {
     }
 
     /// Try to log bandit event using `self.assignment_logger`.
-    pub fn log_bandit_event(&self, py: Python, mut event: BanditEvent) -> PyResult<()> {
-        event.add_sdk_metadata("python".to_owned(), env!("CARGO_PKG_VERSION").to_owned());
+    pub fn log_bandit_event(&self, py: Python, event: BanditEvent) -> PyResult<()> {
         let event = event.try_to_pyobject(py)?;
         self.assignment_logger
             .call_method1(py, intern!(py, "log_bandit_action"), (event,))?;

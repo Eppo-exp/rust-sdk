@@ -1,16 +1,15 @@
 //! An HTTP client that fetches configuration from the server.
 use reqwest::{StatusCode, Url};
 
-use crate::{bandits::BanditResponse, ufc::UniversalFlagConfig, Configuration, Error, Result};
+use crate::{
+    bandits::BanditResponse, ufc::UniversalFlagConfig, Configuration, Error, Result, SdkMetadata,
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct ConfigurationFetcherConfig {
     pub base_url: String,
     pub api_key: String,
-    /// SDK name. (Usually, language name.)
-    pub sdk_name: String,
-    /// Version of SDK.
-    pub sdk_version: String,
+    pub sdk_metadata: SdkMetadata,
 }
 
 pub const DEFAULT_BASE_URL: &'static str = "https://fscdn.eppo.cloud/api";
@@ -61,8 +60,8 @@ impl ConfigurationFetcher {
             &format!("{}{}", self.config.base_url, UFC_ENDPOINT),
             &[
                 ("apiKey", &*self.config.api_key),
-                ("sdkName", &*self.config.sdk_name),
-                ("sdkVersion", &*self.config.sdk_version),
+                ("sdkName", self.config.sdk_metadata.name),
+                ("sdkVersion", self.config.sdk_metadata.version),
                 ("coreVersion", env!("CARGO_PKG_VERSION")),
             ],
         )
@@ -95,8 +94,8 @@ impl ConfigurationFetcher {
             &format!("{}{}", self.config.base_url, BANDIT_ENDPOINT),
             &[
                 ("apiKey", &*self.config.api_key),
-                ("sdkName", &*self.config.sdk_name),
-                ("sdkVersion", &*self.config.sdk_version),
+                ("sdkName", self.config.sdk_metadata.name),
+                ("sdkVersion", self.config.sdk_metadata.version),
                 ("coreVersion", env!("CARGO_PKG_VERSION")),
             ],
         )
