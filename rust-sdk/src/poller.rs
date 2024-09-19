@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::Result;
+use crate::{Result, SDK_METADATA};
 use eppo_core::configuration_fetcher::{ConfigurationFetcher, ConfigurationFetcherConfig};
 use eppo_core::configuration_store::ConfigurationStore;
 use eppo_core::poller_thread::PollerThread as PollerThreadImpl;
@@ -46,8 +46,7 @@ impl PollerThread {
         let fetcher = ConfigurationFetcher::new(ConfigurationFetcherConfig {
             base_url: config.base_url,
             api_key: config.api_key,
-            sdk_name: "rust".to_owned(),
-            sdk_version: env!("CARGO_PKG_VERSION").to_owned(),
+            sdk_metadata: SDK_METADATA.clone(),
         });
         let inner = PollerThreadImpl::start(fetcher, config.store)?;
         Ok(PollerThread(inner))

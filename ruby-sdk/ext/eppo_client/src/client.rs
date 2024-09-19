@@ -1,12 +1,12 @@
 use std::{cell::RefCell, sync::Arc};
 
 use eppo_core::{
-    configuration_fetcher::ConfigurationFetcher,
+    configuration_fetcher::{ConfigurationFetcher, ConfigurationFetcherConfig},
     configuration_store::ConfigurationStore,
-    eval::{get_assignment, get_assignment_details, get_bandit_action, get_bandit_action_details},
+    eval::{Evaluator, EvaluatorConfig},
     poller_thread::PollerThread,
     ufc::VariationType,
-    Attributes, ContextAttributes,
+    Attributes, ContextAttributes, SdkMetadata,
 };
 use magnus::{error::Result, exception, prelude::*, Error, TryConvert, Value};
 
@@ -28,7 +28,7 @@ impl TryConvert for Config {
 
 #[magnus::wrap(class = "EppoClient::Core::Client")]
 pub struct Client {
-    configuration_store: Arc<ConfigurationStore>,
+    evaluator: Evaluator,
     // Magnus only allows sharing aliased references (&T) through the API, so we need to use RefCell
     // to get interior mutability.
     //
@@ -41,21 +41,28 @@ impl Client {
     pub fn new(config: Config) -> Client {
         let configuration_store = Arc::new(ConfigurationStore::new());
 
+        let sdk_metadata = SdkMetadata {
+            name: "ruby",
+            version: env!("CARGO_PKG_VERSION"),
+        };
+
         let poller_thread = PollerThread::start(
-            ConfigurationFetcher::new(
-                eppo_core::configuration_fetcher::ConfigurationFetcherConfig {
-                    base_url: config.base_url,
-                    api_key: config.api_key,
-                    sdk_name: "ruby".to_owned(),
-                    sdk_version: env!("CARGO_PKG_VERSION").to_owned(),
-                },
-            ),
+            ConfigurationFetcher::new(ConfigurationFetcherConfig {
+                base_url: config.base_url,
+                api_key: config.api_key,
+                sdk_metadata: sdk_metadata.clone(),
+            }),
             configuration_store.clone(),
         )
         .expect("should be able to start poller thread");
 
-        Client {
+        let evaluator = Evaluator::new(EvaluatorConfig {
             configuration_store,
+            sdk_metadata,
+        });
+
+        Client {
+            evaluator,
             poller_thread: RefCell::new(Some(poller_thread)),
         }
     }
@@ -70,16 +77,16 @@ impl Client {
         let expected_type: VariationType = serde_magnus::deserialize(expected_type)?;
         let subject_attributes: Attributes = serde_magnus::deserialize(subject_attributes)?;
 
-        let config = self.configuration_store.get_configuration();
-        let result = get_assignment(
-            config.as_ref().map(AsRef::as_ref),
-            &flag_key,
-            &subject_key,
-            &subject_attributes,
-            Some(expected_type),
-        )
-        // TODO: maybe expose possible errors individually.
-        .map_err(|err| Error::new(exception::runtime_error(), err.to_string()))?;
+        let result = self
+            .evaluator
+            .get_assignment(
+                &flag_key,
+                &subject_key,
+                &subject_attributes,
+                Some(expected_type),
+            )
+            // TODO: maybe expose possible errors individually.
+            .map_err(|err| Error::new(exception::runtime_error(), err.to_string()))?;
 
         Ok(serde_magnus::serialize(&result).expect("assignment value should be serializable"))
     }
@@ -94,9 +101,7 @@ impl Client {
         let expected_type: VariationType = serde_magnus::deserialize(expected_type)?;
         let subject_attributes: Attributes = serde_magnus::deserialize(subject_attributes)?;
 
-        let config = self.configuration_store.get_configuration();
-        let result = get_assignment_details(
-            config.as_ref().map(AsRef::as_ref),
+        let result = self.evaluator.get_assignment_details(
             &flag_key,
             &subject_key,
             &subject_attributes,
@@ -125,9 +130,7 @@ impl Client {
         })?;
         let actions = serde_magnus::deserialize(actions)?;
 
-        let config = self.configuration_store.get_configuration();
-        let result = get_bandit_action(
-            config.as_ref().map(AsRef::as_ref),
+        let result = self.evaluator.get_bandit_action(
             &flag_key,
             &subject_key,
             &subject_attributes,
@@ -157,9 +160,7 @@ impl Client {
         })?;
         let actions = serde_magnus::deserialize(actions)?;
 
-        let config = self.configuration_store.get_configuration();
-        let result = get_bandit_action_details(
-            config.as_ref().map(AsRef::as_ref),
+        let result = self.evaluator.get_bandit_action_details(
             &flag_key,
             &subject_key,
             &subject_attributes,

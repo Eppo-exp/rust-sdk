@@ -60,6 +60,7 @@ mod client;
 mod config;
 mod poller;
 
+use eppo_core::SdkMetadata;
 #[doc(inline)]
 pub use eppo_core::{
     eval::eval_details::*, events::AssignmentEvent, ufc::AssignmentValue, AttributeValue,
@@ -70,3 +71,8 @@ pub use assignment_logger::AssignmentLogger;
 pub use client::Client;
 pub use config::ClientConfig;
 pub use poller::PollerThread;
+
+pub(crate) const SDK_METADATA: SdkMetadata = SdkMetadata {
+    name: "rust",
+    version: env!("CARGO_PKG_VERSION"),
+};

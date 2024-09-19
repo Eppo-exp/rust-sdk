@@ -8,7 +8,7 @@ use crate::{
         Allocation, Assignment, AssignmentValue, Flag, Shard, Split, Timestamp, TryParse,
         UniversalFlagConfig, VariationType,
     },
-    Attributes, Configuration,
+    Attributes, Configuration, SdkMetadata,
 };
 
 use super::{
@@ -28,8 +28,9 @@ pub fn get_assignment(
     subject_key: &str,
     subject_attributes: &Attributes,
     expected_type: Option<VariationType>,
+    now: DateTime<Utc>,
+    meta: &SdkMetadata,
 ) -> Result<Option<Assignment>, EvaluationError> {
-    let now = Utc::now();
     get_assignment_with_visitor(
         configuration,
         &mut NoopEvalVisitor,
@@ -38,6 +39,7 @@ pub fn get_assignment(
         subject_attributes,
         expected_type,
         now,
+        meta,
     )
 }
 
@@ -48,11 +50,12 @@ pub fn get_assignment_details(
     subject_key: &str,
     subject_attributes: &Attributes,
     expected_type: Option<VariationType>,
+    now: DateTime<Utc>,
+    meta: &SdkMetadata,
 ) -> (
     EvaluationResultWithDetails<AssignmentValue>,
     Option<AssignmentEvent>,
 ) {
-    let now = Utc::now();
     let mut details_builder = EvalDetailsBuilder::new(
         flag_key.to_owned(),
         subject_key.to_owned(),
@@ -67,6 +70,7 @@ pub fn get_assignment_details(
         subject_attributes,
         expected_type,
         now,
+        meta,
     );
 
     let (value, mut event) = match result.unwrap_or_default() {
@@ -98,6 +102,7 @@ pub(super) fn get_assignment_with_visitor<V: EvalAssignmentVisitor>(
     subject_attributes: &Attributes,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
+    meta: &SdkMetadata,
 ) -> Result<Option<Assignment>, EvaluationError> {
     let result = if let Some(config) = configuration {
         visitor.on_configuration(config);
@@ -109,6 +114,7 @@ pub(super) fn get_assignment_with_visitor<V: EvalAssignmentVisitor>(
             &subject_attributes,
             expected_type,
             now,
+            meta,
         )
     } else {
         Err(EvaluationFailure::ConfigurationMissing)
@@ -165,6 +171,7 @@ impl UniversalFlagConfig {
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
         now: DateTime<Utc>,
+        meta: &SdkMetadata,
     ) -> Result<Assignment, EvaluationFailure> {
         let flag = self.get_flag(flag_key)?;
 
@@ -174,7 +181,7 @@ impl UniversalFlagConfig {
             flag.verify_type(ty)?;
         }
 
-        flag.eval(visitor, subject_key, subject_attributes, now)
+        flag.eval(visitor, subject_key, subject_attributes, now, meta)
     }
 
     fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag, EvaluationFailure> {
@@ -210,6 +217,7 @@ impl Flag {
         subject_key: &str,
         subject_attributes: &Attributes,
         now: DateTime<Utc>,
+        meta: &SdkMetadata,
     ) -> Result<Assignment, EvaluationFailure> {
         if !self.enabled {
             return Err(EvaluationFailure::FlagDisabled);
@@ -268,10 +276,14 @@ impl Flag {
             subject: subject_key.to_owned(),
             subject_attributes: subject_attributes.clone(),
             timestamp: now.to_rfc3339(),
-            meta_data: [(
-                "eppoCoreVersion".to_owned(),
-                env!("CARGO_PKG_VERSION").to_owned(),
-            )]
+            meta_data: [
+                ("sdkName".to_owned(), meta.name.to_owned()),
+                ("sdkVersion".to_owned(), meta.version.to_owned()),
+                (
+                    "eppoCoreVersion".to_owned(),
+                    env!("CARGO_PKG_VERSION").to_owned(),
+                ),
+            ]
             .into(),
             extra_logging: split.extra_logging.clone(),
             evaluation_details: None,
@@ -366,6 +378,7 @@ impl Shard {
 mod tests {
     use std::fs::{self, File};
 
+    use chrono::Utc;
     use serde::{Deserialize, Serialize};
 
     use crate::{
@@ -376,7 +389,7 @@ mod tests {
             get_assignment, get_assignment_details,
         },
         ufc::{Rule, TryParse, UniversalFlagConfig, Value, VariationType},
-        Attributes, Configuration,
+        Attributes, Configuration, SdkMetadata,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -478,6 +491,7 @@ mod tests {
             serde_json::from_reader(File::open("../sdk-test-data/ufc/flags-v1.json").unwrap())
                 .unwrap();
         let config = Configuration::from_server_response(config, None);
+        let now = Utc::now();
 
         for entry in fs::read_dir("../sdk-test-data/ufc/tests/").unwrap() {
             let entry = entry.unwrap();
@@ -498,6 +512,11 @@ mod tests {
                     &subject.subject_key,
                     &subject.subject_attributes,
                     Some(test_file.variation_type),
+                    now,
+                    &SdkMetadata {
+                        name: "test",
+                        version: "0.1.0",
+                    },
                 )
                 .unwrap_or(None);
 
@@ -523,6 +542,7 @@ mod tests {
             serde_json::from_reader(File::open("../sdk-test-data/ufc/flags-v1.json").unwrap())
                 .unwrap();
         let config = Configuration::from_server_response(config, None);
+        let now = Utc::now();
 
         for entry in fs::read_dir("../sdk-test-data/ufc/tests/").unwrap() {
             let entry = entry.unwrap();
@@ -539,6 +559,11 @@ mod tests {
                     &subject.subject_key,
                     &subject.subject_attributes,
                     Some(test_file.variation_type),
+                    now,
+                    &SdkMetadata {
+                        name: "test",
+                        version: "0.1.0",
+                    },
                 );
 
                 let actual = result.evaluation_details;
