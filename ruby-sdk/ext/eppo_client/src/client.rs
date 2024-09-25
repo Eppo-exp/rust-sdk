@@ -81,8 +81,8 @@ impl Client {
             .evaluator
             .get_assignment(
                 &flag_key,
-                &subject_key,
-                &subject_attributes,
+                &Arc::from(subject_key),
+                &Arc::new(subject_attributes),
                 Some(expected_type),
             )
             // TODO: maybe expose possible errors individually.
@@ -103,8 +103,8 @@ impl Client {
 
         let result = self.evaluator.get_assignment_details(
             &flag_key,
-            &subject_key,
-            &subject_attributes,
+            &Arc::from(subject_key),
+            &Arc::new(subject_attributes),
             Some(expected_type),
         );
 
@@ -132,7 +132,7 @@ impl Client {
 
         let result = self.evaluator.get_bandit_action(
             &flag_key,
-            &subject_key,
+            &Arc::from(subject_key),
             &subject_attributes,
             &actions,
             &default_variation,
@@ -162,7 +162,7 @@ impl Client {
 
         let result = self.evaluator.get_bandit_action_details(
             &flag_key,
-            &subject_key,
+            &Arc::from(subject_key.into_boxed_str()),
             &subject_attributes,
             &actions,
             &default_variation,

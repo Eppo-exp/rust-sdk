@@ -375,7 +375,7 @@ impl EppoClient {
 
         let mut result = this.evaluator.get_bandit_action(
             flag_key,
-            subject_key,
+            &subject_key.into(),
             &subject_context,
             &actions,
             default,
@@ -408,7 +408,7 @@ impl EppoClient {
 
         let (mut result, details) = this.evaluator.get_bandit_action_details(
             flag_key,
-            subject_key,
+            &subject_key.into(),
             &subject_context,
             &actions,
             default,
@@ -621,8 +621,8 @@ impl EppoClient {
     ) -> PyResult<PyObject> {
         let result = self.evaluator.get_assignment(
             &flag_key,
-            &subject_key,
-            &subject_attributes,
+            &subject_key.into(),
+            &subject_attributes.into(),
             expected_type,
         );
 
@@ -661,8 +661,8 @@ impl EppoClient {
     ) -> PyResult<EvaluationResult> {
         let (result, event) = self.evaluator.get_assignment_details(
             &flag_key,
-            &subject_key,
-            &subject_attributes,
+            &subject_key.into(),
+            &subject_attributes.into(),
             expected_type,
         );
 

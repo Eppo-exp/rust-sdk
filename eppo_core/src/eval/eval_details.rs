@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -66,8 +68,8 @@ impl<T> EvaluationResultWithDetails<T> {
 #[serde(rename_all = "camelCase")]
 pub struct EvaluationDetails {
     pub flag_key: String,
-    pub subject_key: String,
-    pub subject_attributes: Attributes,
+    pub subject_key: ArcStr,
+    pub subject_attributes: Arc<Attributes>,
     /// Timestamp when the flag was evaluated.
     pub timestamp: DateTime<Utc>,
 

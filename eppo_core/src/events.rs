@@ -27,9 +27,9 @@ pub struct AssignmentEvent {
     /// The specific variation assigned to the subject.
     pub variation: ArcStr,
     /// The key identifying the subject receiving the assignment.
-    pub subject: String,
+    pub subject: ArcStr,
     /// Custom attributes of the subject relevant to the assignment.
-    pub subject_attributes: Attributes,
+    pub subject_attributes: Arc<Attributes>,
     /// The timestamp indicating when the assignment event occurred.
     pub timestamp: chrono::DateTime<chrono::Utc>,
     /// Additional metadata such as SDK language and version.
@@ -50,7 +50,7 @@ pub struct AssignmentEvent {
 pub struct BanditEvent {
     pub flag_key: String,
     pub bandit_key: String,
-    pub subject: String,
+    pub subject: ArcStr,
     pub action: String,
     pub action_probability: f64,
     pub optimality_gap: f64,

@@ -1,7 +1,47 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use derive_more::From;
 use serde::{Deserialize, Serialize};
+
+use crate::ArcStr;
+
+/// `Subject` is a bundle of subject attributes and a key.
+#[derive(Debug)]
+pub(crate) struct Subject {
+    /// Subject key encoded as attribute value. Known to be `AttributeValue::ArcString`. This is
+    /// done to allow returning subject key as an attribute when rule references "id".
+    key: AttributeValue,
+    attributes: Arc<Attributes>,
+}
+
+impl Subject {
+    pub fn new(key: ArcStr, attributes: Arc<Attributes>) -> Subject {
+        Subject {
+            key: AttributeValue::ArcString(key),
+            attributes,
+        }
+    }
+
+    pub fn key(&self) -> &ArcStr {
+        let AttributeValue::ArcString(s) = &self.key else {
+            unreachable!("Subject::key is always encoded as AttributeValue::ArcString()");
+        };
+        s
+    }
+
+    pub fn get_attribute(&self, name: &str) -> Option<&AttributeValue> {
+        let value = self.attributes.get(name);
+        if value.is_some() {
+            return value;
+        }
+
+        if name == "id" {
+            return Some(&self.key);
+        }
+
+        None
+    }
+}
 
 /// Type alias for a HashMap representing key-value pairs of attributes.
 ///
@@ -32,6 +72,7 @@ pub type Attributes = HashMap<String, AttributeValue>;
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd, From, Clone)]
 #[serde(untagged)]
 pub enum AttributeValue {
+    ArcString(ArcStr),
     /// A string value.
     String(String),
     /// A numerical value.

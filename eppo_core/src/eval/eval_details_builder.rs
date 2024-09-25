@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use chrono::{DateTime, Utc};
 
@@ -21,8 +21,8 @@ use super::{
 /// It works with both assignment and bandit evaluation.
 pub(crate) struct EvalDetailsBuilder {
     flag_key: String,
-    subject_key: String,
-    subject_attributes: Attributes,
+    subject_key: ArcStr,
+    subject_attributes: Arc<Attributes>,
     now: DateTime<Utc>,
 
     configuration_fetched_at: Option<DateTime<Utc>>,
@@ -71,8 +71,8 @@ pub(crate) struct EvalSplitDetailsBuilder<'a> {
 impl EvalDetailsBuilder {
     pub fn new(
         flag_key: String,
-        subject_key: String,
-        subject_attributes: Attributes,
+        subject_key: ArcStr,
+        subject_attributes: Arc<Attributes>,
         now: DateTime<Utc>,
     ) -> EvalDetailsBuilder {
         EvalDetailsBuilder {

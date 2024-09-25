@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -10,7 +11,7 @@ use crate::error::EvaluationFailure;
 use crate::events::{AssignmentEvent, BanditEvent};
 use crate::sharder::get_md5_shard;
 use crate::ufc::{Assignment, AssignmentValue, VariationType};
-use crate::{Configuration, EvaluationError};
+use crate::{ArcStr, Configuration, EvaluationError};
 use crate::{ContextAttributes, SdkMetadata};
 
 use super::eval_assignment::get_assignment_with_visitor;
@@ -50,7 +51,7 @@ pub struct BanditResult {
 pub fn get_bandit_action(
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &str,
+    subject_key: &ArcStr,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
     default_variation: &str,
@@ -75,7 +76,7 @@ pub fn get_bandit_action(
 pub fn get_bandit_action_details(
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &str,
+    subject_key: &ArcStr,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
     default_variation: &str,
@@ -85,7 +86,7 @@ pub fn get_bandit_action_details(
     let mut builder = EvalDetailsBuilder::new(
         flag_key.to_owned(),
         subject_key.to_owned(),
-        subject_attributes.to_generic_attributes(),
+        subject_attributes.to_generic_attributes().into(),
         now,
     );
     let result = get_bandit_action_with_visitor(
@@ -109,7 +110,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     visitor: &mut V,
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &str,
+    subject_key: &ArcStr,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
     default_variation: &str,
@@ -134,7 +135,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
         &mut visitor.visit_assignment(),
         flag_key,
         subject_key,
-        &subject_attributes.to_generic_attributes(),
+        &Arc::new(subject_attributes.to_generic_attributes()),
         Some(VariationType::String),
         now,
         sdk_meta,
@@ -212,7 +213,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     let bandit_event = BanditEvent {
         flag_key: flag_key.to_owned(),
         bandit_key: bandit_key.to_owned(),
-        subject: subject_key.to_owned(),
+        subject: subject_key.clone(),
         action: evaluation.action_key.clone(),
         action_probability: evaluation.action_weight,
         optimality_gap: evaluation.optimality_gap,
@@ -409,7 +410,7 @@ mod tests {
     use chrono::Utc;
     use serde::{Deserialize, Serialize};
 
-    use crate::{eval::get_bandit_action, Configuration, ContextAttributes, SdkMetadata};
+    use crate::{eval::get_bandit_action, ArcStr, Configuration, ContextAttributes, SdkMetadata};
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -422,7 +423,7 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct TestSubject {
-        subject_key: String,
+        subject_key: ArcStr,
         subject_attributes: TestContextAttributes,
         actions: Vec<TestAction>,
         assignment: TestAssignment,

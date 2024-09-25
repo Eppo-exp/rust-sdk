@@ -3,20 +3,17 @@ use std::borrow::Cow;
 use semver::Version;
 
 use crate::{
+    attributes::Subject,
     ufc::{Comparand, ComparisonOperator, Condition, ConditionCheck, Rule, TryParse},
-    AttributeValue, Attributes,
+    AttributeValue,
 };
 
 use super::eval_visitor::EvalRuleVisitor;
 
 impl Rule {
-    pub(super) fn eval<V: EvalRuleVisitor>(
-        &self,
-        visitor: &mut V,
-        attributes: &Attributes,
-    ) -> bool {
+    pub(super) fn eval<V: EvalRuleVisitor>(&self, visitor: &mut V, subject: &Subject) -> bool {
         self.conditions.iter().all(|condition| match condition {
-            TryParse::Parsed(condition) => condition.eval(visitor, attributes),
+            TryParse::Parsed(condition) => condition.eval(visitor, subject),
             TryParse::ParseFailed(raw_condition) => {
                 visitor.on_condition_skip(raw_condition);
                 false
@@ -26,8 +23,8 @@ impl Rule {
 }
 
 impl Condition {
-    fn eval<V: EvalRuleVisitor>(&self, visitor: &mut V, attributes: &Attributes) -> bool {
-        let attribute = attributes.get(self.attribute.as_ref());
+    fn eval<V: EvalRuleVisitor>(&self, visitor: &mut V, subject: &Subject) -> bool {
+        let attribute = subject.get_attribute(self.attribute.as_ref());
         let result = self.check.eval(attribute);
         visitor.on_condition_eval(self, attribute, result);
         result
@@ -111,9 +108,10 @@ impl ConditionCheck {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, sync::Arc};
 
     use crate::{
+        attributes::Subject,
         eval::eval_visitor::NoopEvalVisitor,
         ufc::{Comparand, ComparisonOperator, Condition, ConditionCheck, Rule},
     };
@@ -369,7 +367,10 @@ mod tests {
     #[test]
     fn empty_rule() {
         let rule = Rule { conditions: vec![] };
-        assert!(rule.eval(&mut NoopEvalVisitor, &HashMap::from([])));
+        assert!(rule.eval(
+            &mut NoopEvalVisitor,
+            &Subject::new("key".into(), Default::default())
+        ));
     }
 
     #[test]
@@ -386,7 +387,10 @@ mod tests {
         };
         assert!(rule.eval(
             &mut NoopEvalVisitor,
-            &HashMap::from([("age".into(), 11.0.into())])
+            &Subject::new(
+                "key".into(),
+                Arc::new(HashMap::from([("age".into(), 11.0.into())]))
+            )
         ));
     }
 
@@ -414,15 +418,24 @@ mod tests {
         };
         assert!(rule.eval(
             &mut NoopEvalVisitor,
-            &HashMap::from([("age".into(), 20.0.into())])
+            &Subject::new(
+                "key".into(),
+                Arc::new(HashMap::from([("age".into(), 20.0.into())]))
+            )
         ));
         assert!(!rule.eval(
             &mut NoopEvalVisitor,
-            &HashMap::from([("age".into(), 17.0.into())])
+            &Subject::new(
+                "key".into(),
+                Arc::new(HashMap::from([("age".into(), 17.0.into())]))
+            )
         ));
         assert!(!rule.eval(
             &mut NoopEvalVisitor,
-            &HashMap::from([("age".into(), 110.0.into())])
+            &Subject::new(
+                "key".into(),
+                Arc::new(HashMap::from([("age".into(), 110.0.into())]))
+            )
         ));
     }
 
@@ -440,7 +453,10 @@ mod tests {
         };
         assert!(!rule.eval(
             &mut NoopEvalVisitor,
-            &HashMap::from([("name".into(), "alice".into())])
+            &Subject::new(
+                "key".into(),
+                Arc::new(HashMap::from([("name".into(), "alice".into())]))
+            )
         ));
     }
 }

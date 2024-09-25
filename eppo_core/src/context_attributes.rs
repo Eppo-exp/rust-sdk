@@ -36,6 +36,10 @@ where
         iter.into_iter()
             .fold(ContextAttributes::default(), |mut acc, (key, value)| {
                 match value.to_owned() {
+                    AttributeValue::ArcString(value) => {
+                        acc.categorical
+                            .insert(key.to_owned(), value.as_ref().into());
+                    }
                     AttributeValue::String(value) => {
                         acc.categorical.insert(key.to_owned(), value);
                     }

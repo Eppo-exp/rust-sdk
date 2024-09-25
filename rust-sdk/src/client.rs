@@ -10,6 +10,7 @@ use eppo_core::{
     configuration_store::ConfigurationStore,
     eval::{Evaluator, EvaluatorConfig},
     ufc::{Assignment, VariationType},
+    ArcStr,
 };
 
 /// A client for Eppo API.
@@ -108,8 +109,8 @@ impl<'a> Client<'a> {
     pub fn get_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<AssignmentValue>, EvaluationError> {
         self.get_assignment_inner(flag_key, subject_key, subject_attributes, None, |x| x)
     }
@@ -140,8 +141,8 @@ impl<'a> Client<'a> {
     pub fn get_string_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<String>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
@@ -182,8 +183,8 @@ impl<'a> Client<'a> {
     pub fn get_integer_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<i64>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
@@ -224,8 +225,8 @@ impl<'a> Client<'a> {
     pub fn get_numeric_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<f64>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
@@ -266,8 +267,8 @@ impl<'a> Client<'a> {
     pub fn get_boolean_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<bool>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
@@ -309,8 +310,8 @@ impl<'a> Client<'a> {
     pub fn get_json_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<serde_json::Value>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
@@ -328,8 +329,8 @@ impl<'a> Client<'a> {
     fn get_assignment_inner<T>(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
         expected_type: Option<VariationType>,
         convert: impl FnOnce(AssignmentValue) -> T,
     ) -> Result<Option<T>, EvaluationError> {
@@ -376,8 +377,8 @@ impl<'a> Client<'a> {
     pub fn get_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<AssignmentValue> {
         self.get_assignment_details_inner(flag_key, subject_key, subject_attributes, None)
     }
@@ -390,8 +391,8 @@ impl<'a> Client<'a> {
     pub fn get_string_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<String> {
         self.get_assignment_details_inner(
             flag_key,
@@ -413,8 +414,8 @@ impl<'a> Client<'a> {
     pub fn get_integer_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<i64> {
         self.get_assignment_details_inner(
             flag_key,
@@ -436,8 +437,8 @@ impl<'a> Client<'a> {
     pub fn get_numeric_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<f64> {
         self.get_assignment_details_inner(
             flag_key,
@@ -459,8 +460,8 @@ impl<'a> Client<'a> {
     pub fn get_boolean_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<bool> {
         self.get_assignment_details_inner(
             flag_key,
@@ -482,8 +483,8 @@ impl<'a> Client<'a> {
     pub fn get_json_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<serde_json::Value> {
         self.get_assignment_details_inner(
             flag_key,
@@ -500,8 +501,8 @@ impl<'a> Client<'a> {
     fn get_assignment_details_inner(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
         expected_type: Option<VariationType>,
     ) -> EvaluationResultWithDetails<AssignmentValue> {
         let (result, event) = self.evaluator.get_assignment_details(
@@ -555,7 +556,7 @@ mod tests {
 
         assert_eq!(
             client
-                .get_assignment("flag", "subject", &HashMap::new())
+                .get_assignment("flag", &"subject".into(), &Arc::new(HashMap::new()))
                 .unwrap(),
             None
         );
@@ -613,7 +614,7 @@ mod tests {
 
         assert_eq!(
             client
-                .get_assignment("flag", "subject", &HashMap::new())
+                .get_assignment("flag", &"subject".into(), &Arc::new(HashMap::new()))
                 .unwrap(),
             Some(AssignmentValue::Boolean(true))
         );

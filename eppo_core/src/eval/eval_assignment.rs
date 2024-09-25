@@ -1,6 +1,9 @@
+use std::sync::Arc;
+
 use chrono::{DateTime, Utc};
 
 use crate::{
+    attributes::Subject,
     error::{EvaluationError, EvaluationFailure},
     events::AssignmentEvent,
     sharder::get_md5_shard,
@@ -8,7 +11,7 @@ use crate::{
         Allocation, Assignment, AssignmentValue, Flag, Shard, Split, Timestamp, TryParse,
         UniversalFlagConfig, VariationType,
     },
-    Attributes, Configuration, SdkMetadata,
+    ArcStr, Attributes, Configuration, SdkMetadata,
 };
 
 use super::{
@@ -25,8 +28,8 @@ use super::{
 pub fn get_assignment(
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &str,
-    subject_attributes: &Attributes,
+    subject_key: &ArcStr,
+    subject_attributes: &Arc<Attributes>,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
@@ -47,8 +50,8 @@ pub fn get_assignment(
 pub fn get_assignment_details(
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &str,
-    subject_attributes: &Attributes,
+    subject_key: &ArcStr,
+    subject_attributes: &Arc<Attributes>,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
@@ -98,8 +101,8 @@ pub(super) fn get_assignment_with_visitor<V: EvalAssignmentVisitor>(
     configuration: Option<&Configuration>,
     visitor: &mut V,
     flag_key: &str,
-    subject_key: &str,
-    subject_attributes: &Attributes,
+    subject_key: &ArcStr,
+    subject_attributes: &Arc<Attributes>,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
@@ -167,8 +170,8 @@ impl UniversalFlagConfig {
         &self,
         visitor: &mut V,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
         expected_type: Option<VariationType>,
         now: DateTime<Utc>,
         sdk_meta: &SdkMetadata,
@@ -214,8 +217,8 @@ impl Flag {
     fn eval<V: EvalAssignmentVisitor>(
         &self,
         visitor: &mut V,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
         now: DateTime<Utc>,
         sdk_meta: &SdkMetadata,
     ) -> Result<Assignment, EvaluationFailure> {
@@ -223,22 +226,12 @@ impl Flag {
             return Err(EvaluationFailure::FlagDisabled);
         }
 
-        // Augmenting subject_attributes with id, so that subject_key can be used in the rules.
-        let subject_attributes_with_id = {
-            let mut sa = subject_attributes.clone();
-            sa.entry("id".into()).or_insert_with(|| subject_key.into());
-            sa
-        };
+        let subject = Subject::new(subject_key.clone(), subject_attributes.clone());
 
         let Some((allocation, split)) = self.allocations.iter().find_map(|allocation| {
             let mut visitor = visitor.visit_allocation(allocation);
-            let result = allocation.get_matching_split(
-                &mut visitor,
-                subject_key,
-                &subject_attributes_with_id,
-                self.total_shards,
-                now,
-            );
+            let result =
+                allocation.get_matching_split(&mut visitor, &subject, self.total_shards, now);
             visitor.on_result(result);
             result.ok().map(|split| (allocation, split))
         }) else {
@@ -273,7 +266,7 @@ impl Flag {
             allocation: allocation.key.clone(),
             experiment: format!("{}-{}", self.key, allocation.key),
             variation: variation.key.clone(),
-            subject: subject_key.to_owned(),
+            subject: subject_key.clone(),
             subject_attributes: subject_attributes.clone(),
             timestamp: now,
             meta_data: sdk_meta.into(),
@@ -300,8 +293,7 @@ impl Allocation {
     fn get_matching_split<V: EvalAllocationVisitor>(
         &self,
         visitor: &mut V,
-        subject_key: &str,
-        subject_attributes_with_id: &Attributes,
+        subject: &Subject,
         total_shards: u64,
         now: Timestamp,
     ) -> Result<&Split, AllocationNonMatchReason> {
@@ -315,7 +307,7 @@ impl Allocation {
         let is_allowed_by_rules = self.rules.is_empty()
             || self.rules.iter().any(|rule| {
                 let mut visitor = visitor.visit_rule(rule);
-                let result = rule.eval(&mut visitor, subject_attributes_with_id);
+                let result = rule.eval(&mut visitor, subject);
                 visitor.on_result(result);
                 result
             });
@@ -327,7 +319,7 @@ impl Allocation {
             .iter()
             .find(|split| {
                 let mut visitor = visitor.visit_split(split);
-                let matches = split.matches(&mut visitor, subject_key, total_shards);
+                let matches = split.matches(&mut visitor, subject.key(), total_shards);
                 visitor.on_result(matches);
                 matches
             })
@@ -368,7 +360,10 @@ impl Shard {
 
 #[cfg(test)]
 mod tests {
-    use std::fs::{self, File};
+    use std::{
+        fs::{self, File},
+        sync::Arc,
+    };
 
     use chrono::Utc;
     use serde::{Deserialize, Serialize};
@@ -396,8 +391,8 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct TestSubject {
-        subject_key: String,
-        subject_attributes: Attributes,
+        subject_key: ArcStr,
+        subject_attributes: Arc<Attributes>,
         assignment: TryParse<Value>,
         evaluation_details: TruncatedEvaluationDetails,
     }

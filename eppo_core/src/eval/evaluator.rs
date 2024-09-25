@@ -6,7 +6,7 @@ use crate::{
     configuration_store::ConfigurationStore,
     events::AssignmentEvent,
     ufc::{Assignment, AssignmentValue, VariationType},
-    Attributes, Configuration, ContextAttributes, EvaluationError, SdkMetadata,
+    ArcStr, Attributes, Configuration, ContextAttributes, EvaluationError, SdkMetadata,
 };
 
 use super::{
@@ -34,8 +34,8 @@ impl Evaluator {
     pub fn get_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
         expected_type: Option<VariationType>,
     ) -> Result<Option<Assignment>, EvaluationError> {
         let config = self.get_configuration();
@@ -53,8 +53,8 @@ impl Evaluator {
     pub fn get_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &ArcStr,
+        subject_attributes: &Arc<Attributes>,
         expected_type: Option<VariationType>,
     ) -> (
         EvaluationResultWithDetails<AssignmentValue>,
@@ -75,7 +75,7 @@ impl Evaluator {
     pub fn get_bandit_action(
         &self,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: &ArcStr,
         subject_attributes: &ContextAttributes,
         actions: &HashMap<String, ContextAttributes>,
         default_variation: &str,
@@ -96,7 +96,7 @@ impl Evaluator {
     pub fn get_bandit_action_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: &ArcStr,
         subject_attributes: &ContextAttributes,
         actions: &HashMap<String, ContextAttributes>,
         default_variation: &str,

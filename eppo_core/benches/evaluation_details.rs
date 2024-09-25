@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::fs::File;
+use std::{collections::HashMap, sync::Arc};
 
 use chrono::Utc;
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput};
@@ -22,13 +22,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     {
         let mut group = c.benchmark_group("new-user-onboarding");
         group.throughput(Throughput::Elements(1));
-        let attributes = HashMap::new();
+        let attributes = Arc::new(HashMap::new());
         group.bench_function("get_assignment", |b| {
             b.iter(|| {
                 get_assignment(
                     black_box(Some(&configuration)),
                     black_box("new-user-onboarding"),
-                    black_box("subject1"),
+                    black_box(&"subject1".into()),
                     black_box(&attributes),
                     black_box(None),
                     black_box(now),
@@ -41,7 +41,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 get_assignment_details(
                     black_box(Some(&configuration)),
                     black_box("new-user-onboarding"),
-                    black_box("subject1"),
+                    black_box(&"subject1".into()),
                     black_box(&attributes),
                     black_box(None),
                     black_box(now),
@@ -55,13 +55,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     {
         let mut group = c.benchmark_group("rollout");
         group.throughput(Throughput::Elements(1));
-        let attributes = [("country".to_owned(), "US".into())].into();
+        let attributes = Arc::new([("country".to_owned(), "US".into())].into());
         group.bench_function("get_assignment", |b| {
             b.iter(|| {
                 get_assignment(
                     black_box(Some(&configuration)),
                     black_box("new-user-onboarding"),
-                    black_box("subject1"),
+                    black_box(&"subject1".into()),
                     black_box(&attributes),
                     black_box(None),
                     black_box(now),
@@ -74,7 +74,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 get_assignment_details(
                     black_box(Some(&configuration)),
                     black_box("new-user-onboarding"),
-                    black_box("subject1"),
+                    black_box(&"subject1".into()),
                     black_box(&attributes),
                     black_box(None),
                     black_box(now),
@@ -88,13 +88,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     {
         let mut group = c.benchmark_group("json-config-flag");
         group.throughput(Throughput::Elements(1));
-        let attributes = [].into();
+        let attributes = Arc::new([].into());
         group.bench_function("get_assignment", |b| {
             b.iter(|| {
                 get_assignment(
                     black_box(Some(&configuration)),
                     black_box("json-config-flag"),
-                    black_box("subject1"),
+                    black_box(&"subject1".into()),
                     black_box(&attributes),
                     black_box(None),
                     black_box(now),
@@ -107,7 +107,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 get_assignment_details(
                     black_box(Some(&configuration)),
                     black_box("json-config-flag"),
-                    black_box("subject1"),
+                    black_box(&"subject1".into()),
                     black_box(&attributes),
                     black_box(None),
                     black_box(now),
@@ -121,13 +121,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     {
         let mut group = c.benchmark_group("numeric-one-of");
         group.throughput(Throughput::Elements(1));
-        let attributes = [("number".to_owned(), 2.0.into())].into();
+        let attributes = Arc::new([("number".to_owned(), 2.0.into())].into());
         group.bench_function("get_assignment", |b| {
             b.iter(|| {
                 get_assignment(
                     black_box(Some(&configuration)),
                     black_box("numeric-one-of"),
-                    black_box("subject1"),
+                    black_box(&"subject1".into()),
                     black_box(&attributes),
                     black_box(None),
                     black_box(now),
@@ -140,7 +140,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 get_assignment_details(
                     black_box(Some(&configuration)),
                     black_box("numeric-one-of"),
-                    black_box("subject1"),
+                    black_box(&"subject1".into()),
                     black_box(&attributes),
                     black_box(None),
                     black_box(now),
@@ -154,13 +154,13 @@ fn criterion_benchmark(c: &mut Criterion) {
     {
         let mut group = c.benchmark_group("regex-flag");
         group.throughput(Throughput::Elements(1));
-        let attributes = [("email".into(), "test@gmail.com".into())].into();
+        let attributes = Arc::new([("email".into(), "test@gmail.com".into())].into());
         group.bench_function("get_assignment", |b| {
             b.iter(|| {
                 get_assignment(
                     black_box(Some(&configuration)),
                     black_box("regex-flag"),
-                    black_box("subject1"),
+                    black_box(&"subject1".into()),
                     black_box(&attributes),
                     black_box(None),
                     black_box(now),
@@ -173,7 +173,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 get_assignment_details(
                     black_box(Some(&configuration)),
                     black_box("regex-flag"),
-                    black_box("subject1"),
+                    black_box(&"subject1".into()),
                     black_box(&attributes),
                     black_box(None),
                     black_box(now),
