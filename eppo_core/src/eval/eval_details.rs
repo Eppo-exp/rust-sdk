@@ -49,7 +49,7 @@ pub enum BanditEvaluationCode {
 pub struct EvaluationResultWithDetails<T> {
     pub variation: Option<T>,
     pub action: Option<String>,
-    pub evaluation_details: EvaluationDetails,
+    pub evaluation_details: Arc<EvaluationDetails>,
 }
 
 impl<T> EvaluationResultWithDetails<T> {
@@ -110,7 +110,7 @@ pub struct AllocationEvaluationDetails {
     pub evaluated_splits: Vec<SplitEvaluationDetails>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AllocationEvaluationCode {
     /// The allocation was not evaluated because previous allocation matched.

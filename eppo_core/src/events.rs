@@ -41,7 +41,7 @@ pub struct AssignmentEvent {
     /// Evaluation details that could help with debugging the assigment. Only populated when
     /// details-version of the `get_assigment` was called.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub evaluation_details: Option<EvaluationDetails>,
+    pub evaluation_details: Option<Arc<EvaluationDetails>>,
 }
 
 /// Bandit evaluation event that needs to be logged to analytics storage.

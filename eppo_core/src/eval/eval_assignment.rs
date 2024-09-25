@@ -81,7 +81,7 @@ pub fn get_assignment_details(
         None => (None, None),
     };
 
-    let evaluation_details = details_builder.build();
+    let evaluation_details = Arc::new(details_builder.build());
 
     if let Some(event) = &mut event {
         event.evaluation_details = Some(evaluation_details.clone());
@@ -448,10 +448,10 @@ mod tests {
         pub order_position: usize,
         pub allocation_evaluation_code: AllocationEvaluationCode,
     }
-    impl From<AllocationEvaluationDetails> for TruncatedAllocationEvaluationDetails {
-        fn from(value: AllocationEvaluationDetails) -> Self {
+    impl From<&AllocationEvaluationDetails> for TruncatedAllocationEvaluationDetails {
+        fn from(value: &AllocationEvaluationDetails) -> Self {
             Self {
-                key: value.key,
+                key: value.key.clone(),
                 order_position: value.order_position,
                 allocation_evaluation_code: value.allocation_evaluation_code,
             }
@@ -584,7 +584,7 @@ mod tests {
                     Vec::new();
                 let mut unevaluated_allocations: Vec<TruncatedAllocationEvaluationDetails> =
                     Vec::new();
-                for allocation in actual.allocations {
+                for allocation in &actual.allocations {
                     match allocation.allocation_evaluation_code {
                         AllocationEvaluationCode::Unevaluated => {
                             unevaluated_allocations.push(allocation.into())
