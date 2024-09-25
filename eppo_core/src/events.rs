@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use serde::{Deserialize, Serialize};
 
-use crate::{eval::eval_details::EvaluationDetails, Attributes};
+use crate::{eval::eval_details::EvaluationDetails, ArcStr, Attributes};
 
 /// Events that can be emitted during evaluation of assignment or bandit. They need to be logged to
 /// analytics storage and fed back to Eppo for analysis.
@@ -19,25 +19,25 @@ pub struct Events {
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentEvent {
     /// The key of the feature flag being assigned.
-    pub feature_flag: String,
+    pub feature_flag: ArcStr,
     /// The key of the allocation that the subject was assigned to.
-    pub allocation: String,
+    pub allocation: ArcStr,
     /// The key of the experiment associated with the assignment.
     pub experiment: String,
     /// The specific variation assigned to the subject.
-    pub variation: String,
+    pub variation: ArcStr,
     /// The key identifying the subject receiving the assignment.
     pub subject: String,
     /// Custom attributes of the subject relevant to the assignment.
     pub subject_attributes: Attributes,
     /// The timestamp indicating when the assignment event occurred.
-    pub timestamp: String,
+    pub timestamp: chrono::DateTime<chrono::Utc>,
     /// Additional metadata such as SDK language and version.
     pub meta_data: HashMap<String, String>,
     /// Additional user-defined logging fields for capturing extra information related to the
     /// assignment.
     #[serde(flatten)]
-    pub extra_logging: HashMap<String, String>,
+    pub extra_logging: Arc<HashMap<String, String>>,
     /// Evaluation details that could help with debugging the assigment. Only populated when
     /// details-version of the `get_assigment` was called.
     #[serde(skip_serializing_if = "Option::is_none")]

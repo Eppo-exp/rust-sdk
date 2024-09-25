@@ -4,8 +4,11 @@ use chrono::{DateTime, Utc};
 
 use crate::{
     error::EvaluationFailure,
-    ufc::{Allocation, Assignment, Condition, ConditionWire, Flag, Rule, Shard, Split, Value, Variation},
-    AttributeValue, Attributes, Configuration, EvaluationError,
+    ufc::{
+        Allocation, Assignment, Condition, ConditionWire, Flag, Rule, Shard, Split, Value,
+        Variation,
+    },
+    ArcStr, AttributeValue, Attributes, Configuration, EvaluationError,
 };
 
 use super::{
@@ -24,7 +27,7 @@ pub(crate) struct EvalDetailsBuilder {
 
     configuration_fetched_at: Option<DateTime<Utc>>,
     configuration_published_at: Option<DateTime<Utc>>,
-    environment_name: Option<String>,
+    environment_name: Option<ArcStr>,
 
     flag_evaluation_failure: Option<Result<(), EvaluationFailure>>,
     variation_key: Option<String>,
@@ -38,8 +41,8 @@ pub(crate) struct EvalDetailsBuilder {
     matched_details: Option<MatchedDetails>,
 
     /// List of allocation keys. Used to sort `allocation_eval_results`.
-    allocation_keys_order: Vec<String>,
-    allocation_eval_results: HashMap<String, AllocationEvaluationDetails>,
+    allocation_keys_order: Vec<ArcStr>,
+    allocation_eval_results: HashMap<ArcStr, AllocationEvaluationDetails>,
 }
 
 /// Interim struct to construct `flag_evaluation_details` later.
@@ -389,18 +392,21 @@ impl<'a> EvalRuleVisitor for EvalRuleDetailsBuilder<'a> {
             });
     }
 
-    fn on_condition_skip(
-        &mut self,
-        condition: &serde_json::Value,
-    ) {
+    fn on_condition_skip(&mut self, condition: &serde_json::Value) {
         let condition = match serde_json::from_value::<ConditionWire>(condition.clone()) {
             Ok(condition_wire) => condition_wire,
             Err(err) => {
                 log::warn!("condition cannot be parsed: {err:?}");
-            return;
+                return;
             }
         };
-        self.rule_details.conditions.push(ConditionEvaluationDetails { condition, attribute_value: None, matched: false });
+        self.rule_details
+            .conditions
+            .push(ConditionEvaluationDetails {
+                condition,
+                attribute_value: None,
+                matched: false,
+            });
     }
 
     fn on_result(&mut self, result: bool) {

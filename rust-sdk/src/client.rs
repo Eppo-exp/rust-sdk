@@ -574,31 +574,31 @@ mod tests {
             UniversalFlagConfig {
                 created_at: chrono::Utc::now(),
                 environment: Environment {
-                    name: "test".to_owned(),
+                    name: "test".into(),
                 },
                 flags: [(
                     "flag".to_owned(),
                     TryParse::Parsed(Flag {
-                        key: "flag".to_owned(),
+                        key: "flag".into(),
                         enabled: true,
                         variation_type: VariationType::Boolean,
                         variations: [(
                             "variation".to_owned(),
                             Variation {
-                                key: "variation".to_owned(),
+                                key: "variation".into(),
                                 value: true.into(),
                             },
                         )]
                         .into(),
                         allocations: vec![Allocation {
-                            key: "allocation".to_owned(),
+                            key: "allocation".into(),
                             rules: vec![],
                             start_at: None,
                             end_at: None,
                             splits: vec![Split {
                                 shards: vec![],
                                 variation_key: "variation".to_owned(),
-                                extra_logging: HashMap::new(),
+                                extra_logging: Arc::new(HashMap::new()),
                             }],
                             do_log: false,
                         }],

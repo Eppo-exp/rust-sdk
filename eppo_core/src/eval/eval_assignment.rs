@@ -275,7 +275,7 @@ impl Flag {
             variation: variation.key.clone(),
             subject: subject_key.to_owned(),
             subject_attributes: subject_attributes.clone(),
-            timestamp: now.to_rfc3339(),
+            timestamp: now,
             meta_data: [
                 ("sdkName".to_owned(), meta.name.to_owned()),
                 ("sdkVersion".to_owned(), meta.version.to_owned()),
@@ -389,7 +389,7 @@ mod tests {
             get_assignment, get_assignment_details,
         },
         ufc::{Rule, TryParse, UniversalFlagConfig, Value, VariationType},
-        Attributes, Configuration, SdkMetadata,
+        ArcStr, Attributes, Configuration, SdkMetadata,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -414,7 +414,7 @@ mod tests {
     #[serde(rename_all = "camelCase")]
     struct TruncatedEvaluationDetails {
         /// Environment the configuration belongs to. None if configuration hasn't been fetched yet.
-        environment_name: Option<String>,
+        environment_name: Option<ArcStr>,
 
         flag_evaluation_code: TruncatedFlagEvaluationCode,
         flag_evaluation_description: String,
@@ -456,7 +456,7 @@ mod tests {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct TruncatedAllocationEvaluationDetails {
-        pub key: String,
+        pub key: ArcStr,
         /// Order position of the allocation as seen in the Web UI.
         pub order_position: usize,
         pub allocation_evaluation_code: AllocationEvaluationCode,

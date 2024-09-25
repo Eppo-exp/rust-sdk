@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use derive_more::From;
 use regex::Regex;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 
-use crate::{Error, EvaluationError};
+use crate::{ArcStr, Error, EvaluationError};
 
 use super::AssignmentValue;
 
@@ -35,7 +35,7 @@ pub struct UniversalFlagConfig {
 #[serde(rename_all = "camelCase")]
 pub struct Environment {
     /// Name of the environment.
-    pub name: String,
+    pub name: ArcStr,
 }
 
 /// `TryParse` allows the subfield to fail parsing without failing the parsing of the whole
@@ -88,7 +88,7 @@ impl<'a, T> From<&'a TryParse<T>> for Option<&'a T> {
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub struct Flag {
-    pub key: String,
+    pub key: ArcStr,
     pub enabled: bool,
     pub variation_type: VariationType,
     pub variations: HashMap<String, Variation>,
@@ -182,7 +182,7 @@ impl From<&str> for Value {
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub struct Variation {
-    pub key: String,
+    pub key: ArcStr,
     pub value: Value,
 }
 
@@ -190,7 +190,7 @@ pub struct Variation {
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub struct Allocation {
-    pub key: String,
+    pub key: ArcStr,
     #[serde(default)]
     pub rules: Vec<Rule>,
     #[serde(default)]
@@ -500,7 +500,7 @@ pub struct Split {
     pub shards: Vec<Shard>,
     pub variation_key: String,
     #[serde(default)]
-    pub extra_logging: HashMap<String, String>,
+    pub extra_logging: Arc<HashMap<String, String>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

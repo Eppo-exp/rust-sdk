@@ -69,7 +69,7 @@ mod tests {
                     UniversalFlagConfig {
                         created_at: Utc::now(),
                         environment: Environment {
-                            name: "test".to_owned(),
+                            name: "test".into(),
                         },
                         flags: HashMap::new(),
                         bandits: HashMap::new(),

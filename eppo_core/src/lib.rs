@@ -65,9 +65,11 @@ mod configuration;
 mod context_attributes;
 mod error;
 mod sdk_metadata;
+mod str;
 
 pub use attributes::{AttributeValue, Attributes};
 pub use configuration::Configuration;
 pub use context_attributes::ContextAttributes;
 pub use error::{Error, EvaluationError, Result};
 pub use sdk_metadata::SdkMetadata;
+pub use str::ArcStr;

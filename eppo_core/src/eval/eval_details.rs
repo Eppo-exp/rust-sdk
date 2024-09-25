@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     error::{EvaluationError, EvaluationFailure},
     ufc::{ConditionWire, Shard, Value},
-    AttributeValue, Attributes,
+    ArcStr, AttributeValue, Attributes,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -78,7 +78,7 @@ pub struct EvaluationDetails {
     /// fetched yet.
     pub config_published_at: Option<DateTime<Utc>>,
     /// Environment the configuration belongs to. None if configuration hasn't been fetched yet.
-    pub environment_name: Option<String>,
+    pub environment_name: Option<ArcStr>,
 
     pub bandit_evaluation_code: Option<BanditEvaluationCode>,
     pub flag_evaluation_code: Option<FlagEvaluationCode>,
@@ -100,7 +100,7 @@ pub struct EvaluationDetails {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AllocationEvaluationDetails {
-    pub key: String,
+    pub key: ArcStr,
     /// Order position of the allocation as seen in the Web UI.
     pub order_position: usize,
     pub allocation_evaluation_code: AllocationEvaluationCode,
