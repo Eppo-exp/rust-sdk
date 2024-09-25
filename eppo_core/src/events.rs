@@ -1,12 +1,12 @@
 use std::{collections::HashMap, sync::Arc};
 
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
-use crate::{eval::eval_details::EvaluationDetails, ArcStr, Attributes};
+use crate::{eval::eval_details::EvaluationDetails, ArcStr, Attributes, SdkMetadata};
 
 /// Events that can be emitted during evaluation of assignment or bandit. They need to be logged to
 /// analytics storage and fed back to Eppo for analysis.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Events {
     pub assignment: Option<AssignmentEvent>,
@@ -15,7 +15,7 @@ pub struct Events {
 
 /// Represents an event capturing the assignment of a feature flag to a subject and its logging
 /// details.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentEvent {
     /// The key of the feature flag being assigned.
@@ -33,7 +33,7 @@ pub struct AssignmentEvent {
     /// The timestamp indicating when the assignment event occurred.
     pub timestamp: chrono::DateTime<chrono::Utc>,
     /// Additional metadata such as SDK language and version.
-    pub meta_data: HashMap<String, String>,
+    pub meta_data: EventMetaData,
     /// Additional user-defined logging fields for capturing extra information related to the
     /// assignment.
     #[serde(flatten)]
@@ -45,7 +45,7 @@ pub struct AssignmentEvent {
 }
 
 /// Bandit evaluation event that needs to be logged to analytics storage.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BanditEvent {
     pub flag_key: String,
@@ -60,20 +60,30 @@ pub struct BanditEvent {
     pub subject_categorical_attributes: HashMap<String, String>,
     pub action_numeric_attributes: HashMap<String, f64>,
     pub action_categorical_attributes: HashMap<String, String>,
-    pub meta_data: HashMap<String, String>,
+    pub meta_data: EventMetaData,
 }
 
-impl AssignmentEvent {
-    pub fn add_sdk_metadata(&mut self, name: String, version: String) {
-        self.meta_data.insert("sdkName".to_owned(), name);
-        self.meta_data.insert("sdkVersion".to_owned(), version);
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EventMetaData {
+    pub sdk_name: &'static str,
+    pub sdk_version: &'static str,
+    pub core_version: &'static str,
+}
+
+impl From<SdkMetadata> for EventMetaData {
+    fn from(sdk: SdkMetadata) -> EventMetaData {
+        (&sdk).into()
     }
 }
 
-impl BanditEvent {
-    pub fn add_sdk_metadata(&mut self, name: String, version: String) {
-        self.meta_data.insert("sdkName".to_owned(), name);
-        self.meta_data.insert("sdkVersion".to_owned(), version);
+impl From<&SdkMetadata> for EventMetaData {
+    fn from(sdk: &SdkMetadata) -> EventMetaData {
+        EventMetaData {
+            sdk_name: sdk.name,
+            sdk_version: sdk.version,
+            core_version: env!("CARGO_PKG_VERSION"),
+        }
     }
 }
 

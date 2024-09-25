@@ -29,7 +29,7 @@ pub fn get_assignment(
     subject_attributes: &Attributes,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
-    meta: &SdkMetadata,
+    sdk_meta: &SdkMetadata,
 ) -> Result<Option<Assignment>, EvaluationError> {
     get_assignment_with_visitor(
         configuration,
@@ -39,7 +39,7 @@ pub fn get_assignment(
         subject_attributes,
         expected_type,
         now,
-        meta,
+        sdk_meta,
     )
 }
 
@@ -51,7 +51,7 @@ pub fn get_assignment_details(
     subject_attributes: &Attributes,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
-    meta: &SdkMetadata,
+    sdk_meta: &SdkMetadata,
 ) -> (
     EvaluationResultWithDetails<AssignmentValue>,
     Option<AssignmentEvent>,
@@ -70,7 +70,7 @@ pub fn get_assignment_details(
         subject_attributes,
         expected_type,
         now,
-        meta,
+        sdk_meta,
     );
 
     let (value, mut event) = match result.unwrap_or_default() {
@@ -102,7 +102,7 @@ pub(super) fn get_assignment_with_visitor<V: EvalAssignmentVisitor>(
     subject_attributes: &Attributes,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
-    meta: &SdkMetadata,
+    sdk_meta: &SdkMetadata,
 ) -> Result<Option<Assignment>, EvaluationError> {
     let result = if let Some(config) = configuration {
         visitor.on_configuration(config);
@@ -114,7 +114,7 @@ pub(super) fn get_assignment_with_visitor<V: EvalAssignmentVisitor>(
             &subject_attributes,
             expected_type,
             now,
-            meta,
+            sdk_meta,
         )
     } else {
         Err(EvaluationFailure::ConfigurationMissing)
@@ -171,7 +171,7 @@ impl UniversalFlagConfig {
         subject_attributes: &Attributes,
         expected_type: Option<VariationType>,
         now: DateTime<Utc>,
-        meta: &SdkMetadata,
+        sdk_meta: &SdkMetadata,
     ) -> Result<Assignment, EvaluationFailure> {
         let flag = self.get_flag(flag_key)?;
 
@@ -181,7 +181,7 @@ impl UniversalFlagConfig {
             flag.verify_type(ty)?;
         }
 
-        flag.eval(visitor, subject_key, subject_attributes, now, meta)
+        flag.eval(visitor, subject_key, subject_attributes, now, sdk_meta)
     }
 
     fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag, EvaluationFailure> {
@@ -217,7 +217,7 @@ impl Flag {
         subject_key: &str,
         subject_attributes: &Attributes,
         now: DateTime<Utc>,
-        meta: &SdkMetadata,
+        sdk_meta: &SdkMetadata,
     ) -> Result<Assignment, EvaluationFailure> {
         if !self.enabled {
             return Err(EvaluationFailure::FlagDisabled);
@@ -276,15 +276,7 @@ impl Flag {
             subject: subject_key.to_owned(),
             subject_attributes: subject_attributes.clone(),
             timestamp: now,
-            meta_data: [
-                ("sdkName".to_owned(), meta.name.to_owned()),
-                ("sdkVersion".to_owned(), meta.version.to_owned()),
-                (
-                    "eppoCoreVersion".to_owned(),
-                    env!("CARGO_PKG_VERSION").to_owned(),
-                ),
-            ]
-            .into(),
+            meta_data: sdk_meta.into(),
             extra_logging: split.extra_logging.clone(),
             evaluation_details: None,
         });

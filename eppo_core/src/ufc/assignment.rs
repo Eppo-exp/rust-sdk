@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::events::AssignmentEvent;
 
 /// Result of assignment evaluation.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Assignment {
     /// Assignment value that should be returned to the user.

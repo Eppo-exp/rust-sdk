@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::bandits::{
     BanditCategoricalAttributeCoefficient, BanditModelData, BanditNumericAttributeCoefficient,
@@ -33,7 +33,7 @@ struct Action<'a> {
 }
 
 /// Result of evaluating a bandit.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct BanditResult {
     /// Selected variation from the feature flag.
     pub variation: String,
@@ -55,7 +55,7 @@ pub fn get_bandit_action(
     actions: &HashMap<String, ContextAttributes>,
     default_variation: &str,
     now: DateTime<Utc>,
-    meta: &SdkMetadata,
+    sdk_meta: &SdkMetadata,
 ) -> BanditResult {
     get_bandit_action_with_visitor(
         &mut NoopEvalVisitor,
@@ -66,7 +66,7 @@ pub fn get_bandit_action(
         actions,
         default_variation,
         now,
-        meta,
+        sdk_meta,
     )
 }
 
@@ -80,7 +80,7 @@ pub fn get_bandit_action_details(
     actions: &HashMap<String, ContextAttributes>,
     default_variation: &str,
     now: DateTime<Utc>,
-    meta: &SdkMetadata,
+    sdk_meta: &SdkMetadata,
 ) -> (BanditResult, EvaluationDetails) {
     let mut builder = EvalDetailsBuilder::new(
         flag_key.to_owned(),
@@ -97,7 +97,7 @@ pub fn get_bandit_action_details(
         actions,
         default_variation,
         now,
-        meta,
+        sdk_meta,
     );
     let details = builder.build();
     (result, details)
@@ -114,7 +114,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     actions: &HashMap<String, ContextAttributes>,
     default_variation: &str,
     now: DateTime<Utc>,
-    meta: &SdkMetadata,
+    sdk_meta: &SdkMetadata,
 ) -> BanditResult {
     let Some(configuration) = configuration else {
         let result = BanditResult {
@@ -137,7 +137,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
         &subject_attributes.to_generic_attributes(),
         Some(VariationType::String),
         now,
-        meta,
+        sdk_meta,
     )
     .unwrap_or_default()
     .unwrap_or_else(|| Assignment {
@@ -222,15 +222,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
         subject_categorical_attributes: subject_attributes.categorical.clone(),
         action_numeric_attributes: action_attributes.numeric,
         action_categorical_attributes: action_attributes.categorical,
-        meta_data: [
-            ("sdkName".to_owned(), meta.name.to_owned()),
-            ("sdkVersion".to_owned(), meta.version.to_owned()),
-            (
-                "eppoCoreVersion".to_owned(),
-                env!("CARGO_PKG_VERSION").to_owned(),
-            ),
-        ]
-        .into(),
+        meta_data: sdk_meta.into(),
     };
 
     let result = BanditResult {
