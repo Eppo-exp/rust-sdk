@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use derive_more::From;
 use regex::Regex;
@@ -120,7 +120,7 @@ impl ValueWire {
             VariationType::Integer => AssignmentValue::Integer(self.as_integer()?),
             VariationType::Numeric => AssignmentValue::Numeric(self.as_number()?),
             VariationType::Boolean => AssignmentValue::Boolean(self.as_boolean()?),
-            VariationType::Json => AssignmentValue::Json(self.into_json()?),
+            VariationType::Json => AssignmentValue::Json(Arc::new(self.into_json()?)),
         })
     }
 

@@ -312,7 +312,7 @@ impl<'a> Client<'a> {
     ///         ("language".into(), "en".into())
     ///     ].into_iter().collect()))
     ///     .unwrap_or_default()
-    ///     .unwrap_or(json!({}));
+    ///     .unwrap_or(json!({}).into());
     /// # }
     /// ```
     pub fn get_json_assignment(
@@ -320,7 +320,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &ArcStr,
         subject_attributes: &Arc<Attributes>,
-    ) -> Result<Option<serde_json::Value>, EvaluationError> {
+    ) -> Result<Option<Arc<serde_json::Value>>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -493,7 +493,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &ArcStr,
         subject_attributes: &Arc<Attributes>,
-    ) -> EvaluationResultWithDetails<serde_json::Value> {
+    ) -> EvaluationResultWithDetails<Arc<serde_json::Value>> {
         self.get_assignment_details_inner(
             flag_key,
             subject_key,

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
 use crate::{events::AssignmentEvent, ArcStr};
@@ -25,7 +27,7 @@ pub enum AssignmentValue {
     /// A boolean value.
     Boolean(bool),
     /// Arbitrary JSON value.
-    Json(serde_json::Value),
+    Json(Arc<serde_json::Value>),
 }
 
 impl AssignmentValue {
@@ -185,7 +187,7 @@ impl AssignmentValue {
     /// # use eppo_core::ufc::AssignmentValue;
     /// use serde_json::json;
     ///
-    /// let value = AssignmentValue::Json(json!({ "key": "value" }));
+    /// let value = AssignmentValue::Json(json!({ "key": "value" }).into());
     /// assert_eq!(value.is_json(), true);
     /// ```
     pub fn is_json(&self) -> bool {
@@ -201,7 +203,7 @@ impl AssignmentValue {
     /// # use eppo_core::ufc::AssignmentValue;
     /// use serde_json::json;
     ///
-    /// let value = AssignmentValue::Json(json!({ "key": "value" }));
+    /// let value = AssignmentValue::Json(json!({ "key": "value" }).into());
     /// assert_eq!(value.as_json(), Some(&json!({ "key": "value" })));
     /// ```
     pub fn as_json(&self) -> Option<&serde_json::Value> {
@@ -220,10 +222,10 @@ impl AssignmentValue {
     /// # use eppo_core::ufc::AssignmentValue;
     /// use serde_json::json;
     ///
-    /// let value = AssignmentValue::Json(json!({ "key": "value" }));
-    /// assert_eq!(value.to_json(), Some(json!({ "key": "value" })));
+    /// let value = AssignmentValue::Json(json!({ "key": "value" }).into());
+    /// assert_eq!(value.to_json(), Some(json!({ "key": "value" }).into()));
     /// ```
-    pub fn to_json(self) -> Option<serde_json::Value> {
+    pub fn to_json(self) -> Option<Arc<serde_json::Value>> {
         match self {
             Self::Json(v) => Some(v),
             _ => None,
