@@ -115,7 +115,7 @@ mod pyo3_impl {
                 return Ok(AttributeValue::Boolean(s.is_true()));
             }
             if let Ok(s) = value.downcast::<PyFloat>() {
-                return Ok(AttributeValue::Number(s.extract()?));
+                return Ok(AttributeValue::Number(s.value()));
             }
             if let Ok(s) = value.downcast::<PyInt>() {
                 return Ok(AttributeValue::Number(s.extract()?));
