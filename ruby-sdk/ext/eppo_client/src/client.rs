@@ -6,7 +6,7 @@ use eppo_core::{
     eval::{Evaluator, EvaluatorConfig},
     poller_thread::PollerThread,
     ufc::VariationType,
-    ArcStr, Attributes, ContextAttributes, SdkMetadata,
+    Attributes, ContextAttributes, SdkMetadata,
 };
 use magnus::{error::Result, exception, prelude::*, Error, TryConvert, Value};
 
@@ -81,7 +81,7 @@ impl Client {
             .evaluator
             .get_assignment(
                 &flag_key,
-                &Arc::from(subject_key),
+                &subject_key.into(),
                 &Arc::new(subject_attributes),
                 Some(expected_type),
             )
@@ -103,7 +103,7 @@ impl Client {
 
         let result = self.evaluator.get_assignment_details(
             &flag_key,
-            &Arc::from(subject_key),
+            &subject_key.into(),
             &Arc::new(subject_attributes),
             Some(expected_type),
         );
@@ -132,10 +132,10 @@ impl Client {
 
         let result = self.evaluator.get_bandit_action(
             &flag_key,
-            &Arc::from(subject_key),
+            &subject_key.into(),
             &subject_attributes,
             &actions,
-            &ArcStr::from(default_variation),
+            &default_variation.into(),
         );
 
         serde_magnus::serialize(&result)
@@ -162,10 +162,10 @@ impl Client {
 
         let result = self.evaluator.get_bandit_action_details(
             &flag_key,
-            &Arc::from(subject_key.into_boxed_str()),
+            &subject_key.into_boxed_str().into(),
             &subject_attributes,
             &actions,
-            &ArcStr::from(default_variation),
+            &default_variation.into(),
         );
 
         serde_magnus::serialize(&result)
