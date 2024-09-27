@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use derive_more::From;
 use serde::{Deserialize, Serialize};
 
-use crate::ArcStr;
+use crate::Str;
 
 /// `Subject` is a bundle of subject attributes and a key.
 #[derive(Debug)]
@@ -15,14 +15,14 @@ pub(crate) struct Subject {
 }
 
 impl Subject {
-    pub fn new(key: ArcStr, attributes: Arc<Attributes>) -> Subject {
+    pub fn new(key: Str, attributes: Arc<Attributes>) -> Subject {
         Subject {
             key: AttributeValue::String(key),
             attributes,
         }
     }
 
-    pub fn key(&self) -> &ArcStr {
+    pub fn key(&self) -> &Str {
         let AttributeValue::String(s) = &self.key else {
             unreachable!("Subject::key is always encoded as AttributeValue::ArcString()");
         };
@@ -74,7 +74,7 @@ pub type Attributes = HashMap<String, AttributeValue>;
 pub enum AttributeValue {
     /// A string value.
     #[from(ignore)]
-    String(ArcStr),
+    String(Str),
     /// A numerical value.
     Number(f64),
     /// A boolean value.
@@ -83,7 +83,7 @@ pub enum AttributeValue {
     Null,
 }
 
-impl<T: Into<ArcStr>> From<T> for AttributeValue {
+impl<T: Into<Str>> From<T> for AttributeValue {
     fn from(value: T) -> AttributeValue {
         AttributeValue::String(value.into())
     }

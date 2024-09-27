@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use serde::Serialize;
 
-use crate::{eval::eval_details::EvaluationDetails, ArcStr, Attributes, SdkMetadata};
+use crate::{eval::eval_details::EvaluationDetails, Attributes, SdkMetadata, Str};
 
 /// Events that can be emitted during evaluation of assignment or bandit. They need to be logged to
 /// analytics storage and fed back to Eppo for analysis.
@@ -18,13 +18,13 @@ pub struct Events {
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentEventBase {
     /// The key of the feature flag being assigned.
-    pub feature_flag: ArcStr,
+    pub feature_flag: Str,
     /// The key of the allocation that the subject was assigned to.
-    pub allocation: ArcStr,
+    pub allocation: Str,
     /// The key of the experiment associated with the assignment.
     pub experiment: String,
     /// The specific variation assigned to the subject.
-    pub variation: ArcStr,
+    pub variation: Str,
     /// Additional metadata such as SDK language and version.
     pub meta_data: EventMetaData,
     /// Additional user-defined logging fields for capturing extra information related to the
@@ -40,7 +40,7 @@ pub struct AssignmentEventBase {
 pub struct AssignmentEvent {
     pub base: Arc<AssignmentEventBase>,
     /// The key identifying the subject receiving the assignment.
-    pub subject: ArcStr,
+    pub subject: Str,
     /// Custom attributes of the subject relevant to the assignment.
     pub subject_attributes: Arc<Attributes>,
     /// The timestamp indicating when the assignment event occurred.
@@ -57,16 +57,16 @@ pub struct AssignmentEvent {
 pub struct BanditEvent {
     pub flag_key: String,
     pub bandit_key: String,
-    pub subject: ArcStr,
+    pub subject: Str,
     pub action: String,
     pub action_probability: f64,
     pub optimality_gap: f64,
     pub model_version: String,
     pub timestamp: String,
     pub subject_numeric_attributes: HashMap<String, f64>,
-    pub subject_categorical_attributes: HashMap<String, ArcStr>,
+    pub subject_categorical_attributes: HashMap<String, Str>,
     pub action_numeric_attributes: HashMap<String, f64>,
-    pub action_categorical_attributes: HashMap<String, ArcStr>,
+    pub action_categorical_attributes: HashMap<String, Str>,
     pub meta_data: EventMetaData,
 }
 

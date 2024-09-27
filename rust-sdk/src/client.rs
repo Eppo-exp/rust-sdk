@@ -10,7 +10,7 @@ use eppo_core::{
     configuration_store::ConfigurationStore,
     eval::{Evaluator, EvaluatorConfig},
     ufc::{Assignment, VariationType},
-    ArcStr,
+    Str,
 };
 
 /// A client for Eppo API.
@@ -112,7 +112,7 @@ impl<'a> Client<'a> {
     pub fn get_assignment(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<AssignmentValue>, EvaluationError> {
         self.get_assignment_inner(flag_key, subject_key, subject_attributes, None, |x| x)
@@ -145,9 +145,9 @@ impl<'a> Client<'a> {
     pub fn get_string_assignment(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
-    ) -> Result<Option<ArcStr>, EvaluationError> {
+    ) -> Result<Option<Str>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -188,7 +188,7 @@ impl<'a> Client<'a> {
     pub fn get_integer_assignment(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<i64>, EvaluationError> {
         self.get_assignment_inner(
@@ -231,7 +231,7 @@ impl<'a> Client<'a> {
     pub fn get_numeric_assignment(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<f64>, EvaluationError> {
         self.get_assignment_inner(
@@ -274,7 +274,7 @@ impl<'a> Client<'a> {
     pub fn get_boolean_assignment(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<bool>, EvaluationError> {
         self.get_assignment_inner(
@@ -318,7 +318,7 @@ impl<'a> Client<'a> {
     pub fn get_json_assignment(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<Arc<serde_json::Value>>, EvaluationError> {
         self.get_assignment_inner(
@@ -337,7 +337,7 @@ impl<'a> Client<'a> {
     fn get_assignment_inner<T>(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
         expected_type: Option<VariationType>,
         convert: impl FnOnce(AssignmentValue) -> T,
@@ -385,7 +385,7 @@ impl<'a> Client<'a> {
     pub fn get_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<AssignmentValue> {
         self.get_assignment_details_inner(flag_key, subject_key, subject_attributes, None)
@@ -399,9 +399,9 @@ impl<'a> Client<'a> {
     pub fn get_string_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
-    ) -> EvaluationResultWithDetails<ArcStr> {
+    ) -> EvaluationResultWithDetails<Str> {
         self.get_assignment_details_inner(
             flag_key,
             subject_key,
@@ -422,7 +422,7 @@ impl<'a> Client<'a> {
     pub fn get_integer_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<i64> {
         self.get_assignment_details_inner(
@@ -445,7 +445,7 @@ impl<'a> Client<'a> {
     pub fn get_numeric_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<f64> {
         self.get_assignment_details_inner(
@@ -468,7 +468,7 @@ impl<'a> Client<'a> {
     pub fn get_boolean_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<bool> {
         self.get_assignment_details_inner(
@@ -491,7 +491,7 @@ impl<'a> Client<'a> {
     pub fn get_json_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<Arc<serde_json::Value>> {
         self.get_assignment_details_inner(
@@ -509,7 +509,7 @@ impl<'a> Client<'a> {
     fn get_assignment_details_inner(
         &self,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
         expected_type: Option<VariationType>,
     ) -> EvaluationResultWithDetails<AssignmentValue> {

@@ -5,7 +5,7 @@ use regex::Regex;
 use semver::Version;
 use serde::{Deserialize, Serialize};
 
-use crate::{ArcStr, Error, EvaluationError};
+use crate::{Error, EvaluationError, Str};
 
 use super::AssignmentValue;
 
@@ -35,7 +35,7 @@ pub(crate) struct UniversalFlagConfigWire {
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Environment {
     /// Name of the environment.
-    pub name: ArcStr,
+    pub name: Str,
 }
 
 /// `TryParse` allows the subfield to fail parsing without failing the parsing of the whole
@@ -77,7 +77,7 @@ impl<'a, T> From<&'a TryParse<T>> for Option<&'a T> {
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub(crate) struct FlagWire {
-    pub key: ArcStr,
+    pub key: Str,
     pub enabled: bool,
     pub variation_type: VariationType,
     pub variations: HashMap<String, VariationWire>,
@@ -109,7 +109,7 @@ pub(crate) enum ValueWire {
     /// Number maps to either [`AssignmentValue::Integer`] or [`AssignmentValue::Numeric`].
     Number(f64),
     /// String maps to either [`AssignmentValue::String`] or [`AssignmentValue::Json`].
-    String(ArcStr),
+    String(Str),
 }
 
 impl ValueWire {
@@ -148,7 +148,7 @@ impl ValueWire {
         }
     }
 
-    fn into_string(self) -> Option<ArcStr> {
+    fn into_string(self) -> Option<Str> {
         match self {
             Self::String(value) => Some(value),
             _ => None,
@@ -165,7 +165,7 @@ impl ValueWire {
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub(crate) struct VariationWire {
-    pub key: ArcStr,
+    pub key: Str,
     pub value: ValueWire,
 }
 
@@ -173,7 +173,7 @@ pub(crate) struct VariationWire {
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub(crate) struct AllocationWire {
-    pub key: ArcStr,
+    pub key: Str,
     #[serde(default)]
     pub rules: Box<[RuleWire]>,
     #[serde(default)]
@@ -287,7 +287,7 @@ impl From<Condition> for ConditionWire {
                 } else {
                     ConditionOperator::NotMatches
                 },
-                ConditionValue::Single(ValueWire::String(ArcStr::from(regex.as_str()))),
+                ConditionValue::Single(ValueWire::String(Str::from(regex.as_str()))),
             ),
             ConditionCheck::Membership {
                 expected_membership,
@@ -482,7 +482,7 @@ impl From<Vec<String>> for ConditionValue {
 #[allow(missing_docs)]
 pub(crate) struct SplitWire {
     pub shards: Vec<ShardWire>,
-    pub variation_key: ArcStr,
+    pub variation_key: Str,
     #[serde(default)]
     pub extra_logging: HashMap<String, String>,
 }

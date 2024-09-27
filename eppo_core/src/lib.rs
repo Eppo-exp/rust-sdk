@@ -72,4 +72,4 @@ pub use configuration::Configuration;
 pub use context_attributes::ContextAttributes;
 pub use error::{Error, EvaluationError, Result};
 pub use sdk_metadata::SdkMetadata;
-pub use str::ArcStr;
+pub use str::Str;

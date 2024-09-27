@@ -10,7 +10,7 @@ use crate::{
         Allocation, Assignment, AssignmentValue, CompiledFlagsConfig, Flag, Shard, Split,
         Timestamp, VariationType,
     },
-    ArcStr, Attributes, Configuration,
+    Attributes, Configuration, Str,
 };
 
 use super::{
@@ -27,7 +27,7 @@ use super::{
 pub fn get_assignment(
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &ArcStr,
+    subject_key: &Str,
     subject_attributes: &Arc<Attributes>,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
@@ -47,7 +47,7 @@ pub fn get_assignment(
 pub fn get_assignment_details(
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &ArcStr,
+    subject_key: &Str,
     subject_attributes: &Arc<Attributes>,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
@@ -96,7 +96,7 @@ pub(super) fn get_assignment_with_visitor<V: EvalAssignmentVisitor>(
     configuration: Option<&Configuration>,
     visitor: &mut V,
     flag_key: &str,
-    subject_key: &ArcStr,
+    subject_key: &Str,
     subject_attributes: &Arc<Attributes>,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
@@ -163,7 +163,7 @@ impl CompiledFlagsConfig {
         &self,
         visitor: &mut V,
         flag_key: &str,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
         expected_type: Option<VariationType>,
         now: DateTime<Utc>,
@@ -205,7 +205,7 @@ impl Flag {
     fn eval<V: EvalAssignmentVisitor>(
         &self,
         visitor: &mut V,
-        subject_key: &ArcStr,
+        subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
         now: DateTime<Utc>,
     ) -> Result<Assignment, EvaluationFailure> {
@@ -320,7 +320,7 @@ mod tests {
             get_assignment, get_assignment_details,
         },
         ufc::{RuleWire, UniversalFlagConfig, ValueWire, VariationType},
-        ArcStr, Attributes, Configuration, SdkMetadata,
+        Attributes, Configuration, SdkMetadata, Str,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -342,7 +342,7 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct TestSubject {
-        subject_key: ArcStr,
+        subject_key: Str,
         subject_attributes: Arc<Attributes>,
         assignment: DefaultValue,
         evaluation_details: TruncatedEvaluationDetails,
@@ -352,13 +352,13 @@ mod tests {
     #[serde(rename_all = "camelCase")]
     struct TruncatedEvaluationDetails {
         /// Environment the configuration belongs to. None if configuration hasn't been fetched yet.
-        environment_name: Option<ArcStr>,
+        environment_name: Option<Str>,
 
         flag_evaluation_code: TruncatedFlagEvaluationCode,
         flag_evaluation_description: String,
 
         /// Key of the selected variation.
-        variation_key: Option<ArcStr>,
+        variation_key: Option<Str>,
         /// Value of the selected variation. Could be `None` if no variation is selected, or selected
         /// value is absent in configuration (configuration error).
         variation_value: serde_json::Value,
@@ -394,7 +394,7 @@ mod tests {
     #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     pub struct TruncatedAllocationEvaluationDetails {
-        pub key: ArcStr,
+        pub key: Str,
         /// Order position of the allocation as seen in the Web UI.
         pub order_position: usize,
         pub allocation_evaluation_code: AllocationEvaluationCode,

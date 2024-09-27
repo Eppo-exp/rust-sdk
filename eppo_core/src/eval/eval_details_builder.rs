@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use crate::{
     error::EvaluationFailure,
     ufc::{Allocation, Assignment, AssignmentValue, Condition, Flag, RuleWire, Shard, Split},
-    ArcStr, AttributeValue, Attributes, Configuration, EvaluationError,
+    AttributeValue, Attributes, Configuration, EvaluationError, Str,
 };
 
 use super::{
@@ -18,16 +18,16 @@ use super::{
 /// It works with both assignment and bandit evaluation.
 pub(crate) struct EvalDetailsBuilder {
     flag_key: String,
-    subject_key: ArcStr,
+    subject_key: Str,
     subject_attributes: Arc<Attributes>,
     now: DateTime<Utc>,
 
     configuration_fetched_at: Option<DateTime<Utc>>,
     configuration_published_at: Option<DateTime<Utc>>,
-    environment_name: Option<ArcStr>,
+    environment_name: Option<Str>,
 
     flag_evaluation_failure: Option<Result<(), EvaluationFailure>>,
-    variation_key: Option<ArcStr>,
+    variation_key: Option<Str>,
     variation_value: Option<AssignmentValue>,
 
     bandit_evaluation_failure: Option<Result<(), EvaluationFailure>>,
@@ -38,8 +38,8 @@ pub(crate) struct EvalDetailsBuilder {
     matched_details: Option<MatchedDetails>,
 
     /// List of allocation keys. Used to sort `allocation_eval_results`.
-    allocation_keys_order: Vec<ArcStr>,
-    allocation_eval_results: HashMap<ArcStr, AllocationEvaluationDetails>,
+    allocation_keys_order: Vec<Str>,
+    allocation_eval_results: HashMap<Str, AllocationEvaluationDetails>,
 }
 
 /// Interim struct to construct `flag_evaluation_details` later.
@@ -54,7 +54,7 @@ pub(crate) struct EvalAllocationDetailsBuilder<'a> {
     allocation_is_experiment: bool,
     matched: &'a mut Option<MatchedDetails>,
     allocation_details: &'a mut AllocationEvaluationDetails,
-    variation_key: &'a mut Option<ArcStr>,
+    variation_key: &'a mut Option<Str>,
 }
 
 pub(crate) struct EvalRuleDetailsBuilder<'a> {
@@ -68,7 +68,7 @@ pub(crate) struct EvalSplitDetailsBuilder<'a> {
 impl EvalDetailsBuilder {
     pub fn new(
         flag_key: String,
-        subject_key: ArcStr,
+        subject_key: Str,
         subject_attributes: Arc<Attributes>,
         now: DateTime<Utc>,
     ) -> EvalDetailsBuilder {

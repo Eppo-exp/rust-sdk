@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ArcStr, AttributeValue, Attributes};
+use crate::{AttributeValue, Attributes, Str};
 
 /// `ContextAttributes` are subject or action attributes split by their semantics.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -18,7 +18,7 @@ pub struct ContextAttributes {
     /// Categorical attributes are attributes that have a finite set of values that are not directly
     /// comparable (i.e., enumeration).
     #[serde(alias = "categoricalAttributes")]
-    pub categorical: HashMap<String, ArcStr>,
+    pub categorical: HashMap<String, Str>,
 }
 
 impl From<Attributes> for ContextAttributes {
@@ -82,7 +82,7 @@ mod pyo3_impl {
 
     use pyo3::prelude::*;
 
-    use crate::{ArcStr, Attributes};
+    use crate::{Attributes, Str};
 
     use super::ContextAttributes;
 
@@ -91,7 +91,7 @@ mod pyo3_impl {
         #[new]
         fn new(
             numeric_attributes: HashMap<String, f64>,
-            categorical_attributes: HashMap<String, ArcStr>,
+            categorical_attributes: HashMap<String, Str>,
         ) -> ContextAttributes {
             ContextAttributes {
                 numeric: numeric_attributes,

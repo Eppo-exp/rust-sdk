@@ -16,6 +16,7 @@ pyo3 = ["dep:pyo3", "dep:serde-pyobject"]
 [dependencies]
 chrono = { version = "0.4.38", features = ["serde"] }
 derive_more = "0.99.17"
+faststr = { version = "0.2.23", features = ["serde"] }
 log = { version = "0.4.21", features = ["kv", "kv_serde"] }
 md5 = "0.7.0"
 rand = "0.8.5"
@@ -30,7 +31,6 @@ url = "2.5.0"
 # pyo3 dependencies
 pyo3 = { version = "0.22.0", optional = true, default-features = false }
 serde-pyobject = { version = "0.4.0", optional = true}
-faststr = { version = "0.2.23", features = ["serde"] }
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }

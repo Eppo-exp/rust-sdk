@@ -11,7 +11,7 @@ use crate::error::EvaluationFailure;
 use crate::events::{AssignmentEvent, BanditEvent};
 use crate::sharder::get_md5_shard;
 use crate::ufc::{Assignment, AssignmentValue, VariationType};
-use crate::{ArcStr, Configuration, EvaluationError};
+use crate::{Configuration, EvaluationError, Str};
 use crate::{ContextAttributes, SdkMetadata};
 
 use super::eval_assignment::get_assignment_with_visitor;
@@ -37,7 +37,7 @@ struct Action<'a> {
 #[derive(Debug, Clone, Serialize)]
 pub struct BanditResult {
     /// Selected variation from the feature flag.
-    pub variation: ArcStr,
+    pub variation: Str,
     /// Selected action if any.
     pub action: Option<String>,
     /// Flag assignment event that needs to be logged to analytics storage.
@@ -51,10 +51,10 @@ pub struct BanditResult {
 pub fn get_bandit_action(
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &ArcStr,
+    subject_key: &Str,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
-    default_variation: &ArcStr,
+    default_variation: &Str,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
 ) -> BanditResult {
@@ -76,10 +76,10 @@ pub fn get_bandit_action(
 pub fn get_bandit_action_details(
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &ArcStr,
+    subject_key: &Str,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
-    default_variation: &ArcStr,
+    default_variation: &Str,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
 ) -> (BanditResult, EvaluationDetails) {
@@ -110,10 +110,10 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     visitor: &mut V,
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &ArcStr,
+    subject_key: &Str,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
-    default_variation: &ArcStr,
+    default_variation: &Str,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
 ) -> BanditResult {
@@ -410,22 +410,22 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        eval::get_bandit_action, ufc::UniversalFlagConfig, ArcStr, Configuration,
-        ContextAttributes, SdkMetadata,
+        eval::get_bandit_action, ufc::UniversalFlagConfig, Configuration, ContextAttributes,
+        SdkMetadata, Str,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct TestFile {
         flag: String,
-        default_value: ArcStr,
+        default_value: Str,
         subjects: Vec<TestSubject>,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct TestSubject {
-        subject_key: ArcStr,
+        subject_key: Str,
         subject_attributes: TestContextAttributes,
         actions: Vec<TestAction>,
         assignment: TestAssignment,
@@ -435,7 +435,7 @@ mod tests {
     #[serde(rename_all = "camelCase")]
     struct TestContextAttributes {
         numeric_attributes: HashMap<String, f64>,
-        categorical_attributes: HashMap<String, ArcStr>,
+        categorical_attributes: HashMap<String, Str>,
     }
     impl From<TestContextAttributes> for ContextAttributes {
         fn from(value: TestContextAttributes) -> ContextAttributes {
@@ -457,7 +457,7 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
     #[serde(rename_all = "camelCase")]
     struct TestAssignment {
-        variation: ArcStr,
+        variation: Str,
         action: Option<String>,
     }
 

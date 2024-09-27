@@ -6,7 +6,7 @@ use crate::{
     error::EvaluationFailure,
     events::{AssignmentEventBase, EventMetaData},
     sharder::PreSaltedSharder,
-    ArcStr, Error, EvaluationError, SdkMetadata,
+    Error, EvaluationError, SdkMetadata, Str,
 };
 
 use super::{
@@ -47,7 +47,7 @@ pub(crate) struct Flag {
 
 #[derive(Debug)]
 pub(crate) struct Allocation {
-    pub key: ArcStr, // key is here to support evaluation details
+    pub key: Str, // key is here to support evaluation details
     pub start_at: Option<Timestamp>,
     pub end_at: Option<Timestamp>,
     pub rules: Box<[RuleWire]>,
@@ -57,7 +57,7 @@ pub(crate) struct Allocation {
 #[derive(Debug)]
 pub(crate) struct Split {
     pub shards: Vec<Shard>,
-    pub variation_key: ArcStr, // for evaluation details
+    pub variation_key: Str, // for evaluation details
     // This is a Result because it may still return a configuration error (invalid value for
     // assignment type).
     pub result: Result<(AssignmentValue, Option<Arc<AssignmentEventBase>>), EvaluationFailure>,
@@ -172,9 +172,9 @@ fn compile_flag(meta_data: EventMetaData, flag: FlagWire) -> Flag {
 
 fn compile_allocation(
     meta_data: EventMetaData,
-    flag_key: &ArcStr,
+    flag_key: &Str,
     allocation: AllocationWire,
-    variation_values: &HashMap<ArcStr, Result<AssignmentValue, EvaluationFailure>>,
+    variation_values: &HashMap<Str, Result<AssignmentValue, EvaluationFailure>>,
     total_shards: u32,
 ) -> Allocation {
     let splits = allocation
@@ -203,10 +203,10 @@ fn compile_allocation(
 
 fn compile_split(
     meta_data: EventMetaData,
-    flag_key: &ArcStr,
-    allocation_key: &ArcStr,
+    flag_key: &Str,
+    allocation_key: &Str,
     split: SplitWire,
-    variation_values: &HashMap<ArcStr, Result<AssignmentValue, EvaluationFailure>>,
+    variation_values: &HashMap<Str, Result<AssignmentValue, EvaluationFailure>>,
     total_shards: u32,
     do_log: bool,
 ) -> Split {

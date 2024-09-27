@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{events::AssignmentEvent, ArcStr};
+use crate::{events::AssignmentEvent, Str};
 
 /// Result of assignment evaluation.
 #[derive(Debug, Serialize, Clone)]
@@ -19,7 +19,7 @@ pub struct Assignment {
 #[serde(tag = "type", content = "value", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AssignmentValue {
     /// A string value.
-    String(ArcStr),
+    String(Str),
     /// An integer value.
     Integer(i64),
     /// A numeric value (floating-point).
@@ -74,7 +74,7 @@ impl AssignmentValue {
     /// let value = AssignmentValue::String("example".into());
     /// assert_eq!(value.to_string(), Some("example".into()));
     /// ```
-    pub fn to_string(self) -> Option<ArcStr> {
+    pub fn to_string(self) -> Option<Str> {
         match self {
             AssignmentValue::String(s) => Some(s),
             _ => None,
