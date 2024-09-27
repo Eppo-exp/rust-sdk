@@ -21,13 +21,25 @@ pub struct Configuration {
 #[pymethods]
 impl Configuration {
     #[new]
-    #[pyo3(signature = (*, flags_configuration))]
-    fn py_new(flags_configuration: &[u8]) -> PyResult<Configuration> {
+    #[pyo3(signature = (*, flags_configuration, bandits_configuration = None))]
+    fn py_new(
+        flags_configuration: &[u8],
+        bandits_configuration: Option<&[u8]>,
+    ) -> PyResult<Configuration> {
         let flag_config = serde_json::from_slice(flags_configuration).map_err(|err| {
             PyValueError::new_err(format!("argument 'flags_configuration': {err:?}"))
         })?;
+        let bandits_config = bandits_configuration
+            .map(|it| serde_json::from_slice(it))
+            .transpose()
+            .map_err(|err| {
+                PyValueError::new_err(format!("argument 'bandits_configuration': {err:?}"))
+            })?;
         Ok(Configuration {
-            configuration: Arc::new(CoreConfiguration::from_server_response(flag_config, None)),
+            configuration: Arc::new(CoreConfiguration::from_server_response(
+                flag_config,
+                bandits_config,
+            )),
         })
     }
 
