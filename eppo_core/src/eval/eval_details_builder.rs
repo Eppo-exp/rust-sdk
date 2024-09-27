@@ -348,7 +348,7 @@ impl<'b> EvalAllocationVisitor for EvalAllocationDetailsBuilder<'b> {
             *self.matched = Some(MatchedDetails {
                 has_rules: self.allocation_has_rules,
                 is_experiment: self.allocation_is_experiment,
-                is_partial_rollout: split.shards.as_ref().is_some_and(|it| it.len() > 1),
+                is_partial_rollout: split.shards.len() > 1,
             })
         }
 

@@ -56,7 +56,7 @@ pub(crate) struct Allocation {
 
 #[derive(Debug)]
 pub(crate) struct Split {
-    pub shards: Option<Box<[Shard]>>,
+    pub shards: Vec<Shard>,
     pub variation_key: ArcStr, // for evaluation details
     // This is a Result because it may still return a configuration error (invalid value for
     // assignment type).
@@ -210,17 +210,16 @@ fn compile_split(
     total_shards: u32,
     do_log: bool,
 ) -> Split {
-    let shards = if split.shards.is_empty() {
-        None
-    } else {
-        Some(
-            split
-                .shards
-                .into_iter()
-                .map(|shard| compile_shard(shard, total_shards))
-                .collect(),
-        )
-    };
+    let shards = split
+        .shards
+        .into_iter()
+        .filter_map(|shard|
+                            // `compile_shard` may return `None` for shards that are
+                            // "insignificant", meaning that they *always* match, so they don't even
+                            // need to be checked. We filter out such shards here with
+                            // `.filter_map()`.
+                            compile_shard(shard, total_shards))
+        .collect();
 
     let result = variation_values
         .get(&split.variation_key)
@@ -249,9 +248,18 @@ fn compile_split(
     }
 }
 
-fn compile_shard(shard: ShardWire, total_shards: u32) -> Shard {
-    Shard {
-        sharder: PreSaltedSharder::new(&[shard.salt.as_bytes(), b"-"], total_shards),
-        ranges: shard.ranges,
+fn compile_shard(shard: ShardWire, total_shards: u32) -> Option<Shard> {
+    if shard.ranges.contains(&ShardRange {
+        start: 0,
+        end: total_shards,
+    }) {
+        // The shard is "insignificant" because it always matches, so we don't need to waste time
+        // checking it.
+        None
+    } else {
+        Some(Shard {
+            sharder: PreSaltedSharder::new(&[shard.salt.as_bytes(), b"-"], total_shards),
+            ranges: shard.ranges,
+        })
     }
 }

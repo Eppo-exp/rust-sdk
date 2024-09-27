@@ -285,12 +285,9 @@ impl Split {
     ///
     /// To match a split, subject must match all underlying shards.
     fn matches<V: EvalSplitVisitor>(&self, visitor: &mut V, subject_key: &str) -> bool {
-        match &self.shards {
-            None => true,
-            Some(shards) => shards
-                .iter()
-                .all(|shard| shard.matches(visitor, subject_key)),
-        }
+        self.shards
+            .iter()
+            .all(|shard| shard.matches(visitor, subject_key))
     }
 }
 
