@@ -297,11 +297,7 @@ impl Split {
 impl Shard {
     /// Return `true` if `subject_key` matches the given shard.
     fn matches<V: EvalSplitVisitor>(&self, visitor: &mut V, subject_key: &str) -> bool {
-        let mut md5_context = self.md5_context.clone();
-        md5_context.consume(subject_key);
-        let hash = md5_context.compute();
-        let value = u32::from_be_bytes(hash[0..4].try_into().unwrap());
-        let h = value % self.total_shards;
+        let h = self.sharder.shard(&[subject_key]);
 
         let matches = self.ranges.iter().any(|range| range.contains(h));
         visitor.on_shard_eval(self, h, matches);

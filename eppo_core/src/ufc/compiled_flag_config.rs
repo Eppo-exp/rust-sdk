@@ -5,6 +5,7 @@ use serde::Serialize;
 use crate::{
     error::EvaluationFailure,
     events::{AssignmentEventBase, EventMetaData},
+    sharder::PreSaltedSharder,
     ArcStr, Error, EvaluationError, SdkMetadata,
 };
 
@@ -62,23 +63,11 @@ pub(crate) struct Split {
     pub result: Result<(AssignmentValue, Option<Arc<AssignmentEventBase>>), EvaluationFailure>,
 }
 
-#[derive(Clone, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Shard {
     #[serde(skip)]
-    pub(crate) md5_context: md5::Context,
-    pub total_shards: u32,
+    pub(crate) sharder: PreSaltedSharder,
     pub ranges: Box<[ShardRange]>,
-}
-
-// Cannot derive as md5::Context is not Debug.
-impl std::fmt::Debug for Shard {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("CompiledShard")
-            .field("md5_context", &"...")
-            .field("total_shards", &self.total_shards)
-            .field("ranges", &self.ranges)
-            .finish()
-    }
 }
 
 impl UniversalFlagConfig {
@@ -261,13 +250,8 @@ fn compile_split(
 }
 
 fn compile_shard(shard: ShardWire, total_shards: u32) -> Shard {
-    let mut md5_context = md5::Context::new();
-    md5_context.consume(shard.salt);
-    md5_context.consume(b"-");
-
     Shard {
-        md5_context,
-        total_shards,
+        sharder: PreSaltedSharder::new(&[shard.salt.as_bytes(), b"-"], total_shards),
         ranges: shard.ranges,
     }
 }
