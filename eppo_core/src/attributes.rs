@@ -8,7 +8,7 @@ use crate::ArcStr;
 /// `Subject` is a bundle of subject attributes and a key.
 #[derive(Debug)]
 pub(crate) struct Subject {
-    /// Subject key encoded as attribute value. Known to be `AttributeValue::ArcString`. This is
+    /// Subject key encoded as attribute value. Known to be `AttributeValue::String`. This is
     /// done to allow returning subject key as an attribute when rule references "id".
     key: AttributeValue,
     attributes: Arc<Attributes>,
@@ -17,13 +17,13 @@ pub(crate) struct Subject {
 impl Subject {
     pub fn new(key: ArcStr, attributes: Arc<Attributes>) -> Subject {
         Subject {
-            key: AttributeValue::ArcString(key),
+            key: AttributeValue::String(key),
             attributes,
         }
     }
 
     pub fn key(&self) -> &ArcStr {
-        let AttributeValue::ArcString(s) = &self.key else {
+        let AttributeValue::String(s) = &self.key else {
             unreachable!("Subject::key is always encoded as AttributeValue::ArcString()");
         };
         s
@@ -72,9 +72,8 @@ pub type Attributes = HashMap<String, AttributeValue>;
 #[derive(Debug, Serialize, Deserialize, PartialEq, PartialOrd, From, Clone)]
 #[serde(untagged)]
 pub enum AttributeValue {
-    ArcString(ArcStr),
     /// A string value.
-    String(String),
+    String(ArcStr),
     /// A numerical value.
     Number(f64),
     /// A boolean value.
@@ -86,7 +85,7 @@ pub enum AttributeValue {
 impl AttributeValue {
     pub fn as_str(&self) -> Option<&str> {
         if let AttributeValue::String(s) = self {
-            Some(s.as_str())
+            Some(s.as_ref())
         } else {
             None
         }
@@ -95,7 +94,7 @@ impl AttributeValue {
 
 impl From<&str> for AttributeValue {
     fn from(value: &str) -> Self {
-        Self::String(value.to_owned())
+        Self::String(value.into())
     }
 }
 
@@ -108,7 +107,7 @@ mod pyo3_impl {
     impl<'py> FromPyObject<'py> for AttributeValue {
         fn extract_bound(value: &Bound<'py, PyAny>) -> PyResult<AttributeValue> {
             if let Ok(s) = value.downcast::<PyString>() {
-                return Ok(AttributeValue::String(s.extract()?));
+                return Ok(AttributeValue::String(s.to_str()?.into()));
             }
             // In Python, Bool inherits from Int, so it must be checked first here.
             if let Ok(s) = value.downcast::<PyBool>() {

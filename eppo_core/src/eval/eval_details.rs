@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{EvaluationError, EvaluationFailure},
-    ufc::{ConditionWire, Shard, Value},
+    ufc::{AssignmentValue, ConditionWire, Shard},
     ArcStr, AttributeValue, Attributes,
 };
 
@@ -44,7 +44,7 @@ pub enum BanditEvaluationCode {
     NoActionsSuppliedForBandit,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EvaluationResultWithDetails<T> {
     pub variation: Option<T>,
@@ -64,7 +64,7 @@ impl<T> EvaluationResultWithDetails<T> {
 }
 
 /// Details about feature flag or bandit evaluation.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EvaluationDetails {
     pub flag_key: String,
@@ -87,10 +87,10 @@ pub struct EvaluationDetails {
     pub flag_evaluation_description: String,
 
     /// Key of the selected variation.
-    pub variation_key: Option<String>,
+    pub variation_key: Option<ArcStr>,
     /// Value of the selected variation. Could be `None` if no variation is selected, or selected
     /// value is absent in configuration (configuration error).
-    pub variation_value: Option<Value>,
+    pub variation_value: Option<AssignmentValue>,
 
     pub bandit_key: Option<String>,
     pub bandit_action: Option<String>,
@@ -99,7 +99,7 @@ pub struct EvaluationDetails {
     pub allocations: Vec<AllocationEvaluationDetails>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AllocationEvaluationDetails {
     pub key: ArcStr,
@@ -127,35 +127,35 @@ pub enum AllocationEvaluationCode {
     TrafficExposureMiss,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RuleEvaluationDetails {
     pub matched: bool,
     pub conditions: Vec<ConditionEvaluationDetails>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ConditionEvaluationDetails {
-    pub condition: ConditionWire,
+    pub(crate) condition: ConditionWire,
     pub attribute_value: Option<AttributeValue>,
     pub matched: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SplitEvaluationDetails {
-    pub variation_key: String,
+    pub variation_key: ArcStr,
     pub matched: bool,
     pub shards: Vec<ShardEvaluationDetails>,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShardEvaluationDetails {
     pub matched: bool,
     pub shard: Shard,
-    pub shard_value: u64,
+    pub shard_value: u32,
 }
 
 impl From<Result<(), EvaluationFailure>> for FlagEvaluationCode {

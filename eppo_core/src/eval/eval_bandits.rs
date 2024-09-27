@@ -138,7 +138,6 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
         &Arc::new(subject_attributes.to_generic_attributes()),
         Some(VariationType::String),
         now,
-        sdk_meta,
     )
     .unwrap_or_default()
     .unwrap_or_else(|| Assignment {
@@ -245,7 +244,7 @@ impl BanditModelData {
         actions: &HashMap<String, ContextAttributes>,
     ) -> Result<BanditEvaluationDetails, EvaluationFailure> {
         // total_shards is not configurable at the moment.
-        const TOTAL_SHARDS: u64 = 10_000;
+        const TOTAL_SHARDS: u32 = 10_000;
 
         if actions.len() == 0 {
             return Err(EvaluationFailure::NoActionsSuppliedForBandit);
@@ -410,7 +409,10 @@ mod tests {
     use chrono::Utc;
     use serde::{Deserialize, Serialize};
 
-    use crate::{eval::get_bandit_action, ArcStr, Configuration, ContextAttributes, SdkMetadata};
+    use crate::{
+        eval::get_bandit_action, ufc::UniversalFlagConfig, ArcStr, Configuration,
+        ContextAttributes, SdkMetadata,
+    };
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
@@ -461,8 +463,12 @@ mod tests {
 
     #[test]
     fn sdk_test_data() {
-        let config = serde_json::from_reader(
-            File::open("../sdk-test-data/ufc/bandit-flags-v1.json").unwrap(),
+        let config = UniversalFlagConfig::from_json(
+            SdkMetadata {
+                name: "test",
+                version: "0.1.0",
+            },
+            std::fs::read("../sdk-test-data/ufc/bandit-flags-v1.json").unwrap(),
         )
         .unwrap();
         let bandits = serde_json::from_reader(

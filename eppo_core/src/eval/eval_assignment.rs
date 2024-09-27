@@ -6,12 +6,11 @@ use crate::{
     attributes::Subject,
     error::{EvaluationError, EvaluationFailure},
     events::AssignmentEvent,
-    sharder::get_md5_shard,
     ufc::{
-        Allocation, Assignment, AssignmentValue, Flag, Shard, Split, Timestamp, TryParse,
-        UniversalFlagConfig, VariationType,
+        Allocation, Assignment, AssignmentValue, CompiledFlagsConfig, Flag, Shard, Split,
+        Timestamp, VariationType,
     },
-    ArcStr, Attributes, Configuration, SdkMetadata,
+    ArcStr, Attributes, Configuration,
 };
 
 use super::{
@@ -32,7 +31,6 @@ pub fn get_assignment(
     subject_attributes: &Arc<Attributes>,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
-    sdk_meta: &SdkMetadata,
 ) -> Result<Option<Assignment>, EvaluationError> {
     get_assignment_with_visitor(
         configuration,
@@ -42,7 +40,6 @@ pub fn get_assignment(
         subject_attributes,
         expected_type,
         now,
-        sdk_meta,
     )
 }
 
@@ -54,7 +51,6 @@ pub fn get_assignment_details(
     subject_attributes: &Arc<Attributes>,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
-    sdk_meta: &SdkMetadata,
 ) -> (
     EvaluationResultWithDetails<AssignmentValue>,
     Option<AssignmentEvent>,
@@ -73,7 +69,6 @@ pub fn get_assignment_details(
         subject_attributes,
         expected_type,
         now,
-        sdk_meta,
     );
 
     let (value, mut event) = match result.unwrap_or_default() {
@@ -105,19 +100,17 @@ pub(super) fn get_assignment_with_visitor<V: EvalAssignmentVisitor>(
     subject_attributes: &Arc<Attributes>,
     expected_type: Option<VariationType>,
     now: DateTime<Utc>,
-    sdk_meta: &SdkMetadata,
 ) -> Result<Option<Assignment>, EvaluationError> {
     let result = if let Some(config) = configuration {
         visitor.on_configuration(config);
 
-        config.flags.eval_flag(
+        config.flags.compiled.eval_flag(
             visitor,
             &flag_key,
             &subject_key,
             &subject_attributes,
             expected_type,
             now,
-            sdk_meta,
         )
     } else {
         Err(EvaluationFailure::ConfigurationMissing)
@@ -164,7 +157,7 @@ pub(super) fn get_assignment_with_visitor<V: EvalAssignmentVisitor>(
     }
 }
 
-impl UniversalFlagConfig {
+impl CompiledFlagsConfig {
     /// Evaluate the flag for the given subject, expecting `expected_type` type.
     fn eval_flag<V: EvalAssignmentVisitor>(
         &self,
@@ -174,7 +167,6 @@ impl UniversalFlagConfig {
         subject_attributes: &Arc<Attributes>,
         expected_type: Option<VariationType>,
         now: DateTime<Utc>,
-        sdk_meta: &SdkMetadata,
     ) -> Result<Assignment, EvaluationFailure> {
         let flag = self.get_flag(flag_key)?;
 
@@ -184,21 +176,17 @@ impl UniversalFlagConfig {
             flag.verify_type(ty)?;
         }
 
-        flag.eval(visitor, subject_key, subject_attributes, now, sdk_meta)
+        flag.eval(visitor, subject_key, subject_attributes, now)
     }
 
     fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag, EvaluationFailure> {
         let flag = self
             .flags
             .get(flag_key)
-            .ok_or(EvaluationFailure::FlagUnrecognizedOrDisabled)?;
-
-        match flag {
-            TryParse::Parsed(flag) => Ok(flag),
-            TryParse::ParseFailed(_) => Err(EvaluationFailure::Error(
-                EvaluationError::UnexpectedConfigurationParseError,
-            )),
-        }
+            .ok_or(EvaluationFailure::FlagUnrecognizedOrDisabled)?
+            .as_ref()
+            .map_err(Clone::clone)?;
+        Ok(flag)
     }
 }
 
@@ -220,63 +208,29 @@ impl Flag {
         subject_key: &ArcStr,
         subject_attributes: &Arc<Attributes>,
         now: DateTime<Utc>,
-        sdk_meta: &SdkMetadata,
     ) -> Result<Assignment, EvaluationFailure> {
-        if !self.enabled {
-            return Err(EvaluationFailure::FlagDisabled);
-        }
-
         let subject = Subject::new(subject_key.clone(), subject_attributes.clone());
 
-        let Some((allocation, split)) = self.allocations.iter().find_map(|allocation| {
+        let Some(split) = self.allocations.iter().find_map(|allocation| {
             let mut visitor = visitor.visit_allocation(allocation);
-            let result =
-                allocation.get_matching_split(&mut visitor, &subject, self.total_shards, now);
+            let result = allocation.get_matching_split(&mut visitor, &subject, now);
             visitor.on_result(result);
-            result.ok().map(|split| (allocation, split))
+            result.ok()
         }) else {
             return Err(EvaluationFailure::DefaultAllocationNull);
         };
 
-        let variation = self.variations.get(&split.variation_key).ok_or_else(|| {
-            log::warn!(target: "eppo",
-                       flag_key:display = self.key,
-                       subject_key,
-                       variation_key:display = split.variation_key;
-                       "internal: unable to find variation");
-            EvaluationFailure::Error(EvaluationError::UnexpectedConfigurationError)
-        })?;
-
-        visitor.on_variation(variation);
-
-        let assignment_value = variation
-            .value
-            .to_assignment_value(self.variation_type)
-            .ok_or_else(|| {
-                log::warn!(target: "eppo",
-                           flag_key:display = self.key,
-                           subject_key,
-                           variation_key:display = split.variation_key;
-                           "internal: unable to convert Value to AssignmentValue");
-                EvaluationFailure::Error(EvaluationError::UnexpectedConfigurationError)
-            })?;
-
-        let event = allocation.do_log.then(|| AssignmentEvent {
-            feature_flag: self.key.clone(),
-            allocation: allocation.key.clone(),
-            experiment: format!("{}-{}", self.key, allocation.key),
-            variation: variation.key.clone(),
-            subject: subject_key.clone(),
-            subject_attributes: subject_attributes.clone(),
-            timestamp: now,
-            meta_data: sdk_meta.into(),
-            extra_logging: split.extra_logging.clone(),
-            evaluation_details: None,
-        });
+        let (value, event_base) = split.result.clone()?;
 
         Ok(Assignment {
-            value: assignment_value,
-            event,
+            value,
+            event: event_base.map(|base| AssignmentEvent {
+                base,
+                subject: subject_key.clone(),
+                subject_attributes: subject_attributes.clone(),
+                timestamp: now,
+                evaluation_details: None,
+            }),
         })
     }
 }
@@ -294,7 +248,6 @@ impl Allocation {
         &self,
         visitor: &mut V,
         subject: &Subject,
-        total_shards: u64,
         now: Timestamp,
     ) -> Result<&Split, AllocationNonMatchReason> {
         if self.start_at.is_some_and(|t| now < t) {
@@ -319,7 +272,7 @@ impl Allocation {
             .iter()
             .find(|split| {
                 let mut visitor = visitor.visit_split(split);
-                let matches = split.matches(&mut visitor, subject.key(), total_shards);
+                let matches = split.matches(&mut visitor, subject.key());
                 visitor.on_result(matches);
                 matches
             })
@@ -331,27 +284,25 @@ impl Split {
     /// Return `true` if `subject_key` matches the given split.
     ///
     /// To match a split, subject must match all underlying shards.
-    fn matches<V: EvalSplitVisitor>(
-        &self,
-        visitor: &mut V,
-        subject_key: &str,
-        total_shards: u64,
-    ) -> bool {
-        self.shards
-            .iter()
-            .all(|shard| shard.matches(visitor, subject_key, total_shards))
+    fn matches<V: EvalSplitVisitor>(&self, visitor: &mut V, subject_key: &str) -> bool {
+        match &self.shards {
+            None => true,
+            Some(shards) => shards
+                .iter()
+                .all(|shard| shard.matches(visitor, subject_key)),
+        }
     }
 }
 
 impl Shard {
     /// Return `true` if `subject_key` matches the given shard.
-    fn matches<V: EvalSplitVisitor>(
-        &self,
-        visitor: &mut V,
-        subject_key: &str,
-        total_shards: u64,
-    ) -> bool {
-        let h = get_md5_shard(&[self.salt.as_str(), "-", subject_key], total_shards);
+    fn matches<V: EvalSplitVisitor>(&self, visitor: &mut V, subject_key: &str) -> bool {
+        let mut md5_context = self.md5_context.clone();
+        md5_context.consume(subject_key);
+        let hash = md5_context.compute();
+        let value = u32::from_be_bytes(hash[0..4].try_into().unwrap());
+        let h = value % self.total_shards;
+
         let matches = self.ranges.iter().any(|range| range.contains(h));
         visitor.on_shard_eval(self, h, matches);
         matches
@@ -375,7 +326,7 @@ mod tests {
             },
             get_assignment, get_assignment_details,
         },
-        ufc::{Rule, TryParse, UniversalFlagConfig, Value, VariationType},
+        ufc::{RuleWire, UniversalFlagConfig, ValueWire, VariationType},
         ArcStr, Attributes, Configuration, SdkMetadata,
     };
 
@@ -384,8 +335,15 @@ mod tests {
     struct TestFile {
         flag: String,
         variation_type: VariationType,
-        default_value: TryParse<Value>,
+        default_value: DefaultValue,
         subjects: Vec<TestSubject>,
+    }
+
+    #[derive(Debug, Serialize, Deserialize)]
+    #[serde(untagged)]
+    enum DefaultValue {
+        Value(ValueWire),
+        Json(serde_json::Value),
     }
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -393,7 +351,7 @@ mod tests {
     struct TestSubject {
         subject_key: ArcStr,
         subject_attributes: Arc<Attributes>,
-        assignment: TryParse<Value>,
+        assignment: DefaultValue,
         evaluation_details: TruncatedEvaluationDetails,
     }
 
@@ -407,7 +365,7 @@ mod tests {
         flag_evaluation_description: String,
 
         /// Key of the selected variation.
-        variation_key: Option<String>,
+        variation_key: Option<ArcStr>,
         /// Value of the selected variation. Could be `None` if no variation is selected, or selected
         /// value is absent in configuration (configuration error).
         variation_value: serde_json::Value,
@@ -415,7 +373,7 @@ mod tests {
         bandit_key: Option<String>,
         bandit_action: Option<String>,
 
-        matched_rule: Option<Rule>,
+        matched_rule: Option<RuleWire>,
         matched_allocation: Option<TruncatedAllocationEvaluationDetails>,
         unmatched_allocations: Vec<TruncatedAllocationEvaluationDetails>,
         unevaluated_allocations: Vec<TruncatedAllocationEvaluationDetails>,
@@ -463,10 +421,10 @@ mod tests {
     //
     // Therefore, if we failed to parse "assignment" field as one of the values, we fallback to
     // AttributeValue::Json.
-    fn to_value(try_parse: TryParse<Value>) -> Value {
-        match try_parse {
-            TryParse::Parsed(v) => v,
-            TryParse::ParseFailed(json) => Value::String(serde_json::to_string(&json).unwrap()),
+    fn to_value(value: DefaultValue) -> ValueWire {
+        match value {
+            DefaultValue::Value(v) => v,
+            DefaultValue::Json(json) => ValueWire::String(serde_json::to_string(&json).unwrap()),
         }
     }
 
@@ -474,9 +432,14 @@ mod tests {
     fn evaluation_sdk_test_data() {
         let _ = env_logger::builder().is_test(true).try_init();
 
-        let config: UniversalFlagConfig =
-            serde_json::from_reader(File::open("../sdk-test-data/ufc/flags-v1.json").unwrap())
-                .unwrap();
+        let config = UniversalFlagConfig::from_json(
+            SdkMetadata {
+                name: "test",
+                version: "0.1.0",
+            },
+            std::fs::read("../sdk-test-data/ufc/flags-v1.json").unwrap(),
+        )
+        .unwrap();
         let config = Configuration::from_server_response(config, None);
         let now = Utc::now();
 
@@ -500,10 +463,6 @@ mod tests {
                     &subject.subject_attributes,
                     Some(test_file.variation_type),
                     now,
-                    &SdkMetadata {
-                        name: "test",
-                        version: "0.1.0",
-                    },
                 )
                 .unwrap_or(None);
 
@@ -525,9 +484,14 @@ mod tests {
     fn evaluation_details_sdk_test_data() {
         let _ = env_logger::builder().is_test(true).try_init();
 
-        let config: UniversalFlagConfig =
-            serde_json::from_reader(File::open("../sdk-test-data/ufc/flags-v1.json").unwrap())
-                .unwrap();
+        let config = UniversalFlagConfig::from_json(
+            SdkMetadata {
+                name: "test",
+                version: "0.1.0",
+            },
+            std::fs::read("../sdk-test-data/ufc/flags-v1.json").unwrap(),
+        )
+        .unwrap();
         let config = Configuration::from_server_response(config, None);
         let now = Utc::now();
 
@@ -547,10 +511,6 @@ mod tests {
                     &subject.subject_attributes,
                     Some(test_file.variation_type),
                     now,
-                    &SdkMetadata {
-                        name: "test",
-                        version: "0.1.0",
-                    },
                 );
 
                 let actual = result.evaluation_details;
@@ -564,8 +524,8 @@ mod tests {
                 if expected.flag_evaluation_code != TruncatedFlagEvaluationCode::AssignmentError {
                     // Assignment errors never happen in Rust and we generate different description.
                     assert_eq!(
-                        actual.flag_evaluation_description,
-                        expected.flag_evaluation_description
+                        actual.flag_evaluation_description, expected.flag_evaluation_description,
+                        "details: {actual:#?}"
                     );
                 }
                 assert_eq!(actual.bandit_key, expected.bandit_key);

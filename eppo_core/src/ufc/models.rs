@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use derive_more::From;
 use regex::Regex;
@@ -15,7 +15,7 @@ pub type Timestamp = chrono::DateTime<chrono::Utc>;
 /// Universal Flag Configuration. This the response format from the UFC endpoint.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct UniversalFlagConfig {
+pub(crate) struct UniversalFlagConfigWire {
     /// When configuration was last updated.
     pub created_at: Timestamp,
     /// Environment this configuration belongs to.
@@ -24,16 +24,16 @@ pub struct UniversalFlagConfig {
     ///
     /// Value is wrapped in `TryParse` so that if we fail to parse one flag (e.g., new server
     /// format), we can still serve other flags.
-    pub flags: HashMap<String, TryParse<Flag>>,
+    pub flags: HashMap<String, TryParse<FlagWire>>,
     /// `bandits` field connects string feature flags to bandits. Actual bandits configuration is
     /// served separately.
     #[serde(default)]
-    pub bandits: HashMap<String, Vec<BanditVariation>>,
+    pub bandits: HashMap<String, Vec<BanditVariationWire>>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Environment {
+pub(crate) struct Environment {
     /// Name of the environment.
     pub name: ArcStr,
 }
@@ -49,22 +49,11 @@ pub enum TryParse<T> {
     /// Successfully parsed.
     Parsed(T),
     /// Parsing failed.
-    ///
-    /// This holds the generic JSON value, so even if parsing originally failed, we could serialize
-    /// the value back to JSON.
     ParseFailed(serde_json::Value),
 }
 impl<T> From<T> for TryParse<T> {
     fn from(value: T) -> TryParse<T> {
         TryParse::Parsed(value)
-    }
-}
-impl<T> From<TryParse<T>> for Result<T, serde_json::Value> {
-    fn from(value: TryParse<T>) -> Self {
-        match value {
-            TryParse::Parsed(v) => Ok(v),
-            TryParse::ParseFailed(v) => Err(v),
-        }
     }
 }
 impl<T> From<TryParse<T>> for Option<T> {
@@ -87,13 +76,13 @@ impl<'a, T> From<&'a TryParse<T>> for Option<&'a T> {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
-pub struct Flag {
+pub(crate) struct FlagWire {
     pub key: ArcStr,
     pub enabled: bool,
     pub variation_type: VariationType,
-    pub variations: HashMap<String, Variation>,
-    pub allocations: Vec<Allocation>,
-    pub total_shards: u64,
+    pub variations: HashMap<String, VariationWire>,
+    pub allocations: Vec<AllocationWire>,
+    pub total_shards: u32,
 }
 
 /// Type of the variation.
@@ -114,7 +103,7 @@ pub enum VariationType {
 /// combine it with [`VariationType`] from the flag level.
 #[derive(Debug, Serialize, Deserialize, PartialEq, From, Clone)]
 #[serde(untagged)]
-pub enum Value {
+pub(crate) enum ValueWire {
     /// Boolean maps to [`AssignmentValue::Boolean`].
     Boolean(bool),
     /// Number maps to either [`AssignmentValue::Integer`] or [`AssignmentValue::Numeric`].
@@ -123,7 +112,7 @@ pub enum Value {
     String(String),
 }
 
-impl Value {
+impl ValueWire {
     /// Try to convert `Value` to [`AssignmentValue`] under the given [`VariationType`].
     pub(crate) fn to_assignment_value(&self, ty: VariationType) -> Option<AssignmentValue> {
         Some(match ty {
@@ -172,7 +161,7 @@ impl Value {
     }
 }
 
-impl From<&str> for Value {
+impl From<&str> for ValueWire {
     fn from(value: &str) -> Self {
         Self::String(value.to_owned())
     }
@@ -181,23 +170,23 @@ impl From<&str> for Value {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
-pub struct Variation {
+pub(crate) struct VariationWire {
     pub key: ArcStr,
-    pub value: Value,
+    pub value: ValueWire,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
-pub struct Allocation {
+pub(crate) struct AllocationWire {
     pub key: ArcStr,
     #[serde(default)]
-    pub rules: Vec<Rule>,
+    pub rules: Box<[RuleWire]>,
     #[serde(default)]
     pub start_at: Option<Timestamp>,
     #[serde(default)]
     pub end_at: Option<Timestamp>,
-    pub splits: Vec<Split>,
+    pub splits: Vec<SplitWire>,
     #[serde(default = "default_do_log")]
     pub do_log: bool,
 }
@@ -209,7 +198,7 @@ fn default_do_log() -> bool {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
-pub struct Rule {
+pub(crate) struct RuleWire {
     pub conditions: Vec<TryParse<Condition>>,
 }
 
@@ -217,13 +206,13 @@ pub struct Rule {
 /// `operator`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(try_from = "ConditionWire", into = "ConditionWire")]
-pub struct Condition {
+pub(crate) struct Condition {
     pub attribute: Box<str>,
     pub check: ConditionCheck,
 }
 
 #[derive(Debug, Clone)]
-pub enum ConditionCheck {
+pub(crate) enum ConditionCheck {
     Comparison {
         operator: ComparisonOperator,
         comparand: Comparand,
@@ -244,7 +233,7 @@ pub enum ConditionCheck {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub enum ComparisonOperator {
+pub(crate) enum ComparisonOperator {
     Gte,
     Gt,
     Lte,
@@ -263,7 +252,7 @@ impl From<ComparisonOperator> for ConditionOperator {
 }
 
 #[derive(Debug, Clone, PartialEq, PartialOrd, From)]
-pub enum Comparand {
+pub(crate) enum Comparand {
     Version(Version),
     Number(f64),
 }
@@ -282,7 +271,7 @@ impl From<Comparand> for ConditionValue {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
-pub struct ConditionWire {
+pub(crate) struct ConditionWire {
     pub attribute: Box<str>,
     pub operator: ConditionOperator,
     pub value: ConditionValue,
@@ -345,7 +334,7 @@ impl TryFrom<ConditionWire> for Condition {
                 let expected_match = condition.operator == ConditionOperator::Matches;
 
                 let regex_string = match condition.value {
-                    ConditionValue::Single(Value::String(s)) => s,
+                    ConditionValue::Single(ValueWire::String(s)) => s,
                     _ => {
                         log::warn!(
                             "failed to parse condition: {:?} condition with non-string condition value",
@@ -384,7 +373,7 @@ impl TryFrom<ConditionWire> for Condition {
                 };
 
                 let condition_version = match &condition.value {
-                    ConditionValue::Single(Value::String(s)) => Version::parse(s).ok(),
+                    ConditionValue::Single(ValueWire::String(s)) => Version::parse(s).ok(),
                     _ => None,
                 };
 
@@ -396,8 +385,8 @@ impl TryFrom<ConditionWire> for Condition {
                 } else {
                     // numeric comparison
                     let condition_value = match &condition.value {
-                        ConditionValue::Single(Value::Number(n)) => Some(*n),
-                        ConditionValue::Single(Value::String(s)) => s.parse().ok(),
+                        ConditionValue::Single(ValueWire::Number(n)) => Some(*n),
+                        ConditionValue::Single(ValueWire::String(s)) => s.parse().ok(),
                         _ => None,
                     };
                     let Some(condition_value) = condition_value else {
@@ -429,7 +418,8 @@ impl TryFrom<ConditionWire> for Condition {
                 }
             }
             ConditionOperator::IsNull => {
-                let ConditionValue::Single(Value::Boolean(expected_null)) = condition.value else {
+                let ConditionValue::Single(ValueWire::Boolean(expected_null)) = condition.value
+                else {
                     log::warn!("failed to parse condition: IS_NULL condition with non-boolean condition value");
                     return Err(Error::EvaluationError(
                         EvaluationError::UnexpectedConfigurationParseError,
@@ -445,7 +435,7 @@ impl TryFrom<ConditionWire> for Condition {
 /// Possible condition types.
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq, Clone, Copy)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
-pub enum ConditionOperator {
+pub(crate) enum ConditionOperator {
     /// Matches regex. Condition value must be a regex string.
     Matches,
     /// Regex does not match. Condition value must be a regex string.
@@ -476,13 +466,13 @@ pub enum ConditionOperator {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
 #[allow(missing_docs)]
-pub enum ConditionValue {
-    Single(Value),
+pub(crate) enum ConditionValue {
+    Single(ValueWire),
     // Only string arrays are currently supported.
     Multiple(Box<[Box<str>]>),
 }
 
-impl<T: Into<Value>> From<T> for ConditionValue {
+impl<T: Into<ValueWire>> From<T> for ConditionValue {
     fn from(value: T) -> Self {
         Self::Single(value.into())
     }
@@ -496,30 +486,30 @@ impl From<Vec<String>> for ConditionValue {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
-pub struct Split {
-    pub shards: Vec<Shard>,
-    pub variation_key: String,
+pub(crate) struct SplitWire {
+    pub shards: Vec<ShardWire>,
+    pub variation_key: ArcStr,
     #[serde(default)]
-    pub extra_logging: Arc<HashMap<String, String>>,
+    pub extra_logging: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
-pub struct Shard {
+pub(crate) struct ShardWire {
     pub salt: String,
-    pub ranges: Vec<ShardRange>,
+    pub ranges: Box<[ShardRange]>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
 pub struct ShardRange {
-    pub start: u64,
-    pub end: u64,
+    pub start: u32,
+    pub end: u32,
 }
 impl ShardRange {
-    pub(crate) fn contains(&self, v: u64) -> bool {
+    pub(crate) fn contains(&self, v: u32) -> bool {
         self.start <= v && v < self.end
     }
 }
@@ -527,7 +517,7 @@ impl ShardRange {
 /// `BanditVariation` associates a variation in feature flag with a bandit.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct BanditVariation {
+pub(crate) struct BanditVariationWire {
     pub key: String,
     /// Key of the flag.
     pub flag_key: String,
@@ -541,18 +531,18 @@ pub struct BanditVariation {
 mod tests {
     use std::{fs::File, io::BufReader};
 
-    use super::{TryParse, UniversalFlagConfig};
+    use super::{TryParse, UniversalFlagConfigWire};
 
     #[test]
     fn parse_flags_v1() {
         let f = File::open("../sdk-test-data/ufc/flags-v1.json")
             .expect("Failed to open ../sdk-test-data/ufc/flags-v1.json");
-        let _ufc: UniversalFlagConfig = serde_json::from_reader(BufReader::new(f)).unwrap();
+        let _ufc: UniversalFlagConfigWire = serde_json::from_reader(BufReader::new(f)).unwrap();
     }
 
     #[test]
     fn parse_partially_if_unexpected() {
-        let ufc: UniversalFlagConfig = serde_json::from_str(
+        let ufc: UniversalFlagConfigWire = serde_json::from_str(
             &r#"
               {
                 "createdAt": "2024-07-18T00:00:00Z",

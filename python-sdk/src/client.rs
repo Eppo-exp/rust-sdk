@@ -27,11 +27,12 @@ use eppo_core::{
     poller_thread::{PollerThread, PollerThreadConfig},
     pyo3::TryToPyObject,
     ufc::VariationType,
-    Attributes, ContextAttributes, SdkMetadata,
+    Attributes, ContextAttributes,
 };
 
 use crate::{
     assignment_logger::AssignmentLogger, client_config::ClientConfig, configuration::Configuration,
+    SDK_METADATA,
 };
 
 #[pyclass(frozen, get_all, module = "eppo_client")]
@@ -466,7 +467,7 @@ impl EppoClient {
     fn get_flag_keys<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<PySet>> {
         let config = self.configuration_store.get_configuration();
         match config {
-            Some(config) => PySet::new_bound(py, config.flags.flags.keys()),
+            Some(config) => PySet::new_bound(py, &config.flag_keys()),
             None => PySet::empty_bound(py),
         }
     }
@@ -560,14 +561,9 @@ impl EppoClient {
             configuration_store.set_configuration(configuration);
         }
 
-        let sdk_metadata = SdkMetadata {
-            name: "python",
-            version: env!("CARGO_PKG_VERSION"),
-        };
-
         let evaluator = Evaluator::new(EvaluatorConfig {
             configuration_store: configuration_store.clone(),
-            sdk_metadata: sdk_metadata.clone(),
+            sdk_metadata: SDK_METADATA,
         });
 
         let poller_thread = config
@@ -578,7 +574,7 @@ impl EppoClient {
                         eppo_core::configuration_fetcher::ConfigurationFetcherConfig {
                             base_url: config.base_url.clone(),
                             api_key: config.api_key.clone(),
-                            sdk_metadata,
+                            sdk_metadata: SDK_METADATA,
                         },
                     ),
                     configuration_store.clone(),

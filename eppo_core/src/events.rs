@@ -6,18 +6,17 @@ use crate::{eval::eval_details::EvaluationDetails, ArcStr, Attributes, SdkMetada
 
 /// Events that can be emitted during evaluation of assignment or bandit. They need to be logged to
 /// analytics storage and fed back to Eppo for analysis.
-#[derive(Debug, Serialize, PartialEq, Clone)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Events {
     pub assignment: Option<AssignmentEvent>,
     pub bandit: Option<BanditEvent>,
 }
 
-/// Represents an event capturing the assignment of a feature flag to a subject and its logging
-/// details.
-#[derive(Debug, Serialize, PartialEq, Clone)]
+/// Common fields for the same split.
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct AssignmentEvent {
+pub struct AssignmentEventBase {
     /// The key of the feature flag being assigned.
     pub feature_flag: ArcStr,
     /// The key of the allocation that the subject was assigned to.
@@ -26,18 +25,26 @@ pub struct AssignmentEvent {
     pub experiment: String,
     /// The specific variation assigned to the subject.
     pub variation: ArcStr,
+    /// Additional metadata such as SDK language and version.
+    pub meta_data: EventMetaData,
+    /// Additional user-defined logging fields for capturing extra information related to the
+    /// assignment.
+    #[serde(flatten)]
+    pub extra_logging: HashMap<String, String>,
+}
+
+/// Represents an event capturing the assignment of a feature flag to a subject and its logging
+/// details.
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AssignmentEvent {
+    pub base: Arc<AssignmentEventBase>,
     /// The key identifying the subject receiving the assignment.
     pub subject: ArcStr,
     /// Custom attributes of the subject relevant to the assignment.
     pub subject_attributes: Arc<Attributes>,
     /// The timestamp indicating when the assignment event occurred.
     pub timestamp: chrono::DateTime<chrono::Utc>,
-    /// Additional metadata such as SDK language and version.
-    pub meta_data: EventMetaData,
-    /// Additional user-defined logging fields for capturing extra information related to the
-    /// assignment.
-    #[serde(flatten)]
-    pub extra_logging: Arc<HashMap<String, String>>,
     /// Evaluation details that could help with debugging the assigment. Only populated when
     /// details-version of the `get_assigment` was called.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -45,7 +52,7 @@ pub struct AssignmentEvent {
 }
 
 /// Bandit evaluation event that needs to be logged to analytics storage.
-#[derive(Debug, Serialize, PartialEq, Clone)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BanditEvent {
     pub flag_key: String,
@@ -63,7 +70,7 @@ pub struct BanditEvent {
     pub meta_data: EventMetaData,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EventMetaData {
     pub sdk_name: &'static str,

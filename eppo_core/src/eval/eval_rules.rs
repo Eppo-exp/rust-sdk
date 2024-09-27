@@ -4,20 +4,17 @@ use semver::Version;
 
 use crate::{
     attributes::Subject,
-    ufc::{Comparand, ComparisonOperator, Condition, ConditionCheck, Rule, TryParse},
+    ufc::{Comparand, ComparisonOperator, Condition, ConditionCheck, RuleWire, TryParse},
     AttributeValue,
 };
 
 use super::eval_visitor::EvalRuleVisitor;
 
-impl Rule {
+impl RuleWire {
     pub(super) fn eval<V: EvalRuleVisitor>(&self, visitor: &mut V, subject: &Subject) -> bool {
         self.conditions.iter().all(|condition| match condition {
             TryParse::Parsed(condition) => condition.eval(visitor, subject),
-            TryParse::ParseFailed(raw_condition) => {
-                visitor.on_condition_skip(raw_condition);
-                false
-            }
+            TryParse::ParseFailed(_) => false,
         })
     }
 }
@@ -71,7 +68,7 @@ impl ConditionCheck {
                 regex,
             } => {
                 let s = match attribute? {
-                    AttributeValue::String(s) => s.as_str(),
+                    AttributeValue::String(s) => s.as_ref(),
                     AttributeValue::Boolean(v) => {
                         if *v {
                             "true"
@@ -88,7 +85,7 @@ impl ConditionCheck {
                 values,
             } => {
                 let s = match attribute? {
-                    AttributeValue::String(s) => Cow::Borrowed(s.as_str()),
+                    AttributeValue::String(s) => Cow::Borrowed(s.as_ref()),
                     AttributeValue::Number(n) => Cow::Owned(n.to_string()),
                     AttributeValue::Boolean(b) => Cow::Borrowed(if *b { "true" } else { "false" }),
                     _ => return None,
@@ -113,7 +110,7 @@ mod tests {
     use crate::{
         attributes::Subject,
         eval::eval_visitor::NoopEvalVisitor,
-        ufc::{Comparand, ComparisonOperator, Condition, ConditionCheck, Rule},
+        ufc::{Comparand, ComparisonOperator, Condition, ConditionCheck, RuleWire},
     };
 
     #[test]
@@ -366,7 +363,7 @@ mod tests {
 
     #[test]
     fn empty_rule() {
-        let rule = Rule { conditions: vec![] };
+        let rule = RuleWire { conditions: vec![] };
         assert!(rule.eval(
             &mut NoopEvalVisitor,
             &Subject::new("key".into(), Default::default())
@@ -375,7 +372,7 @@ mod tests {
 
     #[test]
     fn single_condition_rule() {
-        let rule = Rule {
+        let rule = RuleWire {
             conditions: vec![Condition {
                 attribute: "age".into(),
                 check: ConditionCheck::Comparison {
@@ -396,7 +393,7 @@ mod tests {
 
     #[test]
     fn two_condition_rule() {
-        let rule = Rule {
+        let rule = RuleWire {
             conditions: vec![
                 Condition {
                     attribute: "age".into(),
@@ -441,7 +438,7 @@ mod tests {
 
     #[test]
     fn missing_attribute() {
-        let rule = Rule {
+        let rule = RuleWire {
             conditions: vec![Condition {
                 attribute: "age".into(),
                 check: ConditionCheck::Comparison {

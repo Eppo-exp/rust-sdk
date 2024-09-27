@@ -46,7 +46,6 @@ impl Evaluator {
             &subject_attributes,
             expected_type,
             Utc::now(),
-            &self.config.sdk_metadata,
         )
     }
 
@@ -68,7 +67,6 @@ impl Evaluator {
             &subject_attributes,
             expected_type,
             Utc::now(),
-            &self.config.sdk_metadata,
         )
     }
 

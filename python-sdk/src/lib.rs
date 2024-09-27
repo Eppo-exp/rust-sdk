@@ -1,10 +1,17 @@
 use pyo3::prelude::*;
 
+use eppo_core::SdkMetadata;
+
 mod assignment_logger;
 mod client;
 mod client_config;
 mod configuration;
 mod init;
+
+pub(crate) const SDK_METADATA: SdkMetadata = SdkMetadata {
+    name: "python",
+    version: env!("CARGO_PKG_VERSION"),
+};
 
 #[pymodule(module = "eppo_client", name = "_eppo_client")]
 mod eppo_client {

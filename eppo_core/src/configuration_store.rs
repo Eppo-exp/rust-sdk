@@ -52,7 +52,7 @@ mod tests {
 
     use super::ConfigurationStore;
     use crate::{
-        ufc::{Environment, UniversalFlagConfig},
+        ufc::{CompiledFlagsConfig, Environment, UniversalFlagConfig},
         Configuration,
     };
 
@@ -67,12 +67,15 @@ mod tests {
             let _ = std::thread::spawn(move || {
                 store.set_configuration(Arc::new(Configuration::from_server_response(
                     UniversalFlagConfig {
-                        created_at: Utc::now(),
-                        environment: Environment {
-                            name: "test".into(),
+                        wire_json: Vec::from(b"test-bytes"),
+                        compiled: CompiledFlagsConfig {
+                            created_at: Utc::now(),
+                            environment: Environment {
+                                name: "test".into(),
+                            },
+                            flags: HashMap::new(),
+                            flag_to_bandit_associations: HashMap::new(),
                         },
-                        flags: HashMap::new(),
-                        bandits: HashMap::new(),
                     },
                     None,
                 )))

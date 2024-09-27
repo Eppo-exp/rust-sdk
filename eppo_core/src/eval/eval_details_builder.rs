@@ -4,10 +4,7 @@ use chrono::{DateTime, Utc};
 
 use crate::{
     error::EvaluationFailure,
-    ufc::{
-        Allocation, Assignment, Condition, ConditionWire, Flag, Rule, Shard, Split, Value,
-        Variation,
-    },
+    ufc::{Allocation, Assignment, AssignmentValue, Condition, Flag, RuleWire, Shard, Split},
     ArcStr, AttributeValue, Attributes, Configuration, EvaluationError,
 };
 
@@ -30,8 +27,8 @@ pub(crate) struct EvalDetailsBuilder {
     environment_name: Option<ArcStr>,
 
     flag_evaluation_failure: Option<Result<(), EvaluationFailure>>,
-    variation_key: Option<String>,
-    variation_value: Option<Value>,
+    variation_key: Option<ArcStr>,
+    variation_value: Option<AssignmentValue>,
 
     bandit_evaluation_failure: Option<Result<(), EvaluationFailure>>,
     bandit_key: Option<String>,
@@ -57,7 +54,7 @@ pub(crate) struct EvalAllocationDetailsBuilder<'a> {
     allocation_is_experiment: bool,
     matched: &'a mut Option<MatchedDetails>,
     allocation_details: &'a mut AllocationEvaluationDetails,
-    variation_key: &'a mut Option<String>,
+    variation_key: &'a mut Option<ArcStr>,
 }
 
 pub(crate) struct EvalRuleDetailsBuilder<'a> {
@@ -249,10 +246,6 @@ impl<'b> EvalAssignmentVisitor for &'b mut EvalDetailsBuilder {
         EvalAssignmentVisitor::on_flag_configuration(*self, flag)
     }
 
-    fn on_variation(&mut self, variation: &Variation) {
-        EvalAssignmentVisitor::on_variation(*self, variation)
-    }
-
     fn on_result(&mut self, result: &Result<Assignment, EvaluationFailure>) {
         EvalAssignmentVisitor::on_result(*self, result)
     }
@@ -287,8 +280,8 @@ impl EvalAssignmentVisitor for EvalDetailsBuilder {
 
     fn on_configuration(&mut self, configuration: &Configuration) {
         self.configuration_fetched_at = Some(configuration.fetched_at);
-        self.configuration_published_at = Some(configuration.flags.created_at);
-        self.environment_name = Some(configuration.flags.environment.name.clone());
+        self.configuration_published_at = Some(configuration.flags.compiled.created_at);
+        self.environment_name = Some(configuration.flags.compiled.environment.name.clone());
     }
 
     fn on_flag_configuration(&mut self, flag: &Flag) {
@@ -297,15 +290,14 @@ impl EvalAssignmentVisitor for EvalDetailsBuilder {
             .extend(flag.allocations.iter().map(|it| &it.key).cloned());
     }
 
-    fn on_variation(&mut self, variation: &Variation) {
-        self.variation_value = Some(variation.value.clone());
-    }
-
     fn on_result(&mut self, result: &Result<Assignment, EvaluationFailure>) {
-        self.flag_evaluation_failure = Some(match result {
-            Ok(_) => Ok(()),
-            Err(failure) => Err(*failure),
-        });
+        match result {
+            Ok(assignment) => {
+                self.variation_value = Some(assignment.value.clone());
+                self.flag_evaluation_failure = Some(Ok(()));
+            }
+            Err(failure) => self.flag_evaluation_failure = Some(Err(*failure)),
+        };
     }
 }
 
@@ -318,7 +310,7 @@ impl<'b> EvalAllocationVisitor for EvalAllocationDetailsBuilder<'b> {
     where
         Self: 'a;
 
-    fn visit_rule<'a>(&'a mut self, _rule: &Rule) -> EvalRuleDetailsBuilder<'a> {
+    fn visit_rule<'a>(&'a mut self, _rule: &RuleWire) -> EvalRuleDetailsBuilder<'a> {
         self.allocation_details
             .evaluated_rules
             .push(RuleEvaluationDetails {
@@ -356,7 +348,7 @@ impl<'b> EvalAllocationVisitor for EvalAllocationDetailsBuilder<'b> {
             *self.matched = Some(MatchedDetails {
                 has_rules: self.allocation_has_rules,
                 is_experiment: self.allocation_is_experiment,
-                is_partial_rollout: split.shards.len() > 1,
+                is_partial_rollout: split.shards.as_ref().is_some_and(|it| it.len() > 1),
             })
         }
 
@@ -392,30 +384,13 @@ impl<'a> EvalRuleVisitor for EvalRuleDetailsBuilder<'a> {
             });
     }
 
-    fn on_condition_skip(&mut self, condition: &serde_json::Value) {
-        let condition = match serde_json::from_value::<ConditionWire>(condition.clone()) {
-            Ok(condition_wire) => condition_wire,
-            Err(err) => {
-                log::warn!("condition cannot be parsed: {err:?}");
-                return;
-            }
-        };
-        self.rule_details
-            .conditions
-            .push(ConditionEvaluationDetails {
-                condition,
-                attribute_value: None,
-                matched: false,
-            });
-    }
-
     fn on_result(&mut self, result: bool) {
         self.rule_details.matched = result;
     }
 }
 
 impl<'a> EvalSplitVisitor for EvalSplitDetailsBuilder<'a> {
-    fn on_shard_eval(&mut self, shard: &Shard, shard_value: u64, matches: bool) {
+    fn on_shard_eval(&mut self, shard: &Shard, shard_value: u32, matches: bool) {
         self.split_details.shards.push(ShardEvaluationDetails {
             matched: matches,
             shard: shard.clone(),

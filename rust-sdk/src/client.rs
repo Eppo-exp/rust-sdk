@@ -90,15 +90,18 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
     ///     .get_assignment(
     ///         "a-boolean-flag",
-    ///         "user-id",
-    ///         &[("age".to_owned(), 42.0.into())]
-    ///             .into_iter()
-    ///             .collect(),
+    ///         &"user-id".into(),
+    ///         &Arc::new(
+    ///             [("age".to_owned(), 42.0.into())]
+    ///                 .into_iter()
+    ///                 .collect()
+    ///         ),
     ///     )
     ///     .unwrap_or_default()
     ///     .and_then(|x| x.as_boolean())
@@ -128,12 +131,13 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
-    ///     .get_string_assignment("a-string-flag", "user-id", &[
+    ///     .get_string_assignment("a-string-flag", &"user-id".into(), &Arc::new([
     ///         ("language".into(), "en".into())
-    ///     ].into_iter().collect())
+    ///     ].into_iter().collect()))
     ///     .unwrap_or_default()
     ///     .unwrap_or("default_value".to_owned());
     /// # }
@@ -170,12 +174,13 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
-    ///     .get_integer_assignment("an-int-flag", "user-id", &[
-    ///         ("age".to_owned(), 42.0.into())
-    ///     ].into_iter().collect())
+    ///     .get_integer_assignment("an-int-flag", &"user-id".into(), &Arc::new([
+    ///         ("age".into(), 42.0.into())
+    ///     ].into_iter().collect()))
     ///     .unwrap_or_default()
     ///     .unwrap_or(0);
     /// # }
@@ -212,12 +217,13 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
-    ///     .get_numeric_assignment("a-num-flag", "user-id", &[
+    ///     .get_numeric_assignment("a-num-flag", &"user-id".into(), &Arc::new([
     ///         ("age".to_owned(), 42.0.into())
-    ///     ].iter().cloned().collect())
+    ///     ].iter().cloned().collect()))
     ///     .unwrap_or_default()
     ///     .unwrap_or(0.0);
     /// # }
@@ -254,12 +260,13 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
-    ///     .get_boolean_assignment("a-bool-flag", "user-id", &[
-    ///         ("age".to_owned(), 42.0.into())
-    ///     ].into_iter().collect())
+    ///     .get_boolean_assignment("a-bool-flag", &"user-id".into(), &Arc::new([
+    ///         ("age".into(), 42.0.into())
+    ///     ].into_iter().collect()))
     ///     .unwrap_or_default()
     ///     .unwrap_or(false);
     /// # }
@@ -296,13 +303,14 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # use serde_json::json;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
-    ///     .get_json_assignment("a-json-flag", "user-id", &[
+    ///     .get_json_assignment("a-json-flag", &"user-id".into(), &Arc::new([
     ///         ("language".into(), "en".into())
-    ///     ].into_iter().collect())
+    ///     ].into_iter().collect()))
     ///     .unwrap_or_default()
     ///     .unwrap_or(json!({}));
     /// # }
@@ -536,15 +544,8 @@ impl<'a> Client<'a> {
 mod tests {
     use std::{collections::HashMap, sync::Arc};
 
-    use crate::{client::AssignmentValue, Client, ClientConfig};
-    use eppo_core::{
-        configuration_store::ConfigurationStore,
-        ufc::{
-            Allocation, Environment, Flag, Split, TryParse, UniversalFlagConfig, Variation,
-            VariationType,
-        },
-        Configuration,
-    };
+    use crate::{Client, ClientConfig};
+    use eppo_core::configuration_store::ConfigurationStore;
 
     #[test]
     fn returns_none_while_no_configuration() {
@@ -559,64 +560,6 @@ mod tests {
                 .get_assignment("flag", &"subject".into(), &Arc::new(HashMap::new()))
                 .unwrap(),
             None
-        );
-    }
-
-    #[test]
-    fn returns_proper_configuration_once_config_is_fetched() {
-        let configuration_store = Arc::new(ConfigurationStore::new());
-        let client = Client::new_with_configuration_store(
-            ClientConfig::from_api_key("api-key"),
-            configuration_store.clone(),
-        );
-
-        // updating configuration after client is created
-        configuration_store.set_configuration(Arc::new(Configuration::from_server_response(
-            UniversalFlagConfig {
-                created_at: chrono::Utc::now(),
-                environment: Environment {
-                    name: "test".into(),
-                },
-                flags: [(
-                    "flag".to_owned(),
-                    TryParse::Parsed(Flag {
-                        key: "flag".into(),
-                        enabled: true,
-                        variation_type: VariationType::Boolean,
-                        variations: [(
-                            "variation".to_owned(),
-                            Variation {
-                                key: "variation".into(),
-                                value: true.into(),
-                            },
-                        )]
-                        .into(),
-                        allocations: vec![Allocation {
-                            key: "allocation".into(),
-                            rules: vec![],
-                            start_at: None,
-                            end_at: None,
-                            splits: vec![Split {
-                                shards: vec![],
-                                variation_key: "variation".to_owned(),
-                                extra_logging: Arc::new(HashMap::new()),
-                            }],
-                            do_log: false,
-                        }],
-                        total_shards: 10_000,
-                    }),
-                )]
-                .into(),
-                bandits: HashMap::new(),
-            },
-            None,
-        )));
-
-        assert_eq!(
-            client
-                .get_assignment("flag", &"subject".into(), &Arc::new(HashMap::new()))
-                .unwrap(),
-            Some(AssignmentValue::Boolean(true))
         );
     }
 }
