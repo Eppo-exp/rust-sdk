@@ -67,7 +67,7 @@ mod tests {
             let _ = std::thread::spawn(move || {
                 store.set_configuration(Arc::new(Configuration::from_server_response(
                     UniversalFlagConfig {
-                        wire_json: Vec::from(b"test-bytes"),
+                        wire_json: b"test-bytes".to_vec(),
                         compiled: CompiledFlagsConfig {
                             created_at: Utc::now(),
                             environment: Environment {

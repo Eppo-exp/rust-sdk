@@ -50,8 +50,10 @@ where
                         // We can go a step further and remove `AttributeValue::Boolean` altogether
                         // (from `eppo_core`), forcing it to be converted to a string before any
                         // evaluation.
-                        acc.categorical
-                            .insert(key.to_owned(), value.to_string().into());
+                        acc.categorical.insert(
+                            key.to_owned(),
+                            Str::from_static_str(if value { "true" } else { "false" }),
+                        );
                     }
                     AttributeValue::Null => {
                         // Nulls are missing values and are ignored.
