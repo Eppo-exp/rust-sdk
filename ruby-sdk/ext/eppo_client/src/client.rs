@@ -162,7 +162,7 @@ impl Client {
 
         let result = self.evaluator.get_bandit_action_details(
             &flag_key,
-            &subject_key.into_boxed_str().into(),
+            &subject_key.into(),
             &subject_attributes,
             &actions,
             &default_variation.into(),

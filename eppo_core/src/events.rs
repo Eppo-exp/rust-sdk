@@ -64,9 +64,9 @@ pub struct BanditEvent {
     pub model_version: String,
     pub timestamp: String,
     pub subject_numeric_attributes: HashMap<String, f64>,
-    pub subject_categorical_attributes: HashMap<String, String>,
+    pub subject_categorical_attributes: HashMap<String, ArcStr>,
     pub action_numeric_attributes: HashMap<String, f64>,
-    pub action_categorical_attributes: HashMap<String, String>,
+    pub action_categorical_attributes: HashMap<String, ArcStr>,
     pub meta_data: EventMetaData,
 }
 

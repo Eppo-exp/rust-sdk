@@ -73,6 +73,7 @@ pub type Attributes = HashMap<String, AttributeValue>;
 #[serde(untagged)]
 pub enum AttributeValue {
     /// A string value.
+    #[from(ignore)]
     String(ArcStr),
     /// A numerical value.
     Number(f64),
@@ -80,6 +81,12 @@ pub enum AttributeValue {
     Boolean(bool),
     /// A null value or absence of value.
     Null,
+}
+
+impl<T: Into<ArcStr>> From<T> for AttributeValue {
+    fn from(value: T) -> AttributeValue {
+        AttributeValue::String(value.into())
+    }
 }
 
 impl AttributeValue {
@@ -92,12 +99,6 @@ impl AttributeValue {
     }
 }
 
-impl From<&str> for AttributeValue {
-    fn from(value: &str) -> Self {
-        Self::String(value.into())
-    }
-}
-
 #[cfg(feature = "pyo3")]
 mod pyo3_impl {
     use pyo3::{exceptions::PyTypeError, prelude::*, types::*};
@@ -107,11 +108,11 @@ mod pyo3_impl {
     impl<'py> FromPyObject<'py> for AttributeValue {
         fn extract_bound(value: &Bound<'py, PyAny>) -> PyResult<AttributeValue> {
             if let Ok(s) = value.downcast::<PyString>() {
-                return Ok(AttributeValue::String(s.to_str()?.into()));
+                return Ok(AttributeValue::String(s.to_cow()?.into()));
             }
             // In Python, Bool inherits from Int, so it must be checked first here.
             if let Ok(s) = value.downcast::<PyBool>() {
-                return Ok(AttributeValue::Boolean(s.extract()?));
+                return Ok(AttributeValue::Boolean(s.is_true()));
             }
             if let Ok(s) = value.downcast::<PyFloat>() {
                 return Ok(AttributeValue::Number(s.extract()?));
@@ -119,7 +120,7 @@ mod pyo3_impl {
             if let Ok(s) = value.downcast::<PyInt>() {
                 return Ok(AttributeValue::Number(s.extract()?));
             }
-            if let Ok(_) = value.downcast::<PyNone>() {
+            if value.is_none() {
                 return Ok(AttributeValue::Null);
             }
             Err(PyTypeError::new_err(

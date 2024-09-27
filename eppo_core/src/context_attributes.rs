@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AttributeValue, Attributes};
+use crate::{ArcStr, AttributeValue, Attributes};
 
 /// `ContextAttributes` are subject or action attributes split by their semantics.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -18,7 +18,7 @@ pub struct ContextAttributes {
     /// Categorical attributes are attributes that have a finite set of values that are not directly
     /// comparable (i.e., enumeration).
     #[serde(alias = "categoricalAttributes")]
-    pub categorical: HashMap<String, String>,
+    pub categorical: HashMap<String, ArcStr>,
 }
 
 impl From<Attributes> for ContextAttributes {
@@ -37,8 +37,7 @@ where
             .fold(ContextAttributes::default(), |mut acc, (key, value)| {
                 match value.to_owned() {
                     AttributeValue::String(value) => {
-                        acc.categorical
-                            .insert(key.to_owned(), value.as_ref().into());
+                        acc.categorical.insert(key.to_owned(), value);
                     }
                     AttributeValue::Number(value) => {
                         acc.numeric.insert(key.to_owned(), value);
@@ -51,7 +50,8 @@ where
                         // We can go a step further and remove `AttributeValue::Boolean` altogether
                         // (from `eppo_core`), forcing it to be converted to a string before any
                         // evaluation.
-                        acc.categorical.insert(key.to_owned(), value.to_string());
+                        acc.categorical
+                            .insert(key.to_owned(), value.to_string().into());
                     }
                     AttributeValue::Null => {
                         // Nulls are missing values and are ignored.
@@ -70,7 +70,7 @@ impl ContextAttributes {
             result.insert(key.clone(), AttributeValue::Number(*value));
         }
         for (key, value) in self.categorical.iter() {
-            result.insert(key.clone(), AttributeValue::String(value.as_str().into()));
+            result.insert(key.clone(), AttributeValue::String(value.clone()));
         }
         result
     }
@@ -82,7 +82,7 @@ mod pyo3_impl {
 
     use pyo3::prelude::*;
 
-    use crate::Attributes;
+    use crate::{ArcStr, Attributes};
 
     use super::ContextAttributes;
 
@@ -91,7 +91,7 @@ mod pyo3_impl {
         #[new]
         fn new(
             numeric_attributes: HashMap<String, f64>,
-            categorical_attributes: HashMap<String, String>,
+            categorical_attributes: HashMap<String, ArcStr>,
         ) -> ContextAttributes {
             ContextAttributes {
                 numeric: numeric_attributes,

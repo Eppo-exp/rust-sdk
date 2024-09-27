@@ -392,7 +392,7 @@ fn score_attributes(
             attributes
                 .categorical
                 .get(&coef.attribute_key)
-                .and_then(|value| coef.value_coefficients.get(value))
+                .and_then(|value| coef.value_coefficients.get(value.as_str()))
                 .copied()
                 .unwrap_or(coef.missing_value_coefficient)
         }))
@@ -435,7 +435,7 @@ mod tests {
     #[serde(rename_all = "camelCase")]
     struct TestContextAttributes {
         numeric_attributes: HashMap<String, f64>,
-        categorical_attributes: HashMap<String, String>,
+        categorical_attributes: HashMap<String, ArcStr>,
     }
     impl From<TestContextAttributes> for ContextAttributes {
         fn from(value: TestContextAttributes) -> ContextAttributes {

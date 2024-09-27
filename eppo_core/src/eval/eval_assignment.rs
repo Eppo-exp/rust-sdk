@@ -425,7 +425,7 @@ mod tests {
         match value {
             DefaultValue::Value(v) => v,
             DefaultValue::Json(json) => {
-                ValueWire::String(serde_json::to_string(&json).unwrap().as_str().into())
+                ValueWire::String(serde_json::to_string(&json).unwrap().into())
             }
         }
     }

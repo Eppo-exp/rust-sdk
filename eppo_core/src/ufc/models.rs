@@ -161,12 +161,6 @@ impl ValueWire {
     }
 }
 
-impl From<&str> for ValueWire {
-    fn from(value: &str) -> Self {
-        ValueWire::String(ArcStr::from(value))
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 #[allow(missing_docs)]
@@ -263,7 +257,7 @@ impl From<Comparand> for ConditionValue {
             Comparand::Version(v) => v.to_string(),
             Comparand::Number(n) => n.to_string(),
         };
-        ConditionValue::Single(s.as_str().into())
+        ConditionValue::Single(ValueWire::String(s.into()))
     }
 }
 
@@ -293,7 +287,7 @@ impl From<Condition> for ConditionWire {
                 } else {
                     ConditionOperator::NotMatches
                 },
-                regex.as_str().into(),
+                ConditionValue::Single(ValueWire::String(ArcStr::from(regex.as_str()))),
             ),
             ConditionCheck::Membership {
                 expected_membership,
