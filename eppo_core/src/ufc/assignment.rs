@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use crate::events::AssignmentEvent;
+use crate::{events::AssignmentEvent, ArcStr};
 
 /// Result of assignment evaluation.
 #[derive(Debug, Serialize, Clone)]
@@ -17,7 +17,7 @@ pub struct Assignment {
 #[serde(tag = "type", content = "value", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AssignmentValue {
     /// A string value.
-    String(String),
+    String(ArcStr),
     /// An integer value.
     Integer(i64),
     /// A numeric value (floating-point).
@@ -37,7 +37,7 @@ impl AssignmentValue {
     /// # Examples
     /// ```
     /// # use eppo_core::ufc::AssignmentValue;
-    /// let value = AssignmentValue::String("example".to_owned());
+    /// let value = AssignmentValue::String("example".into());
     /// assert_eq!(value.is_string(), true);
     /// ```
     pub fn is_string(&self) -> bool {
@@ -51,7 +51,7 @@ impl AssignmentValue {
     /// # Examples
     /// ```
     /// # use eppo_core::ufc::AssignmentValue;
-    /// let value = AssignmentValue::String("example".to_owned());
+    /// let value = AssignmentValue::String("example".into());
     /// assert_eq!(value.as_str(), Some("example"));
     /// ```
     pub fn as_str(&self) -> Option<&str> {
@@ -69,10 +69,10 @@ impl AssignmentValue {
     /// # Examples
     /// ```
     /// # use eppo_core::ufc::AssignmentValue;
-    /// let value = AssignmentValue::String("example".to_owned());
-    /// assert_eq!(value.to_string(), Some("example".to_owned()));
+    /// let value = AssignmentValue::String("example".into());
+    /// assert_eq!(value.to_string(), Some("example".into()));
     /// ```
-    pub fn to_string(self) -> Option<String> {
+    pub fn to_string(self) -> Option<ArcStr> {
         match self {
             AssignmentValue::String(s) => Some(s),
             _ => None,

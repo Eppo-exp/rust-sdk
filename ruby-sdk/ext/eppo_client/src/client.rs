@@ -6,7 +6,7 @@ use eppo_core::{
     eval::{Evaluator, EvaluatorConfig},
     poller_thread::PollerThread,
     ufc::VariationType,
-    Attributes, ContextAttributes, SdkMetadata,
+    ArcStr, Attributes, ContextAttributes, SdkMetadata,
 };
 use magnus::{error::Result, exception, prelude::*, Error, TryConvert, Value};
 
@@ -135,7 +135,7 @@ impl Client {
             &Arc::from(subject_key),
             &subject_attributes,
             &actions,
-            &default_variation,
+            &ArcStr::from(default_variation),
         );
 
         serde_magnus::serialize(&result)
@@ -165,7 +165,7 @@ impl Client {
             &Arc::from(subject_key.into_boxed_str()),
             &subject_attributes,
             &actions,
-            &default_variation,
+            &ArcStr::from(default_variation),
         );
 
         serde_magnus::serialize(&result)

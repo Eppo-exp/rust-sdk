@@ -76,7 +76,7 @@ impl Evaluator {
         subject_key: &ArcStr,
         subject_attributes: &ContextAttributes,
         actions: &HashMap<String, ContextAttributes>,
-        default_variation: &str,
+        default_variation: &ArcStr,
     ) -> BanditResult {
         let configuration = self.get_configuration();
         get_bandit_action(
@@ -97,7 +97,7 @@ impl Evaluator {
         subject_key: &ArcStr,
         subject_attributes: &ContextAttributes,
         actions: &HashMap<String, ContextAttributes>,
-        default_variation: &str,
+        default_variation: &ArcStr,
     ) -> (BanditResult, EvaluationDetails) {
         let configuration = self.get_configuration();
         get_bandit_action_details(

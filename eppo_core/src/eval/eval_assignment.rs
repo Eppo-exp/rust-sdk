@@ -424,7 +424,9 @@ mod tests {
     fn to_value(value: DefaultValue) -> ValueWire {
         match value {
             DefaultValue::Value(v) => v,
-            DefaultValue::Json(json) => ValueWire::String(serde_json::to_string(&json).unwrap()),
+            DefaultValue::Json(json) => {
+                ValueWire::String(serde_json::to_string(&json).unwrap().as_str().into())
+            }
         }
     }
 
@@ -451,7 +453,7 @@ mod tests {
             let test_file: TestFile = serde_json::from_reader(f).unwrap();
 
             let default_assignment = to_value(test_file.default_value)
-                .to_assignment_value(test_file.variation_type)
+                .into_assignment_value(test_file.variation_type)
                 .unwrap();
 
             for subject in test_file.subjects {
@@ -471,7 +473,7 @@ mod tests {
                     .map(|assignment| &assignment.value)
                     .unwrap_or(&default_assignment);
                 let expected_assignment = to_value(subject.assignment)
-                    .to_assignment_value(test_file.variation_type)
+                    .into_assignment_value(test_file.variation_type)
                     .unwrap();
 
                 assert_eq!(result_assingment, &expected_assignment);

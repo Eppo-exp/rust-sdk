@@ -379,7 +379,7 @@ impl EppoClient {
             &subject_key.into(),
             &subject_context,
             &actions,
-            default,
+            &default.into(),
         );
 
         if let Some(event) = result.assignment_event.take() {
@@ -412,7 +412,7 @@ impl EppoClient {
             &subject_key.into(),
             &subject_context,
             &actions,
-            default,
+            &default.into(),
         );
 
         if let Some(event) = result.assignment_event.take() {

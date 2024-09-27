@@ -109,18 +109,18 @@ pub(crate) enum ValueWire {
     /// Number maps to either [`AssignmentValue::Integer`] or [`AssignmentValue::Numeric`].
     Number(f64),
     /// String maps to either [`AssignmentValue::String`] or [`AssignmentValue::Json`].
-    String(String),
+    String(ArcStr),
 }
 
 impl ValueWire {
     /// Try to convert `Value` to [`AssignmentValue`] under the given [`VariationType`].
-    pub(crate) fn to_assignment_value(&self, ty: VariationType) -> Option<AssignmentValue> {
+    pub(crate) fn into_assignment_value(self, ty: VariationType) -> Option<AssignmentValue> {
         Some(match ty {
-            VariationType::String => AssignmentValue::String(self.as_string()?.to_owned()),
+            VariationType::String => AssignmentValue::String(self.into_string()?),
             VariationType::Integer => AssignmentValue::Integer(self.as_integer()?),
             VariationType::Numeric => AssignmentValue::Numeric(self.as_number()?),
             VariationType::Boolean => AssignmentValue::Boolean(self.as_boolean()?),
-            VariationType::Json => AssignmentValue::Json(self.to_json()?),
+            VariationType::Json => AssignmentValue::Json(self.into_json()?),
         })
     }
 
@@ -148,22 +148,22 @@ impl ValueWire {
         }
     }
 
-    fn as_string(&self) -> Option<&str> {
+    fn into_string(self) -> Option<ArcStr> {
         match self {
             Self::String(value) => Some(value),
             _ => None,
         }
     }
 
-    fn to_json(&self) -> Option<serde_json::Value> {
-        let s = self.as_string()?;
-        serde_json::from_str(s).ok()?
+    fn into_json(self) -> Option<serde_json::Value> {
+        let s = self.into_string()?;
+        serde_json::from_str(&s).ok()?
     }
 }
 
 impl From<&str> for ValueWire {
     fn from(value: &str) -> Self {
-        Self::String(value.to_owned())
+        ValueWire::String(ArcStr::from(value))
     }
 }
 
@@ -263,7 +263,7 @@ impl From<Comparand> for ConditionValue {
             Comparand::Version(v) => v.to_string(),
             Comparand::Number(n) => n.to_string(),
         };
-        ConditionValue::Single(s.into())
+        ConditionValue::Single(s.as_str().into())
     }
 }
 

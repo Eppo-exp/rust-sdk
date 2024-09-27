@@ -152,7 +152,7 @@ fn compile_flag(meta_data: EventMetaData, flag: FlagWire) -> Flag {
         .map(|variation| {
             let assignment_value = variation
                 .value
-                .to_assignment_value(flag.variation_type)
+                .into_assignment_value(flag.variation_type)
                 .ok_or(EvaluationFailure::Error(
                     EvaluationError::UnexpectedConfigurationError,
                 ));

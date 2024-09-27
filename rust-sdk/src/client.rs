@@ -139,7 +139,7 @@ impl<'a> Client<'a> {
     ///         ("language".into(), "en".into())
     ///     ].into_iter().collect()))
     ///     .unwrap_or_default()
-    ///     .unwrap_or("default_value".to_owned());
+    ///     .unwrap_or("default_value".into());
     /// # }
     /// ```
     pub fn get_string_assignment(
@@ -147,7 +147,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &ArcStr,
         subject_attributes: &Arc<Attributes>,
-    ) -> Result<Option<String>, EvaluationError> {
+    ) -> Result<Option<ArcStr>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -401,7 +401,7 @@ impl<'a> Client<'a> {
         flag_key: &str,
         subject_key: &ArcStr,
         subject_attributes: &Arc<Attributes>,
-    ) -> EvaluationResultWithDetails<String> {
+    ) -> EvaluationResultWithDetails<ArcStr> {
         self.get_assignment_details_inner(
             flag_key,
             subject_key,

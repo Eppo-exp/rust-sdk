@@ -37,7 +37,7 @@ struct Action<'a> {
 #[derive(Debug, Clone, Serialize)]
 pub struct BanditResult {
     /// Selected variation from the feature flag.
-    pub variation: String,
+    pub variation: ArcStr,
     /// Selected action if any.
     pub action: Option<String>,
     /// Flag assignment event that needs to be logged to analytics storage.
@@ -54,7 +54,7 @@ pub fn get_bandit_action(
     subject_key: &ArcStr,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
-    default_variation: &str,
+    default_variation: &ArcStr,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
 ) -> BanditResult {
@@ -79,7 +79,7 @@ pub fn get_bandit_action_details(
     subject_key: &ArcStr,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
-    default_variation: &str,
+    default_variation: &ArcStr,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
 ) -> (BanditResult, EvaluationDetails) {
@@ -113,13 +113,13 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     subject_key: &ArcStr,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
-    default_variation: &str,
+    default_variation: &ArcStr,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
 ) -> BanditResult {
     let Some(configuration) = configuration else {
         let result = BanditResult {
-            variation: default_variation.to_owned(),
+            variation: default_variation.clone(),
             action: None,
             assignment_event: None,
             bandit_event: None,
@@ -141,7 +141,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     )
     .unwrap_or_default()
     .unwrap_or_else(|| Assignment {
-        value: AssignmentValue::String(default_variation.to_owned()),
+        value: AssignmentValue::String(default_variation.clone()),
         event: None,
     });
 
@@ -418,7 +418,7 @@ mod tests {
     #[serde(rename_all = "camelCase")]
     struct TestFile {
         flag: String,
-        default_value: String,
+        default_value: ArcStr,
         subjects: Vec<TestSubject>,
     }
 
@@ -457,7 +457,7 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
     #[serde(rename_all = "camelCase")]
     struct TestAssignment {
-        variation: String,
+        variation: ArcStr,
         action: Option<String>,
     }
 
