@@ -24,6 +24,14 @@ module EppoClient
       @core = EppoClient::Core::Client.new(config)
     end
 
+    def configuration
+      @core.configuration
+    end
+
+    def configuration=(configuration)
+      @core.configuration = configuration
+    end
+
     def shutdown
       @core.shutdown
     end
