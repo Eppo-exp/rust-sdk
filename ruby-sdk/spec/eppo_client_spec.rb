@@ -7,6 +7,36 @@ RSpec.describe EppoClient do
     expect(EppoClient::VERSION).not_to be nil
   end
 
+  describe "configuration()" do
+    it "allows getting configuration" do
+      init_client_for "ufc"
+
+      configuration = EppoClient::Client.instance.configuration
+
+      expect(configuration).not_to be_nil
+    end
+
+    it "returns nil when not initialized" do
+      init_client_for "offline"
+
+      configuration = EppoClient::Client.instance.configuration
+
+      expect(configuration).to be_nil
+    end
+  end
+
+  describe "configuration=()" do
+    it "allows setting configuration on offline client" do
+      init_client_for "offline"
+
+      configuration = EppoClient::Configuration.new(flags_configuration: File.read("../sdk-test-data/ufc/flags-v1.json"))
+
+      EppoClient::Client.instance.configuration = configuration
+
+      expect(EppoClient::Client.instance.configuration).not_to be_nil
+    end
+  end
+
   describe "UFC flag evaluation", :flags do
     before :all do
       init_client_for "ufc"
