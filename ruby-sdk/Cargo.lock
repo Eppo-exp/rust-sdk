@@ -304,7 +304,7 @@ dependencies = [
 
 [[package]]
 name = "eppo_client"
-version = "3.1.1"
+version = "3.1.2"
 dependencies = [
  "env_logger",
  "eppo_core",
@@ -317,12 +317,13 @@ dependencies = [
 
 [[package]]
 name = "eppo_core"
-version = "3.0.0"
+version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34f3fc5a7f54cc47a5ebf063025176726db7eb5e51661185b5f4d20aaacea611"
+checksum = "b071fed21065318dcd6a91a443bd9f6b39796d727297b03d092e2e8dc9e02414"
 dependencies = [
  "chrono",
  "derive_more",
+ "faststr",
  "log",
  "md5",
  "rand",
@@ -366,6 +367,17 @@ name = "fastrand"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9fc0510504f03c51ada170672ac806f1f105a88aa97a5281117e1ddc3368e51a"
+
+[[package]]
+name = "faststr"
+version = "0.2.23"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4dc21a7d5a45182c2bb5ae9471b93f10919c0744b54403e54a9e2329c26ed5a3"
+dependencies = [
+ "bytes",
+ "serde",
+ "simdutf8",
+]
 
 [[package]]
 name = "fnv"
@@ -1327,6 +1339,12 @@ name = "shlex"
 version = "1.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0fda2ff0d084019ba4d7c6f371c95d8fd75ce3524c3cb8fb653a3023f6323e64"
+
+[[package]]
+name = "simdutf8"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3a9fe34e3e7a50316060351f37187a3f546bce95496156754b601a5fa71b76e"
 
 [[package]]
 name = "slab"
