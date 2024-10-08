@@ -81,8 +81,8 @@ impl Client {
             .evaluator
             .get_assignment(
                 &flag_key,
-                &subject_key,
-                &subject_attributes,
+                &subject_key.into(),
+                &Arc::new(subject_attributes),
                 Some(expected_type),
             )
             // TODO: maybe expose possible errors individually.
@@ -103,8 +103,8 @@ impl Client {
 
         let result = self.evaluator.get_assignment_details(
             &flag_key,
-            &subject_key,
-            &subject_attributes,
+            &subject_key.into(),
+            &Arc::new(subject_attributes),
             Some(expected_type),
         );
 
@@ -132,10 +132,10 @@ impl Client {
 
         let result = self.evaluator.get_bandit_action(
             &flag_key,
-            &subject_key,
+            &subject_key.into(),
             &subject_attributes,
             &actions,
-            &default_variation,
+            &default_variation.into(),
         );
 
         serde_magnus::serialize(&result)
@@ -162,10 +162,10 @@ impl Client {
 
         let result = self.evaluator.get_bandit_action_details(
             &flag_key,
-            &subject_key,
+            &subject_key.into(),
             &subject_attributes,
             &actions,
-            &default_variation,
+            &default_variation.into(),
         );
 
         serde_magnus::serialize(&result)

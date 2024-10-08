@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use eppo::AttributeValue;
 
 pub fn main() -> eppo::Result<()> {
@@ -24,8 +26,8 @@ pub fn main() -> eppo::Result<()> {
     // Get assignment for test-subject.
     let assignment_with_details = client.get_boolean_assignment_details(
         "a-boolean-flag",
-        "test-subject",
-        &[("name".to_owned(), AttributeValue::from("<your name>"))].into(),
+        &"test-subject".into(),
+        &Arc::new([("name".to_owned(), AttributeValue::from("<your name>"))].into()),
     );
 
     println!(

@@ -23,7 +23,11 @@ pub fn main() -> eppo::Result<()> {
 
     // Get assignment for test-subject.
     let assignment = client
-        .get_boolean_assignment("a-boolean-flag", "test-subject", &HashMap::new())
+        .get_boolean_assignment(
+            "a-boolean-flag",
+            &"test-subject".into(),
+            &HashMap::new().into(),
+        )
         .unwrap_or_default()
         // default assignment
         .unwrap_or(false);

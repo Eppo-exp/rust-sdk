@@ -1,6 +1,6 @@
 use crate::{
     error::EvaluationFailure,
-    ufc::{Allocation, Assignment, Condition, Flag, Rule, Shard, Split, Variation},
+    ufc::{Allocation, Assignment, Condition, Flag, RuleWire, Shard, Split},
     AttributeValue, Configuration,
 };
 
@@ -34,27 +34,16 @@ pub(super) trait EvalAssignmentVisitor {
         Self: 'a;
 
     /// Called when (if) evaluation gets configuration.
-    #[allow(unused_variables)]
-    #[inline]
-    fn on_configuration(&mut self, configuration: &Configuration) {}
+    fn on_configuration(&mut self, configuration: &Configuration);
 
     /// Called when evaluation finds the flag configuration.
-    #[allow(unused_variables)]
-    #[inline]
-    fn on_flag_configuration(&mut self, flag: &Flag) {}
+    fn on_flag_configuration(&mut self, flag: &Flag);
 
     /// Called before evaluation an allocation.
     fn visit_allocation<'a>(&'a mut self, allocation: &Allocation) -> Self::AllocationVisitor<'a>;
 
-    /// Called when variation has been found for the evaluation.
-    #[allow(unused_variables)]
-    #[inline]
-    fn on_variation(&mut self, variation: &Variation) {}
-
     /// Called with evaluation result.
-    #[allow(unused_variables)]
-    #[inline]
-    fn on_result(&mut self, result: &Result<Assignment, EvaluationFailure>) {}
+    fn on_result(&mut self, result: &Result<Assignment, EvaluationFailure>);
 }
 
 pub(super) trait EvalAllocationVisitor {
@@ -67,25 +56,17 @@ pub(super) trait EvalAllocationVisitor {
         Self: 'a;
 
     /// Called before evaluating a rule.
-    fn visit_rule<'a>(&'a mut self, rule: &Rule) -> Self::RuleVisitor<'a>;
+    fn visit_rule<'a>(&'a mut self, rule: &RuleWire) -> Self::RuleVisitor<'a>;
 
     /// Called before evaluating a split.
     fn visit_split<'a>(&'a mut self, split: &Split) -> Self::SplitVisitor<'a>;
 
     /// Called when allocation evaluation result is known. This functions gets passed either the
     /// split matched, or the reason why this allocation was not matched.
-    #[allow(unused_variables)]
-    #[inline]
-    fn on_result(&mut self, result: Result<&Split, AllocationNonMatchReason>) {}
+    fn on_result(&mut self, result: Result<&Split, AllocationNonMatchReason>);
 }
 
 pub(super) trait EvalRuleVisitor {
-    /// Called when condition is skipped due to being invalid (e.g., regex cannot be compiled or
-    /// server response is ill-formatted).
-    ///
-    /// `condition` is original server response.
-    fn on_condition_skip(&mut self, condition: &serde_json::Value);
-
     fn on_condition_eval(
         &mut self,
         condition: &Condition,
@@ -93,19 +74,13 @@ pub(super) trait EvalRuleVisitor {
         result: bool,
     );
 
-    #[allow(unused_variables)]
-    #[inline]
-    fn on_result(&mut self, result: bool) {}
+    fn on_result(&mut self, result: bool);
 }
 
 pub(super) trait EvalSplitVisitor {
-    #[allow(unused_variables)]
-    #[inline]
-    fn on_shard_eval(&mut self, shard: &Shard, shard_value: u64, matches: bool) {}
+    fn on_shard_eval(&mut self, shard: &Shard, shard_value: u32, matches: bool);
 
-    #[allow(unused_variables)]
-    #[inline]
-    fn on_result(&mut self, matches: bool) {}
+    fn on_result(&mut self, matches: bool);
 }
 
 /// Dummy visitor that does nothing.
@@ -138,6 +113,15 @@ impl EvalAssignmentVisitor for NoopEvalVisitor {
     fn visit_allocation<'a>(&'a mut self, _allocation: &Allocation) -> Self::AllocationVisitor<'a> {
         NoopEvalVisitor
     }
+
+    #[inline]
+    fn on_configuration(&mut self, _configuration: &Configuration) {}
+
+    #[inline]
+    fn on_flag_configuration(&mut self, _flag: &Flag) {}
+
+    #[inline]
+    fn on_result(&mut self, _result: &Result<Assignment, EvaluationFailure>) {}
 }
 
 impl EvalAllocationVisitor for NoopEvalVisitor {
@@ -146,7 +130,7 @@ impl EvalAllocationVisitor for NoopEvalVisitor {
     type SplitVisitor<'a> = NoopEvalVisitor;
 
     #[inline]
-    fn visit_rule<'a>(&'a mut self, _rule: &Rule) -> Self::RuleVisitor<'a> {
+    fn visit_rule<'a>(&'a mut self, _rule: &RuleWire) -> Self::RuleVisitor<'a> {
         NoopEvalVisitor
     }
 
@@ -154,12 +138,12 @@ impl EvalAllocationVisitor for NoopEvalVisitor {
     fn visit_split<'a>(&'a mut self, _split: &Split) -> Self::SplitVisitor<'a> {
         NoopEvalVisitor
     }
+
+    #[inline]
+    fn on_result(&mut self, _result: Result<&Split, AllocationNonMatchReason>) {}
 }
 
 impl EvalRuleVisitor for NoopEvalVisitor {
-    #[inline]
-    fn on_condition_skip(&mut self, _condition: &serde_json::Value) {}
-
     #[inline]
     fn on_condition_eval(
         &mut self,
@@ -168,6 +152,15 @@ impl EvalRuleVisitor for NoopEvalVisitor {
         _result: bool,
     ) {
     }
+
+    #[inline]
+    fn on_result(&mut self, _result: bool) {}
 }
 
-impl EvalSplitVisitor for NoopEvalVisitor {}
+impl EvalSplitVisitor for NoopEvalVisitor {
+    #[inline]
+    fn on_shard_eval(&mut self, _shard: &Shard, _shard_value: u32, _matches: bool) {}
+
+    #[inline]
+    fn on_result(&mut self, _matches: bool) {}
+}

@@ -1,9 +1,11 @@
+use std::sync::Arc;
+
 use serde::{Deserialize, Serialize};
 
-use crate::events::AssignmentEvent;
+use crate::{events::AssignmentEvent, Str};
 
 /// Result of assignment evaluation.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Assignment {
     /// Assignment value that should be returned to the user.
@@ -17,7 +19,7 @@ pub struct Assignment {
 #[serde(tag = "type", content = "value", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AssignmentValue {
     /// A string value.
-    String(String),
+    String(Str),
     /// An integer value.
     Integer(i64),
     /// A numeric value (floating-point).
@@ -25,7 +27,7 @@ pub enum AssignmentValue {
     /// A boolean value.
     Boolean(bool),
     /// Arbitrary JSON value.
-    Json(serde_json::Value),
+    Json(Arc<serde_json::Value>),
 }
 
 impl AssignmentValue {
@@ -37,7 +39,7 @@ impl AssignmentValue {
     /// # Examples
     /// ```
     /// # use eppo_core::ufc::AssignmentValue;
-    /// let value = AssignmentValue::String("example".to_owned());
+    /// let value = AssignmentValue::String("example".into());
     /// assert_eq!(value.is_string(), true);
     /// ```
     pub fn is_string(&self) -> bool {
@@ -51,7 +53,7 @@ impl AssignmentValue {
     /// # Examples
     /// ```
     /// # use eppo_core::ufc::AssignmentValue;
-    /// let value = AssignmentValue::String("example".to_owned());
+    /// let value = AssignmentValue::String("example".into());
     /// assert_eq!(value.as_str(), Some("example"));
     /// ```
     pub fn as_str(&self) -> Option<&str> {
@@ -69,10 +71,10 @@ impl AssignmentValue {
     /// # Examples
     /// ```
     /// # use eppo_core::ufc::AssignmentValue;
-    /// let value = AssignmentValue::String("example".to_owned());
-    /// assert_eq!(value.to_string(), Some("example".to_owned()));
+    /// let value = AssignmentValue::String("example".into());
+    /// assert_eq!(value.to_string(), Some("example".into()));
     /// ```
-    pub fn to_string(self) -> Option<String> {
+    pub fn to_string(self) -> Option<Str> {
         match self {
             AssignmentValue::String(s) => Some(s),
             _ => None,
@@ -185,7 +187,7 @@ impl AssignmentValue {
     /// # use eppo_core::ufc::AssignmentValue;
     /// use serde_json::json;
     ///
-    /// let value = AssignmentValue::Json(json!({ "key": "value" }));
+    /// let value = AssignmentValue::Json(json!({ "key": "value" }).into());
     /// assert_eq!(value.is_json(), true);
     /// ```
     pub fn is_json(&self) -> bool {
@@ -201,7 +203,7 @@ impl AssignmentValue {
     /// # use eppo_core::ufc::AssignmentValue;
     /// use serde_json::json;
     ///
-    /// let value = AssignmentValue::Json(json!({ "key": "value" }));
+    /// let value = AssignmentValue::Json(json!({ "key": "value" }).into());
     /// assert_eq!(value.as_json(), Some(&json!({ "key": "value" })));
     /// ```
     pub fn as_json(&self) -> Option<&serde_json::Value> {
@@ -220,10 +222,10 @@ impl AssignmentValue {
     /// # use eppo_core::ufc::AssignmentValue;
     /// use serde_json::json;
     ///
-    /// let value = AssignmentValue::Json(json!({ "key": "value" }));
-    /// assert_eq!(value.to_json(), Some(json!({ "key": "value" })));
+    /// let value = AssignmentValue::Json(json!({ "key": "value" }).into());
+    /// assert_eq!(value.to_json(), Some(json!({ "key": "value" }).into()));
     /// ```
-    pub fn to_json(self) -> Option<serde_json::Value> {
+    pub fn to_json(self) -> Option<Arc<serde_json::Value>> {
         match self {
             Self::Json(v) => Some(v),
             _ => None,

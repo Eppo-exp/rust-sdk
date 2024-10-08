@@ -1,7 +1,47 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use derive_more::From;
 use serde::{Deserialize, Serialize};
+
+use crate::Str;
+
+/// `Subject` is a bundle of subject attributes and a key.
+#[derive(Debug)]
+pub(crate) struct Subject {
+    /// Subject key encoded as attribute value. Known to be `AttributeValue::String`. This is
+    /// done to allow returning subject key as an attribute when rule references "id".
+    key: AttributeValue,
+    attributes: Arc<Attributes>,
+}
+
+impl Subject {
+    pub fn new(key: Str, attributes: Arc<Attributes>) -> Subject {
+        Subject {
+            key: AttributeValue::String(key),
+            attributes,
+        }
+    }
+
+    pub fn key(&self) -> &Str {
+        let AttributeValue::String(s) = &self.key else {
+            unreachable!("Subject::key is always encoded as AttributeValue::ArcString()");
+        };
+        s
+    }
+
+    pub fn get_attribute(&self, name: &str) -> Option<&AttributeValue> {
+        let value = self.attributes.get(name);
+        if value.is_some() {
+            return value;
+        }
+
+        if name == "id" {
+            return Some(&self.key);
+        }
+
+        None
+    }
+}
 
 /// Type alias for a HashMap representing key-value pairs of attributes.
 ///
@@ -33,7 +73,8 @@ pub type Attributes = HashMap<String, AttributeValue>;
 #[serde(untagged)]
 pub enum AttributeValue {
     /// A string value.
-    String(String),
+    #[from(ignore)]
+    String(Str),
     /// A numerical value.
     Number(f64),
     /// A boolean value.
@@ -42,19 +83,19 @@ pub enum AttributeValue {
     Null,
 }
 
-impl AttributeValue {
-    pub fn as_str(&self) -> Option<&str> {
-        if let AttributeValue::String(s) = self {
-            Some(s.as_str())
-        } else {
-            None
-        }
+impl<T: Into<Str>> From<T> for AttributeValue {
+    fn from(value: T) -> AttributeValue {
+        AttributeValue::String(value.into())
     }
 }
 
-impl From<&str> for AttributeValue {
-    fn from(value: &str) -> Self {
-        Self::String(value.to_owned())
+impl AttributeValue {
+    pub fn as_str(&self) -> Option<&str> {
+        if let AttributeValue::String(s) = self {
+            Some(s.as_ref())
+        } else {
+            None
+        }
     }
 }
 
@@ -67,19 +108,19 @@ mod pyo3_impl {
     impl<'py> FromPyObject<'py> for AttributeValue {
         fn extract_bound(value: &Bound<'py, PyAny>) -> PyResult<AttributeValue> {
             if let Ok(s) = value.downcast::<PyString>() {
-                return Ok(AttributeValue::String(s.extract()?));
+                return Ok(AttributeValue::String(s.to_cow()?.into()));
             }
             // In Python, Bool inherits from Int, so it must be checked first here.
             if let Ok(s) = value.downcast::<PyBool>() {
-                return Ok(AttributeValue::Boolean(s.extract()?));
+                return Ok(AttributeValue::Boolean(s.is_true()));
             }
             if let Ok(s) = value.downcast::<PyFloat>() {
-                return Ok(AttributeValue::Number(s.extract()?));
+                return Ok(AttributeValue::Number(s.value()));
             }
             if let Ok(s) = value.downcast::<PyInt>() {
                 return Ok(AttributeValue::Number(s.extract()?));
             }
-            if let Ok(_) = value.downcast::<PyNone>() {
+            if value.is_none() {
                 return Ok(AttributeValue::Null);
             }
             Err(PyTypeError::new_err(

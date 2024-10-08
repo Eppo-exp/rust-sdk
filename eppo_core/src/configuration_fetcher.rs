@@ -45,7 +45,7 @@ impl ConfigurationFetcher {
 
         let ufc = self.fetch_ufc_configuration()?;
 
-        let bandits = if ufc.bandits.is_empty() {
+        let bandits = if ufc.compiled.flag_to_bandit_associations.is_empty() {
             // We don't need bandits configuration if there are no bandits.
             None
         } else {
@@ -82,7 +82,8 @@ impl ConfigurationFetcher {
             }
         })?;
 
-        let configuration = response.json()?;
+        let configuration =
+            UniversalFlagConfig::from_json(self.config.sdk_metadata, response.bytes()?.into())?;
 
         log::debug!(target: "eppo", "successfully fetched UFC flags configuration");
 

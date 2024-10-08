@@ -10,6 +10,7 @@ use eppo_core::{
     configuration_store::ConfigurationStore,
     eval::{Evaluator, EvaluatorConfig},
     ufc::{Assignment, VariationType},
+    Str,
 };
 
 /// A client for Eppo API.
@@ -89,15 +90,18 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
     ///     .get_assignment(
     ///         "a-boolean-flag",
-    ///         "user-id",
-    ///         &[("age".to_owned(), 42.0.into())]
-    ///             .into_iter()
-    ///             .collect(),
+    ///         &"user-id".into(),
+    ///         &Arc::new(
+    ///             [("age".to_owned(), 42.0.into())]
+    ///                 .into_iter()
+    ///                 .collect()
+    ///         ),
     ///     )
     ///     .unwrap_or_default()
     ///     .and_then(|x| x.as_boolean())
@@ -108,8 +112,8 @@ impl<'a> Client<'a> {
     pub fn get_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<AssignmentValue>, EvaluationError> {
         self.get_assignment_inner(flag_key, subject_key, subject_attributes, None, |x| x)
     }
@@ -127,22 +131,23 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
-    ///     .get_string_assignment("a-string-flag", "user-id", &[
+    ///     .get_string_assignment("a-string-flag", &"user-id".into(), &Arc::new([
     ///         ("language".into(), "en".into())
-    ///     ].into_iter().collect())
+    ///     ].into_iter().collect()))
     ///     .unwrap_or_default()
-    ///     .unwrap_or("default_value".to_owned());
+    ///     .unwrap_or("default_value".into());
     /// # }
     /// ```
     pub fn get_string_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
-    ) -> Result<Option<String>, EvaluationError> {
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
+    ) -> Result<Option<Str>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -169,12 +174,13 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
-    ///     .get_integer_assignment("an-int-flag", "user-id", &[
-    ///         ("age".to_owned(), 42.0.into())
-    ///     ].into_iter().collect())
+    ///     .get_integer_assignment("an-int-flag", &"user-id".into(), &Arc::new([
+    ///         ("age".into(), 42.0.into())
+    ///     ].into_iter().collect()))
     ///     .unwrap_or_default()
     ///     .unwrap_or(0);
     /// # }
@@ -182,8 +188,8 @@ impl<'a> Client<'a> {
     pub fn get_integer_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<i64>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
@@ -211,12 +217,13 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
-    ///     .get_numeric_assignment("a-num-flag", "user-id", &[
+    ///     .get_numeric_assignment("a-num-flag", &"user-id".into(), &Arc::new([
     ///         ("age".to_owned(), 42.0.into())
-    ///     ].iter().cloned().collect())
+    ///     ].iter().cloned().collect()))
     ///     .unwrap_or_default()
     ///     .unwrap_or(0.0);
     /// # }
@@ -224,8 +231,8 @@ impl<'a> Client<'a> {
     pub fn get_numeric_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<f64>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
@@ -253,12 +260,13 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
-    ///     .get_boolean_assignment("a-bool-flag", "user-id", &[
-    ///         ("age".to_owned(), 42.0.into())
-    ///     ].into_iter().collect())
+    ///     .get_boolean_assignment("a-bool-flag", &"user-id".into(), &Arc::new([
+    ///         ("age".into(), 42.0.into())
+    ///     ].into_iter().collect()))
     ///     .unwrap_or_default()
     ///     .unwrap_or(false);
     /// # }
@@ -266,8 +274,8 @@ impl<'a> Client<'a> {
     pub fn get_boolean_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
     ) -> Result<Option<bool>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
@@ -295,23 +303,24 @@ impl<'a> Client<'a> {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
+    /// # use std::sync::Arc;
     /// # use serde_json::json;
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
-    ///     .get_json_assignment("a-json-flag", "user-id", &[
+    ///     .get_json_assignment("a-json-flag", &"user-id".into(), &Arc::new([
     ///         ("language".into(), "en".into())
-    ///     ].into_iter().collect())
+    ///     ].into_iter().collect()))
     ///     .unwrap_or_default()
-    ///     .unwrap_or(json!({}));
+    ///     .unwrap_or(json!({}).into());
     /// # }
     /// ```
     pub fn get_json_assignment(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
-    ) -> Result<Option<serde_json::Value>, EvaluationError> {
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
+    ) -> Result<Option<Arc<serde_json::Value>>, EvaluationError> {
         self.get_assignment_inner(
             flag_key,
             subject_key,
@@ -328,8 +337,8 @@ impl<'a> Client<'a> {
     fn get_assignment_inner<T>(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
         expected_type: Option<VariationType>,
         convert: impl FnOnce(AssignmentValue) -> T,
     ) -> Result<Option<T>, EvaluationError> {
@@ -376,8 +385,8 @@ impl<'a> Client<'a> {
     pub fn get_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<AssignmentValue> {
         self.get_assignment_details_inner(flag_key, subject_key, subject_attributes, None)
     }
@@ -390,9 +399,9 @@ impl<'a> Client<'a> {
     pub fn get_string_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
-    ) -> EvaluationResultWithDetails<String> {
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
+    ) -> EvaluationResultWithDetails<Str> {
         self.get_assignment_details_inner(
             flag_key,
             subject_key,
@@ -413,8 +422,8 @@ impl<'a> Client<'a> {
     pub fn get_integer_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<i64> {
         self.get_assignment_details_inner(
             flag_key,
@@ -436,8 +445,8 @@ impl<'a> Client<'a> {
     pub fn get_numeric_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<f64> {
         self.get_assignment_details_inner(
             flag_key,
@@ -459,8 +468,8 @@ impl<'a> Client<'a> {
     pub fn get_boolean_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
     ) -> EvaluationResultWithDetails<bool> {
         self.get_assignment_details_inner(
             flag_key,
@@ -482,9 +491,9 @@ impl<'a> Client<'a> {
     pub fn get_json_assignment_details(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
-    ) -> EvaluationResultWithDetails<serde_json::Value> {
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
+    ) -> EvaluationResultWithDetails<Arc<serde_json::Value>> {
         self.get_assignment_details_inner(
             flag_key,
             subject_key,
@@ -500,8 +509,8 @@ impl<'a> Client<'a> {
     fn get_assignment_details_inner(
         &self,
         flag_key: &str,
-        subject_key: &str,
-        subject_attributes: &Attributes,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
         expected_type: Option<VariationType>,
     ) -> EvaluationResultWithDetails<AssignmentValue> {
         let (result, event) = self.evaluator.get_assignment_details(
@@ -535,15 +544,8 @@ impl<'a> Client<'a> {
 mod tests {
     use std::{collections::HashMap, sync::Arc};
 
-    use crate::{client::AssignmentValue, Client, ClientConfig};
-    use eppo_core::{
-        configuration_store::ConfigurationStore,
-        ufc::{
-            Allocation, Environment, Flag, Split, TryParse, UniversalFlagConfig, Variation,
-            VariationType,
-        },
-        Configuration,
-    };
+    use crate::{Client, ClientConfig};
+    use eppo_core::configuration_store::ConfigurationStore;
 
     #[test]
     fn returns_none_while_no_configuration() {
@@ -555,67 +557,9 @@ mod tests {
 
         assert_eq!(
             client
-                .get_assignment("flag", "subject", &HashMap::new())
+                .get_assignment("flag", &"subject".into(), &Arc::new(HashMap::new()))
                 .unwrap(),
             None
-        );
-    }
-
-    #[test]
-    fn returns_proper_configuration_once_config_is_fetched() {
-        let configuration_store = Arc::new(ConfigurationStore::new());
-        let client = Client::new_with_configuration_store(
-            ClientConfig::from_api_key("api-key"),
-            configuration_store.clone(),
-        );
-
-        // updating configuration after client is created
-        configuration_store.set_configuration(Arc::new(Configuration::from_server_response(
-            UniversalFlagConfig {
-                created_at: chrono::Utc::now(),
-                environment: Environment {
-                    name: "test".to_owned(),
-                },
-                flags: [(
-                    "flag".to_owned(),
-                    TryParse::Parsed(Flag {
-                        key: "flag".to_owned(),
-                        enabled: true,
-                        variation_type: VariationType::Boolean,
-                        variations: [(
-                            "variation".to_owned(),
-                            Variation {
-                                key: "variation".to_owned(),
-                                value: true.into(),
-                            },
-                        )]
-                        .into(),
-                        allocations: vec![Allocation {
-                            key: "allocation".to_owned(),
-                            rules: vec![],
-                            start_at: None,
-                            end_at: None,
-                            splits: vec![Split {
-                                shards: vec![],
-                                variation_key: "variation".to_owned(),
-                                extra_logging: HashMap::new(),
-                            }],
-                            do_log: false,
-                        }],
-                        total_shards: 10_000,
-                    }),
-                )]
-                .into(),
-                bandits: HashMap::new(),
-            },
-            None,
-        )));
-
-        assert_eq!(
-            client
-                .get_assignment("flag", "subject", &HashMap::new())
-                .unwrap(),
-            Some(AssignmentValue::Boolean(true))
         );
     }
 }

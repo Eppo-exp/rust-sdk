@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AttributeValue, Attributes};
+use crate::{AttributeValue, Attributes, Str};
 
 /// `ContextAttributes` are subject or action attributes split by their semantics.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -18,7 +18,7 @@ pub struct ContextAttributes {
     /// Categorical attributes are attributes that have a finite set of values that are not directly
     /// comparable (i.e., enumeration).
     #[serde(alias = "categoricalAttributes")]
-    pub categorical: HashMap<String, String>,
+    pub categorical: HashMap<String, Str>,
 }
 
 impl From<Attributes> for ContextAttributes {
@@ -50,7 +50,10 @@ where
                         // We can go a step further and remove `AttributeValue::Boolean` altogether
                         // (from `eppo_core`), forcing it to be converted to a string before any
                         // evaluation.
-                        acc.categorical.insert(key.to_owned(), value.to_string());
+                        acc.categorical.insert(
+                            key.to_owned(),
+                            Str::from_static_str(if value { "true" } else { "false" }),
+                        );
                     }
                     AttributeValue::Null => {
                         // Nulls are missing values and are ignored.
@@ -81,7 +84,7 @@ mod pyo3_impl {
 
     use pyo3::prelude::*;
 
-    use crate::Attributes;
+    use crate::{Attributes, Str};
 
     use super::ContextAttributes;
 
@@ -90,7 +93,7 @@ mod pyo3_impl {
         #[new]
         fn new(
             numeric_attributes: HashMap<String, f64>,
-            categorical_attributes: HashMap<String, String>,
+            categorical_attributes: HashMap<String, Str>,
         ) -> ContextAttributes {
             ContextAttributes {
                 numeric: numeric_attributes,

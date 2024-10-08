@@ -65,7 +65,9 @@ mod configuration;
 mod context_attributes;
 mod error;
 mod sdk_metadata;
+mod str;
 
+pub use crate::str::Str;
 pub use attributes::{AttributeValue, Attributes};
 pub use configuration::Configuration;
 pub use context_attributes::ContextAttributes;

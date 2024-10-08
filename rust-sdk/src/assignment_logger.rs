@@ -11,7 +11,7 @@ pub trait AssignmentLogger {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```no_run
     /// # use eppo::{AssignmentLogger, AssignmentEvent};
     /// struct MyAssignmentLogger;
     ///

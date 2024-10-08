@@ -27,11 +27,12 @@ use eppo_core::{
     poller_thread::{PollerThread, PollerThreadConfig},
     pyo3::TryToPyObject,
     ufc::VariationType,
-    Attributes, ContextAttributes, SdkMetadata,
+    Attributes, ContextAttributes, Str,
 };
 
 use crate::{
     assignment_logger::AssignmentLogger, client_config::ClientConfig, configuration::Configuration,
+    SDK_METADATA,
 };
 
 #[pyclass(frozen, get_all, module = "eppo_client")]
@@ -151,7 +152,7 @@ impl EppoClient {
     fn get_string_assignment(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         default: Py<PyString>,
     ) -> PyResult<PyObject> {
@@ -167,7 +168,7 @@ impl EppoClient {
     fn get_integer_assignment(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         default: Py<PyInt>,
     ) -> PyResult<PyObject> {
@@ -183,7 +184,7 @@ impl EppoClient {
     fn get_numeric_assignment(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         default: Py<PyFloat>,
     ) -> PyResult<PyObject> {
@@ -199,7 +200,7 @@ impl EppoClient {
     fn get_boolean_assignment(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         default: Py<PyBool>,
     ) -> PyResult<PyObject> {
@@ -215,7 +216,7 @@ impl EppoClient {
     fn get_json_assignment(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         default: PyObject,
     ) -> PyResult<PyObject> {
@@ -232,7 +233,7 @@ impl EppoClient {
     fn get_string_assignment_details(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         default: Py<PyString>,
     ) -> PyResult<EvaluationResult> {
@@ -248,7 +249,7 @@ impl EppoClient {
     fn get_integer_assignment_details(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         default: Py<PyInt>,
     ) -> PyResult<EvaluationResult> {
@@ -264,7 +265,7 @@ impl EppoClient {
     fn get_numeric_assignment_details(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         default: Py<PyFloat>,
     ) -> PyResult<EvaluationResult> {
@@ -280,7 +281,7 @@ impl EppoClient {
     fn get_boolean_assignment_details(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         default: Py<PyBool>,
     ) -> PyResult<EvaluationResult> {
@@ -296,7 +297,7 @@ impl EppoClient {
     fn get_json_assignment_details(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         default: Py<PyAny>,
     ) -> PyResult<EvaluationResult> {
@@ -362,23 +363,23 @@ impl EppoClient {
     fn get_bandit_action(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         #[pyo3(from_py_with = "context_attributes_from_py")] subject_context: RefOrOwned<
             ContextAttributes,
             PyRef<ContextAttributes>,
         >,
         #[pyo3(from_py_with = "actions_from_py")] actions: HashMap<String, ContextAttributes>,
-        default: &str,
+        default: Str,
     ) -> PyResult<EvaluationResult> {
         let py = slf.py();
         let this = slf.get();
 
         let mut result = this.evaluator.get_bandit_action(
             flag_key,
-            subject_key,
+            &subject_key,
             &subject_context,
             &actions,
-            default,
+            &default,
         );
 
         if let Some(event) = result.assignment_event.take() {
@@ -395,23 +396,23 @@ impl EppoClient {
     fn get_bandit_action_details(
         slf: &Bound<EppoClient>,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         #[pyo3(from_py_with = "context_attributes_from_py")] subject_context: RefOrOwned<
             ContextAttributes,
             PyRef<ContextAttributes>,
         >,
         #[pyo3(from_py_with = "actions_from_py")] actions: HashMap<String, ContextAttributes>,
-        default: &str,
+        default: Str,
     ) -> PyResult<EvaluationResult> {
         let py = slf.py();
         let this = slf.get();
 
         let (mut result, details) = this.evaluator.get_bandit_action_details(
             flag_key,
-            subject_key,
+            &subject_key,
             &subject_context,
             &actions,
-            default,
+            &default,
         );
 
         if let Some(event) = result.assignment_event.take() {
@@ -466,7 +467,7 @@ impl EppoClient {
     fn get_flag_keys<'py>(&'py self, py: Python<'py>) -> PyResult<Bound<PySet>> {
         let config = self.configuration_store.get_configuration();
         match config {
-            Some(config) => PySet::new_bound(py, config.flags.flags.keys()),
+            Some(config) => PySet::new_bound(py, &config.flag_keys()),
             None => PySet::empty_bound(py),
         }
     }
@@ -560,14 +561,9 @@ impl EppoClient {
             configuration_store.set_configuration(configuration);
         }
 
-        let sdk_metadata = SdkMetadata {
-            name: "python",
-            version: env!("CARGO_PKG_VERSION"),
-        };
-
         let evaluator = Evaluator::new(EvaluatorConfig {
             configuration_store: configuration_store.clone(),
-            sdk_metadata: sdk_metadata.clone(),
+            sdk_metadata: SDK_METADATA,
         });
 
         let poller_thread = config
@@ -578,7 +574,7 @@ impl EppoClient {
                         eppo_core::configuration_fetcher::ConfigurationFetcherConfig {
                             base_url: config.base_url.clone(),
                             api_key: config.api_key.clone(),
-                            sdk_metadata,
+                            sdk_metadata: SDK_METADATA,
                         },
                     ),
                     configuration_store.clone(),
@@ -614,15 +610,15 @@ impl EppoClient {
         &self,
         py: Python,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         expected_type: Option<VariationType>,
         default: Py<PyAny>,
     ) -> PyResult<PyObject> {
         let result = self.evaluator.get_assignment(
             &flag_key,
-            &subject_key,
-            &subject_attributes,
+            &subject_key.into(),
+            &subject_attributes.into(),
             expected_type,
         );
 
@@ -654,15 +650,15 @@ impl EppoClient {
         &self,
         py: Python,
         flag_key: &str,
-        subject_key: &str,
+        subject_key: Str,
         subject_attributes: Attributes,
         expected_type: Option<VariationType>,
         default: Py<PyAny>,
     ) -> PyResult<EvaluationResult> {
         let (result, event) = self.evaluator.get_assignment_details(
             &flag_key,
-            &subject_key,
-            &subject_attributes,
+            &subject_key.into(),
+            &subject_attributes.into(),
             expected_type,
         );
 

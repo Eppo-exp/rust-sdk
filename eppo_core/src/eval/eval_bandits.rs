@@ -1,7 +1,8 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::bandits::{
     BanditCategoricalAttributeCoefficient, BanditModelData, BanditNumericAttributeCoefficient,
@@ -10,7 +11,7 @@ use crate::error::EvaluationFailure;
 use crate::events::{AssignmentEvent, BanditEvent};
 use crate::sharder::get_md5_shard;
 use crate::ufc::{Assignment, AssignmentValue, VariationType};
-use crate::{Configuration, EvaluationError};
+use crate::{Configuration, EvaluationError, Str};
 use crate::{ContextAttributes, SdkMetadata};
 
 use super::eval_assignment::get_assignment_with_visitor;
@@ -33,10 +34,10 @@ struct Action<'a> {
 }
 
 /// Result of evaluating a bandit.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct BanditResult {
     /// Selected variation from the feature flag.
-    pub variation: String,
+    pub variation: Str,
     /// Selected action if any.
     pub action: Option<String>,
     /// Flag assignment event that needs to be logged to analytics storage.
@@ -50,12 +51,12 @@ pub struct BanditResult {
 pub fn get_bandit_action(
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &str,
+    subject_key: &Str,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
-    default_variation: &str,
+    default_variation: &Str,
     now: DateTime<Utc>,
-    meta: &SdkMetadata,
+    sdk_meta: &SdkMetadata,
 ) -> BanditResult {
     get_bandit_action_with_visitor(
         &mut NoopEvalVisitor,
@@ -66,7 +67,7 @@ pub fn get_bandit_action(
         actions,
         default_variation,
         now,
-        meta,
+        sdk_meta,
     )
 }
 
@@ -75,17 +76,17 @@ pub fn get_bandit_action(
 pub fn get_bandit_action_details(
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &str,
+    subject_key: &Str,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
-    default_variation: &str,
+    default_variation: &Str,
     now: DateTime<Utc>,
-    meta: &SdkMetadata,
+    sdk_meta: &SdkMetadata,
 ) -> (BanditResult, EvaluationDetails) {
     let mut builder = EvalDetailsBuilder::new(
         flag_key.to_owned(),
         subject_key.to_owned(),
-        subject_attributes.to_generic_attributes(),
+        subject_attributes.to_generic_attributes().into(),
         now,
     );
     let result = get_bandit_action_with_visitor(
@@ -97,7 +98,7 @@ pub fn get_bandit_action_details(
         actions,
         default_variation,
         now,
-        meta,
+        sdk_meta,
     );
     let details = builder.build();
     (result, details)
@@ -109,16 +110,16 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     visitor: &mut V,
     configuration: Option<&Configuration>,
     flag_key: &str,
-    subject_key: &str,
+    subject_key: &Str,
     subject_attributes: &ContextAttributes,
     actions: &HashMap<String, ContextAttributes>,
-    default_variation: &str,
+    default_variation: &Str,
     now: DateTime<Utc>,
-    meta: &SdkMetadata,
+    sdk_meta: &SdkMetadata,
 ) -> BanditResult {
     let Some(configuration) = configuration else {
         let result = BanditResult {
-            variation: default_variation.to_owned(),
+            variation: default_variation.clone(),
             action: None,
             assignment_event: None,
             bandit_event: None,
@@ -134,14 +135,13 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
         &mut visitor.visit_assignment(),
         flag_key,
         subject_key,
-        &subject_attributes.to_generic_attributes(),
+        &Arc::new(subject_attributes.to_generic_attributes()),
         Some(VariationType::String),
         now,
-        meta,
     )
     .unwrap_or_default()
     .unwrap_or_else(|| Assignment {
-        value: AssignmentValue::String(default_variation.to_owned()),
+        value: AssignmentValue::String(default_variation.clone()),
         event: None,
     });
 
@@ -212,7 +212,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     let bandit_event = BanditEvent {
         flag_key: flag_key.to_owned(),
         bandit_key: bandit_key.to_owned(),
-        subject: subject_key.to_owned(),
+        subject: subject_key.clone(),
         action: evaluation.action_key.clone(),
         action_probability: evaluation.action_weight,
         optimality_gap: evaluation.optimality_gap,
@@ -222,15 +222,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
         subject_categorical_attributes: subject_attributes.categorical.clone(),
         action_numeric_attributes: action_attributes.numeric,
         action_categorical_attributes: action_attributes.categorical,
-        meta_data: [
-            ("sdkName".to_owned(), meta.name.to_owned()),
-            ("sdkVersion".to_owned(), meta.version.to_owned()),
-            (
-                "eppoCoreVersion".to_owned(),
-                env!("CARGO_PKG_VERSION").to_owned(),
-            ),
-        ]
-        .into(),
+        meta_data: sdk_meta.into(),
     };
 
     let result = BanditResult {
@@ -252,7 +244,7 @@ impl BanditModelData {
         actions: &HashMap<String, ContextAttributes>,
     ) -> Result<BanditEvaluationDetails, EvaluationFailure> {
         // total_shards is not configurable at the moment.
-        const TOTAL_SHARDS: u64 = 10_000;
+        const TOTAL_SHARDS: u32 = 10_000;
 
         if actions.len() == 0 {
             return Err(EvaluationFailure::NoActionsSuppliedForBandit);
@@ -400,7 +392,7 @@ fn score_attributes(
             attributes
                 .categorical
                 .get(&coef.attribute_key)
-                .and_then(|value| coef.value_coefficients.get(value))
+                .and_then(|value| coef.value_coefficients.get(value.as_str()))
                 .copied()
                 .unwrap_or(coef.missing_value_coefficient)
         }))
@@ -417,20 +409,23 @@ mod tests {
     use chrono::Utc;
     use serde::{Deserialize, Serialize};
 
-    use crate::{eval::get_bandit_action, Configuration, ContextAttributes, SdkMetadata};
+    use crate::{
+        eval::get_bandit_action, ufc::UniversalFlagConfig, Configuration, ContextAttributes,
+        SdkMetadata, Str,
+    };
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct TestFile {
         flag: String,
-        default_value: String,
+        default_value: Str,
         subjects: Vec<TestSubject>,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct TestSubject {
-        subject_key: String,
+        subject_key: Str,
         subject_attributes: TestContextAttributes,
         actions: Vec<TestAction>,
         assignment: TestAssignment,
@@ -440,7 +435,7 @@ mod tests {
     #[serde(rename_all = "camelCase")]
     struct TestContextAttributes {
         numeric_attributes: HashMap<String, f64>,
-        categorical_attributes: HashMap<String, String>,
+        categorical_attributes: HashMap<String, Str>,
     }
     impl From<TestContextAttributes> for ContextAttributes {
         fn from(value: TestContextAttributes) -> ContextAttributes {
@@ -462,14 +457,18 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
     #[serde(rename_all = "camelCase")]
     struct TestAssignment {
-        variation: String,
+        variation: Str,
         action: Option<String>,
     }
 
     #[test]
     fn sdk_test_data() {
-        let config = serde_json::from_reader(
-            File::open("../sdk-test-data/ufc/bandit-flags-v1.json").unwrap(),
+        let config = UniversalFlagConfig::from_json(
+            SdkMetadata {
+                name: "test",
+                version: "0.1.0",
+            },
+            std::fs::read("../sdk-test-data/ufc/bandit-flags-v1.json").unwrap(),
         )
         .unwrap();
         let bandits = serde_json::from_reader(
