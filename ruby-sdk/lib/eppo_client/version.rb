@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# TODO: this version and ext/eppo_rb/Cargo.toml should be in sync
+# TODO: this version and ext/eppo_client/Cargo.toml should be in sync
 module EppoClient
-  VERSION = "3.1.1"
+  VERSION = "3.1.2"
 end
