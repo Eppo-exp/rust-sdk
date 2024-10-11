@@ -12,22 +12,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  ci-data:
-    runs-on: ubuntu-latest
-    outputs:
-      result: ${{ steps.fetch.outputs.result }}
-    steps:
-      - id: fetch
-        uses: oxidize-rb/actions/fetch-ci-data@main
-        with:
-          supported-ruby-platforms: |
-            exclude: []
-          stable-ruby-versions: |
-            exclude: [head]
 
   cross_gems:
-    name: Cross compile gems
-    needs: ci-data
+    name: Cross compile
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -35,7 +22,23 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        ruby-platform: ${{ fromJSON(needs.ci-data.outputs.result).supported-ruby-platforms }}
+        _:
+          - platform: x86_64-linux
+            # This is necessary because rb-sys-dock depends on manylinux2014,
+            # which is based on CentOS 7 which is EOL as of July 2024 Once
+            # rake-compiler-dock switches to manylinux_2_28 and rb-sys-dock
+            # picks that up, we can pick their updates up and then drop this.
+            # See https://github.com/oxidize-rb/rb-sys/issues/402 and
+            # https://github.com/rake-compiler/rake-compiler-dock/issues/122
+            # for more details.
+            rb-sys-dock-setup: ./x86-64_linux-setup.sh
+          - platform: x86_64-linux-musl
+          - platform: aarch64-linux
+          - platform: aarch64-linux-musl
+          - platform: arm-linux
+          - platform: arm64-darwin
+          # - platform: x64-mingw32
+          # - platform: x86-mingw-ucrt
     steps:
       - uses: actions/checkout@v4
 
@@ -45,7 +48,7 @@ jobs:
           bundler-cache: true
           cargo-cache: true
           cargo-vendor: true
-          cache-version: v2-${{ matrix.ruby-platform }}
+          cache-version: v2-${{ matrix._.platform }}
 
       - name: Set vars
         id: vars
@@ -75,11 +78,11 @@ jobs:
         with:
           path: |
             ${{ env.RB_SYS_DOCK_CACHE_DIR }}
-            ruby-sdk/tmp/rb-sys-dock/${{ matrix.ruby-platform }}/target
-          key: rb-sys-dock-v0-${{ matrix.ruby-platform }}-${{ hashFiles('**/Gemfile.lock', '**/Cargo.lock') }}
+            ruby-sdk/tmp/rb-sys-dock/${{ matrix._.platform }}/target
+          key: rb-sys-dock-v0-${{ matrix._.platform }}-${{ hashFiles('**/Gemfile.lock', '**/Cargo.lock') }}
           save-always: true
           restore-keys: |
-            rb-sys-dock-v0-${{ matrix.ruby-platform }}-
+            rb-sys-dock-v0-${{ matrix._.platform }}-
 
       - name: Install cargo-cache
         uses: oxidize-rb/actions/cargo-binstall@v1
@@ -111,23 +114,16 @@ jobs:
 
       - name: Build gem
         shell: bash
-        env:
-          INPUT_RUBY_VERSIONS: ${{ join(fromJSON(needs.ci-data.outputs.result).stable-ruby-versions, ', ') }}
-          INPUT_TAG: ""
-          INPUT_PLATFORM: "${{ matrix.ruby-platform }}"
-          INPUT_PRE_SCRIPT: ""
-          INPUT_POST_SCRIPT: ""
         run: |
           : Compile gem
+          echo "Docker Working Directory: $(pwd)"
           set -x
 
-          args=()
-          args+=("--platform")
-          args+=("$INPUT_PLATFORM")
-
-          if [ "$INPUT_RUBY_VERSIONS" != "default" ]; then
-            args+=("--ruby-versions")
-            args+=("$INPUT_RUBY_VERSIONS")
-          fi
-
-          rb-sys-dock "${args[@]}" --build
+          # Unfortunately we can't actually parallelize the Ruby versions
+          # because they get bundled into the same gem
+          rb-sys-dock \
+            --platform ${{ matrix._.platform }} \
+            --mount-toolchains \
+            --ruby-versions 3.3,3.2,3.1 \
+            --build \
+            -- ${{ matrix._.rb-sys-dock-setup }}
