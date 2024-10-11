@@ -130,9 +130,4 @@ jobs:
             args+=("$INPUT_RUBY_VERSIONS")
           fi
 
-          if [ "$INPUT_TAG" != "default" ]; then
-            args+=("--tag")
-            args+=("$INPUT_TAG")
-          fi
-
           rb-sys-dock "${args[@]}" --build
