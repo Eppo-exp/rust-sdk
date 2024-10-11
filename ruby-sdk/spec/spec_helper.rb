@@ -3,11 +3,15 @@
 require "eppo_client"
 
 def init_client_for(test_name)
+  if test_name == "offline" then
+    EppoClient::Client.instance.init(EppoClient::Config.new("test-api-key", poll_interval_seconds: nil))
+  else
     config = EppoClient::Config.new("test-api-key", base_url: "http://127.0.0.1:8378/#{test_name}/api")
     EppoClient::Client.instance.init(config)
 
     # Sleep to allow the client to fetch config
     sleep(0.050)
+  end
 end
 
 RSpec.configure do |config|
