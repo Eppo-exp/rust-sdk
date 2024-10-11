@@ -59,7 +59,6 @@ jobs:
 
       - uses: oxidize-rb/actions/cross-gem@v1
         with:
-          working-directory: ruby-sdk
           version: ${{ steps.vars.outputs.rb-sys-version }}
           platform: ${{ matrix.ruby-platform }}
           ruby-versions: ${{ join(fromJSON(needs.ci-data.outputs.result).stable-ruby-versions, ', ') }}
