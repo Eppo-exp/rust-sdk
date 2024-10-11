@@ -29,6 +29,9 @@ jobs:
     name: Cross compile gems
     needs: ci-data
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ruby-sdk
     strategy:
       fail-fast: false
       matrix:
