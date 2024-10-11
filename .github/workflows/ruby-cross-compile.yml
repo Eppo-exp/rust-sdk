@@ -29,9 +29,6 @@ jobs:
     name: Cross compile gems
     needs: ci-data
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ruby-sdk
     strategy:
       fail-fast: false
       matrix:
@@ -57,7 +54,8 @@ jobs:
           ruby-version: "3.2"
           bundler-cache: true
 
-      - uses: oxidize-rb/cross-gem-action@main
+      - uses: oxidize-rb/actions/cross-gem@v1
+        working-directory: ruby-sdk
         with:
           version: ${{ steps.vars.outputs.rb-sys-version }}
           platform: ${{ matrix.ruby-platform }}
