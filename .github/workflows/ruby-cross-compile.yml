@@ -92,9 +92,9 @@ jobs:
       - name: Clean the cargo cache
         uses: oxidize-rb/actions/post-run@v1
         with:
-        run: cargo-cache --autoclean
-        cwd: ruby-sdk
-        always: true
+          run: cargo-cache --autoclean
+          cwd: ruby-sdk
+          always: true
 
       - name: Setup rb-sys
         shell: bash
