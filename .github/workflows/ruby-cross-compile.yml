@@ -55,8 +55,8 @@ jobs:
           bundler-cache: true
 
       - uses: oxidize-rb/actions/cross-gem@v1
-        working-directory: ruby-sdk
         with:
+          working-directory: ruby-sdk
           version: ${{ steps.vars.outputs.rb-sys-version }}
           platform: ${{ matrix.ruby-platform }}
           ruby-versions: ${{ join(fromJSON(needs.ci-data.outputs.result).stable-ruby-versions, ', ') }}
