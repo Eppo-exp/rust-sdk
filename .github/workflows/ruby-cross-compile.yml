@@ -57,82 +57,82 @@ jobs:
           ruby-version: "3.2"
           bundler-cache: true
 
-    - name: Configure environment
-      shell: bash
-      id: configure
-      run: |
-        : Configure environment
-        echo "RB_SYS_DOCK_UID=$(id -u)" >> $GITHUB_ENV
-        echo "RB_SYS_DOCK_GID=$(id -g)" >> $GITHUB_ENV
-        rb_sys_version="$((grep rb_sys Gemfile.lock | head -n 1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+') || (gem info rb_sys --remote | grep -oE '[0-9]+\.[0-9]+\.[0-9]+') || echo "latest")"
-        rb_sys_dock_cache_dir="$HOME/.cache/rb-sys-$rb_sys_version"
-        mkdir -p "$rb_sys_dock_cache_dir"
-        echo "RB_SYS_DOCK_CACHE_DIR=$rb_sys_dock_cache_dir" >> $GITHUB_ENV
-        echo "rb_sys_version=$rb_sys_version" >> $GITHUB_OUTPUT
+      - name: Configure environment
+        shell: bash
+        id: configure
+        run: |
+          : Configure environment
+          echo "RB_SYS_DOCK_UID=$(id -u)" >> $GITHUB_ENV
+          echo "RB_SYS_DOCK_GID=$(id -g)" >> $GITHUB_ENV
+          rb_sys_version="$((grep rb_sys Gemfile.lock | head -n 1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+') || (gem info rb_sys --remote | grep -oE '[0-9]+\.[0-9]+\.[0-9]+') || echo "latest")"
+          rb_sys_dock_cache_dir="$HOME/.cache/rb-sys-$rb_sys_version"
+          mkdir -p "$rb_sys_dock_cache_dir"
+          echo "RB_SYS_DOCK_CACHE_DIR=$rb_sys_dock_cache_dir" >> $GITHUB_ENV
+          echo "rb_sys_version=$rb_sys_version" >> $GITHUB_OUTPUT
 
-    - name: Setup caching
-      uses: actions/cache@v4
-      with:
-        path: |
-          ${{ env.RB_SYS_DOCK_CACHE_DIR }}
-          ruby-sdk/tmp/rb-sys-dock/${{ matrix.ruby-platform }}/target
-        key: rb-sys-dock-v0-${{ matrix.ruby-platform }}-${{ hashFiles('**/Gemfile.lock', '**/Cargo.lock') }}
-        save-always: true
-        restore-keys: |
-          rb-sys-dock-v0-${{ matrix.ruby-platform }}-
+      - name: Setup caching
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ env.RB_SYS_DOCK_CACHE_DIR }}
+            ruby-sdk/tmp/rb-sys-dock/${{ matrix.ruby-platform }}/target
+          key: rb-sys-dock-v0-${{ matrix.ruby-platform }}-${{ hashFiles('**/Gemfile.lock', '**/Cargo.lock') }}
+          save-always: true
+          restore-keys: |
+            rb-sys-dock-v0-${{ matrix.ruby-platform }}-
 
-    - name: Install cargo-cache
-      uses: oxidize-rb/actions/cargo-binstall@v1
-      id: install-cargo-cache
-      with:
-        crate: cargo-cache
-        version: 0.8.3
-        strategies: quick-install
+      - name: Install cargo-cache
+        uses: oxidize-rb/actions/cargo-binstall@v1
+        id: install-cargo-cache
+        with:
+          crate: cargo-cache
+          version: 0.8.3
+          strategies: quick-install
 
-    - name: Clean the cargo cache
-      uses: oxidize-rb/actions/post-run@v1
-      with:
-      run: cargo-cache --autoclean
-      cwd: ruby-sdk
-      always: true
+      - name: Clean the cargo cache
+        uses: oxidize-rb/actions/post-run@v1
+        with:
+        run: cargo-cache --autoclean
+        cwd: ruby-sdk
+        always: true
 
-    - name: Setup rb-sys
-      shell: bash
-      working-directory: ruby-sdk
-      run: |
-        version="${{ steps.configure.outputs.rb_sys_version }}"
-        echo "Installing rb_sys@$version"
+      - name: Setup rb-sys
+        shell: bash
+        working-directory: ruby-sdk
+        run: |
+          version="${{ steps.configure.outputs.rb_sys_version }}"
+          echo "Installing rb_sys@$version"
 
-        if [ "$version" = "latest" ]; then
-          gem install rb_sys
-        else
-          gem install rb_sys -v $version
-        fi
+          if [ "$version" = "latest" ]; then
+            gem install rb_sys
+          else
+            gem install rb_sys -v $version
+          fi
 
-    - name: Build gem
-      shell: bash
-      env:
-        INPUT_RUBY_VERSIONS: ${{ join(fromJSON(needs.ci-data.outputs.result).stable-ruby-versions, ', ') }}
-        INPUT_TAG: ""
-        INPUT_PLATFORM: "${{ matrix.ruby-platform }}"
-        INPUT_PRE_SCRIPT: ""
-        INPUT_POST_SCRIPT: ""
-      run: |
-        : Compile gem
-        set -x
+      - name: Build gem
+        shell: bash
+        env:
+          INPUT_RUBY_VERSIONS: ${{ join(fromJSON(needs.ci-data.outputs.result).stable-ruby-versions, ', ') }}
+          INPUT_TAG: ""
+          INPUT_PLATFORM: "${{ matrix.ruby-platform }}"
+          INPUT_PRE_SCRIPT: ""
+          INPUT_POST_SCRIPT: ""
+        run: |
+          : Compile gem
+          set -x
 
-        args=()
-        args+=("--platform")
-        args+=("$INPUT_PLATFORM")
+          args=()
+          args+=("--platform")
+          args+=("$INPUT_PLATFORM")
 
-        if [ "$INPUT_RUBY_VERSIONS" != "default" ]; then
-          args+=("--ruby-versions")
-          args+=("$INPUT_RUBY_VERSIONS")
-        fi
+          if [ "$INPUT_RUBY_VERSIONS" != "default" ]; then
+            args+=("--ruby-versions")
+            args+=("$INPUT_RUBY_VERSIONS")
+          fi
 
-        if [ "$INPUT_TAG" != "default" ]; then
-          args+=("--tag")
-          args+=("$INPUT_TAG")
-        fi
+          if [ "$INPUT_TAG" != "default" ]; then
+            args+=("--tag")
+            args+=("$INPUT_TAG")
+          fi
 
-        rb-sys-dock "${args[@]}" --build
+          rb-sys-dock "${args[@]}" --build
