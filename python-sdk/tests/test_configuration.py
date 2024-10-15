@@ -79,19 +79,20 @@ class TestConfiguration:
     def test_init_valid(self):
         Configuration(flags_configuration=FLAGS_CONFIG)
 
-    def test_bandit_configuration(self):
+    def test_bandit_configuration_without_models(self):
         config = Configuration(flags_configuration=FLAGS_CONFIG_WITH_BANDITS)
 
         # Call get_bandit_keys and check the output
         bandit_keys = config.get_bandit_keys()
         assert isinstance(bandit_keys, set)
-        assert bandit_keys == {"banner_bandit", "car_bandit"}
+        assert len(bandit_keys) == 0
 
     def test_bandit_model_configuration(self):
         config = Configuration(flags_configuration=FLAGS_CONFIG_WITH_BANDITS, bandits_configuration=BANDITS_MODEL_CONFIG)
         bandit_keys = config.get_bandit_keys()
         assert isinstance(bandit_keys, set)
-        assert bandit_keys == {"banner_bandit", "car_bandit"}
+        # `car_bandit` is the only bandit in the model config.
+        assert bandit_keys == {"car_bandit"}
 
     def test_init_invalid_json(self):
         """Input is not valid JSON string."""
