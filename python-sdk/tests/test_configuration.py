@@ -49,6 +49,15 @@ class TestConfiguration:
     def test_init_valid(self):
         Configuration(flags_configuration=FLAGS_CONFIG)
 
+    def test_bandit_configuration():
+        # Initialize Configuration with both flags and bandits
+        config = Configuration(flags_configuration=FLAGS_CONFIG, bandits_configuration=BANDITS_CONFIG)
+
+        # Call get_bandit_keys and check the output
+        bandit_keys = config.get_bandit_keys()
+        assert isinstance(bandit_keys, set)
+        assert bandit_keys == {"car_bandit"}
+
     def test_init_invalid_json(self):
         """Input is not valid JSON string."""
         with pytest.raises(Exception):
@@ -78,12 +87,3 @@ def test_configuration_some():
     result = json.loads(flag_config)
     assert result["environment"] == {"name": "Test"}
     assert "numeric_flag" in result["flags"]
-
-def test_bandit_configuration():
-    # Initialize Configuration with both flags and bandits
-    config = Configuration(flags_configuration=FLAGS_CONFIG, bandits_configuration=BANDITS_CONFIG)
-
-    # Call get_bandit_keys and check the output
-    bandit_keys = config.get_bandit_keys()
-    assert isinstance(bandit_keys, set)
-    assert bandit_keys == {"car_bandit"}
