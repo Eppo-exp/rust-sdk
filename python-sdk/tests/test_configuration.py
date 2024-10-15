@@ -87,3 +87,16 @@ def test_configuration_some():
     result = json.loads(flag_config)
     assert result["environment"] == {"name": "Test"}
     assert "numeric_flag" in result["flags"]
+
+
+@pytest.mark.rust_only
+def test_configuration_bandits_only():
+    client = init("bandits", wait_for_init=True)
+    configuration = client.get_configuration()
+    assert configuration != None
+
+    bandit_config = configuration.get_bandit_keys()
+
+    result = json.loads(bandit_config)
+    assert result["environment"] == {"name": "Test"}
+    assert "numeric_flag" in result["flags"]
