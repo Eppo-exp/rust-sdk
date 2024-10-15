@@ -103,7 +103,7 @@ class TestConfiguration:
         """flags is specified as array instead of object"""
         with pytest.raises(Exception):
             Configuration(
-                flags_configuration=FLAGS_CONFIG
+                flags_configuration=b'{"createdAt":"2024-09-09T10:18:15.988Z","environment":{"name":"test"},"flags":[]}'
             )
 
 @pytest.mark.rust_only
