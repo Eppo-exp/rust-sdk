@@ -6,23 +6,9 @@ def init(config: ClientConfig) -> EppoClient: ...
 def get_instance() -> EppoClient: ...
 
 class Configuration:
-    # Note: Before publshing v5.0.0
-    #
-    # Users current have to initialize the configuration like this:
-    #
-    # Configuration(some_bytes, some_other_bytes)
-    #
-    # In v5.0.0, we will add a named parameter to the constructor to make this
-    # more clear.
-    #
-    # Users will be able to initialize the configuration like this:
-    # 
-    # Configuration(flags_configuration=some_bytes, bandits_configuration=some_other_bytes)
-    #
-    # Changes:
-    # 
-    # def __init__(self, *, flags_configuration: bytes, bandits_configuration: bytes | None = None) -> None: ...
-    def __init__(self, flags_configuration: bytes, bandits_configuration: bytes | None = None) -> None: ...
+    def __init__(
+        self, *, flags_configuration: bytes, bandits_configuration: bytes | None = None
+    ) -> None: ...
     def get_flags_configuration(self) -> bytes: ...
     def get_flag_keys(self) -> Set[str]: ...
     def get_bandit_keys(self) -> Set[str]: ...
