@@ -87,8 +87,3 @@ def test_bandit_configuration():
     bandit_keys = config.get_bandit_keys()
     assert isinstance(bandit_keys, set)
     assert bandit_keys == {"car_bandit"}
-
-    # You might want to add more assertions here to test other aspects of the configuration
-    # For example, if your Configuration class provides methods to access bandit details:
-    # assert config.get_bandit_model_name("car_bandit") == "falcon"
-    # assert config.get_bandit_default_action_score("car_bandit") == 5.0
