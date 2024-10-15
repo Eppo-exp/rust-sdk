@@ -12,9 +12,38 @@ FLAGS_CONFIG = json.dumps({
 }).encode('utf-8')
 
 BANDITS_CONFIG = json.dumps({
-    "bandit1": {"type": "some_type"},
-    "bandit2": {"type": "another_type"}
-}).encode('utf-8')
+        "updatedAt": "2023-09-13T04:52:06.462Z",
+        "environment": {
+            "name": "Test"
+        },
+        "bandits": {
+            "car_bandit": {
+                "banditKey": "car_bandit",
+                "modelName": "falcon",
+                "updatedAt": "2023-09-13T04:52:06.462Z",
+                "modelVersion": "v456",
+                "modelData": {
+                    "gamma": 1.0,
+                    "defaultActionScore": 5.0,
+                    "actionProbabilityFloor": 0.2,
+                    "coefficients": {
+                        "toyota": {
+                            "actionKey": "toyota",
+                            "intercept": 1.0,
+                            "actionNumericCoefficients": [{
+                                "attributeKey": "speed",
+                                "coefficient": 1,
+                                "missingValueCoefficient": 0.0
+                            }],
+                            "actionCategoricalCoefficients": [],
+                            "subjectNumericCoefficients": [],
+                            "subjectCategoricalCoefficients": []
+                        }
+                    }
+                }
+            }
+        }
+    }).encode('utf-8')
 
 class TestConfiguration:
     def test_init_valid(self):
@@ -54,6 +83,12 @@ def test_bandit_configuration():
     # Initialize Configuration with both flags and bandits
     config = Configuration(flags_configuration=FLAGS_CONFIG, bandits_configuration=BANDITS_CONFIG)
 
+    # Call get_bandit_keys and check the output
     bandit_keys = config.get_bandit_keys()
     assert isinstance(bandit_keys, set)
-    assert bandit_keys == {"bandit1", "bandit2"}
+    assert bandit_keys == {"car_bandit"}
+
+    # You might want to add more assertions here to test other aspects of the configuration
+    # For example, if your Configuration class provides methods to access bandit details:
+    # assert config.get_bandit_model_name("car_bandit") == "falcon"
+    # assert config.get_bandit_default_action_score("car_bandit") == 5.0
