@@ -119,11 +119,15 @@ jobs:
           echo "Docker Working Directory: $(pwd)"
           set -x
 
-          # Unfortunately we can't actually parallelize the Ruby versions
-          # because they get bundled into the same gem
+          # We can't actually parallelize the Ruby versions because
+          # they get bundled into the same gem.
+          #
+          # However, not parallelizing versions is actually helpful
+          # because Cargo is able to reuse most of compile work
+          # between versions.
           rb-sys-dock \
             --platform ${{ matrix._.platform }} \
             --mount-toolchains \
-            --ruby-versions 3.3,3.2,3.1 \
+            --ruby-versions 3.3,3.2,3.1,3.0 \
             --build \
             -- ${{ matrix._.rb-sys-dock-setup }}
