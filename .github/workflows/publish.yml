@@ -57,6 +57,7 @@ jobs:
 
   cross_gems:
     runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref_name, 'ruby-sdk@') }}
     defaults:
       run:
         working-directory: ruby-sdk
