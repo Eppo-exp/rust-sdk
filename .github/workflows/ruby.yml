@@ -51,10 +51,8 @@ jobs:
 
       - name: Run tests
         run: npm run with-server test:ruby
-
-
   cross_gems:
-    name: Cross compile
+    name: Cross-compile Ruby SDK gems
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -171,3 +169,67 @@ jobs:
             --ruby-versions 3.3,3.2,3.1,3.0 \
             --build \
             -- ${{ matrix._.rb-sys-dock-setup }}
+
+      - name: Set outputs
+        id: set-outputs
+        shell: bash
+        run: |
+          : Set output
+          echo "gem-path=pkg -name '*-${{ matrix._.platform }}.gem')" >> $GITHUB_OUTPUT
+
+  publish_ruby:
+    name: Publish to RubyGems
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref_name, 'ruby-sdk@') }}
+    needs: cross_gems
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - uses: actions/download-artifact@v4
+
+      - name: Check Cargo.lock
+        # Ensure that Cargo.lock matches Cargo.toml
+        run: cargo update --workspace --locked --verbose
+        working-directory: ruby-sdk
+
+      - name: Install dependencies
+        run: bundle install
+        working-directory: ruby-sdk
+
+      - name: Build
+        run: bundle exec rake build
+        working-directory: ruby-sdk
+
+      - name: Publish to RubyGems
+        working-directory: ruby-sdk/pkg/
+        env:
+          RUBYGEMS_API_KEY: "${{ secrets.RUBYGEMS_API_KEY }}"
+        run: |
+          mkdir -p $HOME/.gem
+          touch $HOME/.gem/credentials
+          chmod 0600 $HOME/.gem/credentials
+          printf -- "---\n:rubygems_api_key: ${RUBYGEMS_API_KEY}\n" > $HOME/.gem/credentials
+          ls -l
+          for i in *.gem; do
+            if [ -f "$i" ]; then
+              echo 'gem push "$i"'
+              # if ! gem push "$i" >push.out; then
+              #   gemerr=$?
+              #   sed 's/^/::error:: /' push.out
+              #   if ! grep -q "Repushing of gem" push.out; then
+              #     exit $gemerr
+              #   fi
+              # fi
+            fi
+          done
