@@ -1,4 +1,4 @@
-name: Ruby SDK
+name: Test
 
 on:
   push:
@@ -26,44 +26,3 @@ jobs:
       - run: cargo build --verbose --all-targets
       - run: cargo test --verbose
       - run: cargo doc --verbose
-
-
-  ruby_test:
-    runs-on: ${{ matrix.os }}-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu, macos]
-        ruby: [3.0, 3.1, 3.2]
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: Set up Ruby & Rust
-        uses: oxidize-rb/actions/setup-ruby-and-rust@v1
-        with:
-          ruby-version: ${{ matrix.ruby }}
-          bundler-cache: true
-          cargo-cache: true
-          rubygems: '3.5.11'
-
-      - run: npm ci
-
-      - name: Override eppo_core for testing
-        run: |
-          mkdir -p ~/.cargo/
-          echo "[patch.crates-io.eppo_core]" >> "${CARGO_HOME:-$HOME/.cargo}/config.toml"
-          echo "path = '$PWD/eppo_core'" >> "${CARGO_HOME:-$HOME/.cargo}/config.toml"
-
-      - name: Install dependencies
-        run: bundle install
-        working-directory: ruby-sdk
-
-      - name: Build
-        run: bundle exec rake build
-        working-directory: ruby-sdk
-
-      - name: Run tests
-        run: npm run with-server test:ruby
