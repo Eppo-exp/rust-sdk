@@ -6,12 +6,12 @@ import eppo_client
 from eppo_client.config import Config, AssignmentLogger
 
 
-def init(suite, *, wait_for_init=True):
+def init(suite, *, wait_for_init=True, assignment_logger=AssignmentLogger()):
     client = eppo_client.init(
         Config(
             api_key="blah",
             base_url=f"http://localhost:8378/{suite}/api",
-            assignment_logger=AssignmentLogger(),
+            assignment_logger=assignment_logger,
         )
     )
     if wait_for_init:
