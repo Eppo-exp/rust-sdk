@@ -210,7 +210,9 @@ jobs:
           name: cross-gem
 
       - name: Move the downloaded artifacts
-        run: mv rust-sdk/* .
+        run: |
+          ls -lR
+          mv rust-sdk/* .
 
       - name: Check Cargo.lock
         # Ensure that Cargo.lock matches Cargo.toml
