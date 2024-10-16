@@ -8,29 +8,9 @@ publish = false
 crate-type = ["cdylib"]
 
 [dependencies]
-eppo_core = { version = "4.0.1", path = "../eppo_core", features = ["pyo3"] }
+eppo_core = { version = "4.1.0", path = "../eppo_core", features = ["pyo3", "vendored"] }
 log = "0.4.22"
 pyo3 = { version = "0.22.0" }
 pyo3-log = "0.11.0"
 serde-pyobject = "0.4.0"
 serde_json = "1.0.125"
-
-[target.'cfg(target_os = "linux")'.dependencies]
-# We don't use reqwest directly, so the following overrides it to
-# enable feature flag. native-tls-vendored is required to vendor
-# OpenSSL on linux builds, so we don't depend on shared libraries.
-#
-# See: https://github.com/PyO3/maturin-action/discussions/78
-reqwest = { version = "*", features = ["native-tls-vendored"] }
-
-[target.'cfg(all(target_os = "linux", target_arch = "s390x"))'.dependencies]
-# OpenSSL 3.3+ includes a patch[1] for s390x architecture that uses a
-# specialized instruction (cijne), which is not recognized by GCC in
-# ghcr.io/rust-cross/manylinux2014-cross:s390x, and thus fails to
-# compile in CI.
-#
-# Pin "openssl-src" to 300.2.x, which will install openssl-3.2.x,
-# which didn't use cijne.
-#
-# [1]: https://github.com/openssl/openssl/pull/22221
-openssl-src = "~300.2"

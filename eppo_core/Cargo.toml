@@ -1,6 +1,6 @@
 [package]
 name = "eppo_core"
-version = "4.0.1"
+version = "4.1.0"
 edition = "2021"
 description = "Eppo SDK core library"
 repository = "https://github.com/Eppo-exp/rust-sdk"
@@ -12,6 +12,11 @@ rust-version = "1.71.1"
 [features]
 # Add implementation of `FromPyObject`/`ToPyObject` for some types.
 pyo3 = ["dep:pyo3", "dep:serde-pyobject"]
+# Vendor any external libraries that we need (OpenSSL on Linux), so we
+# don’t depend on shared libraries.
+#
+# See: https://github.com/PyO3/maturin-action/discussions/78
+vendored = ["reqwest/native-tls-vendored"]
 
 [dependencies]
 chrono = { version = "0.4.38", features = ["serde"] }
@@ -31,6 +36,19 @@ url = "2.5.0"
 # pyo3 dependencies
 pyo3 = { version = "0.22.0", optional = true, default-features = false }
 serde-pyobject = { version = "0.4.0", optional = true}
+
+# vendored dependencies
+[target.'cfg(all(target_os = "linux", target_arch = "s390x"))'.dependencies]
+# OpenSSL 3.3+ includes a patch[1] for s390x architecture that uses a
+# specialized instruction (cijne), which is not recognized by GCC in
+# ghcr.io/rust-cross/manylinux2014-cross:s390x, and thus fails to
+# compile in CI.
+#
+# Pin "openssl-src" to 300.2.x, which will install openssl-3.2.x,
+# which didn't use cijne.
+#
+# [1]: https://github.com/openssl/openssl/pull/22221
+openssl-src = { version = "~300.2", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
