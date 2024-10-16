@@ -177,7 +177,7 @@ jobs:
         shell: bash
         run: |
           : Set output
-          echo "gem-path=$(find ruby-sdk/pkg -name '*-${{ matrix._.platform }}.gem')" >> $GITHUB_OUTPUT
+          echo "gem-path=$(find pkg -name '*-${{ matrix._.platform }}.gem')" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v3
         with:
