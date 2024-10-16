@@ -179,7 +179,8 @@ jobs:
           : Set output
           echo "gem-path=ruby-sdk/$(find pkg -name '*-${{ matrix._.platform }}.gem')" >> $GITHUB_OUTPUT
 
-      - uses: actions/upload-artifact@v3
+      - name: Upload the cross-compiled gems
+        uses: actions/upload-artifact@v3
         with:
           name: cross-gem
           path: ${{ steps.set-outputs.outputs.gem-path }}
@@ -203,10 +204,13 @@ jobs:
         with:
           ruby-version: '3.3'
 
-      - uses: actions/download-artifact@v3
+      - name: Download the cross-compiled gems
+        uses: actions/download-artifact@v3
         with:
           name: cross-gem
-          path: ./
+
+      - name: Move the downloaded artifacts
+        run: mv rust-sdk/* .
 
       - name: Check Cargo.lock
         # Ensure that Cargo.lock matches Cargo.toml
