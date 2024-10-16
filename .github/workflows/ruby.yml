@@ -175,10 +175,9 @@ jobs:
       - name: Set outputs
         id: set-outputs
         shell: bash
-        working-directory: ruby-sdk
         run: |
           : Set output
-          echo "gem-path=pkg -name '*-${{ matrix._.platform }}.gem')" >> $GITHUB_OUTPUT
+          echo "gem-path=$(find ruby-sdk/pkg -name '*-${{ matrix._.platform }}.gem')" >> $GITHUB_OUTPUT
 
       - uses: actions/upload-artifact@v3
         with:
@@ -206,7 +205,6 @@ jobs:
 
       - uses: actions/download-artifact@v3
         with:
-          working-directory: ruby-sdk
           name: cross-gem
 
       - name: Check Cargo.lock
