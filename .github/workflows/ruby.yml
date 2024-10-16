@@ -14,6 +14,8 @@ concurrency:
 jobs:
   ruby_test:
     runs-on: ${{ matrix.os }}-latest
+    outputs:
+      gem-path: ${{ steps.set-outputs.outputs.gem-path }}
     strategy:
       fail-fast: false
       matrix:
@@ -173,9 +175,15 @@ jobs:
       - name: Set outputs
         id: set-outputs
         shell: bash
+        working-directory: ruby-sdk
         run: |
           : Set output
           echo "gem-path=pkg -name '*-${{ matrix._.platform }}.gem')" >> $GITHUB_OUTPUT
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: cross-gem
+          path: ${{ steps.set-outputs.outputs.gem-path }}
 
   publish_ruby:
     name: Publish to RubyGems
@@ -196,7 +204,10 @@ jobs:
         with:
           ruby-version: '3.3'
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v3
+        with:
+          working-directory: ruby-sdk
+          name: cross-gem
 
       - name: Check Cargo.lock
         # Ensure that Cargo.lock matches Cargo.toml

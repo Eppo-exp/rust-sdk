@@ -304,13 +304,12 @@ dependencies = [
 
 [[package]]
 name = "eppo_client"
-version = "3.2.0"
+version = "3.2.1"
 dependencies = [
  "env_logger",
  "eppo_core",
  "log",
  "magnus",
- "openssl",
  "rb-sys",
  "serde",
  "serde_json",
@@ -319,9 +318,9 @@ dependencies = [
 
 [[package]]
 name = "eppo_core"
-version = "4.0.0"
+version = "4.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b071fed21065318dcd6a91a443bd9f6b39796d727297b03d092e2e8dc9e02414"
+checksum = "626df025f5b474b42ead14953310e31e81e4b88ce52a993573bf87bc9def12d4"
 dependencies = [
  "chrono",
  "derive_more",
