@@ -54,7 +54,6 @@ jobs:
       - name: Run tests
         run: npm run with-server test:ruby
   cross_gems:
-    name: Cross-compile Ruby SDK gems
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -209,11 +208,6 @@ jobs:
         with:
           name: cross-gem
 
-      - name: Move the downloaded artifacts
-        run: |
-          ls -lR
-          mv rust-sdk/* .
-
       - name: Check Cargo.lock
         # Ensure that Cargo.lock matches Cargo.toml
         run: cargo update --workspace --locked --verbose
@@ -226,6 +220,10 @@ jobs:
       - name: Build
         run: bundle exec rake build
         working-directory: ruby-sdk
+
+      - name: Move the downloaded artifacts
+        run: |
+          mv *.gem ruby-sdk/pkg
 
       - name: Publish to RubyGems
         working-directory: ruby-sdk/pkg/
