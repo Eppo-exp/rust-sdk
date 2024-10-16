@@ -180,7 +180,7 @@ jobs:
   publish_ruby:
     name: Publish to RubyGems
     runs-on: ubuntu-latest
-    if: ${{ startsWith(github.ref_name, 'ruby-sdk@') }}
+    # if: ${{ startsWith(github.ref_name, 'ruby-sdk@') }}
     needs: cross_gems
     steps:
       - uses: actions/checkout@v4
