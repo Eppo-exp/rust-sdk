@@ -13,9 +13,8 @@ on:
   push:
     branches:
       - main
-      - master
-    tags:
-      - '*'
+    release:
+      types: [published]
   pull_request:
   workflow_dispatch:
 

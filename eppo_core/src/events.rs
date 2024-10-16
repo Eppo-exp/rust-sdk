@@ -38,6 +38,7 @@ pub struct AssignmentEventBase {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AssignmentEvent {
+    #[serde(flatten)]
     pub base: Arc<AssignmentEventBase>,
     /// The key identifying the subject receiving the assignment.
     pub subject: Str,
