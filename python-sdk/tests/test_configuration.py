@@ -48,7 +48,6 @@ FLAGS_CONFIG_WITH_BANDITS = json.dumps(
 BANDITS_MODEL_CONFIG = json.dumps(
     {
         "updatedAt": "2023-09-13T04:52:06.462Z",
-        "environment": {"name": "Test"},
         "bandits": {
             "car_bandit": {
                 "banditKey": "car_bandit",
@@ -115,6 +114,19 @@ class TestConfiguration:
             Configuration(
                 flags_configuration=b'{"createdAt":"2024-09-09T10:18:15.988Z","environment":{"name":"test"},"flags":[]}'
             )
+
+    def test_get_bandits_configuration(self):
+        configuration = Configuration(
+            flags_configuration=FLAGS_CONFIG_WITH_BANDITS,
+            bandits_configuration=BANDITS_MODEL_CONFIG,
+        )
+
+        bandits_configuration = configuration.get_bandits_configuration()
+
+        # JSON parsing is an internal detail and is not a public
+        # guarantee. We're using it here because serialization order
+        # of bandits is not guaranteed.
+        assert json.loads(bandits_configuration) == json.loads(BANDITS_MODEL_CONFIG)
 
 
 @pytest.mark.rust_only

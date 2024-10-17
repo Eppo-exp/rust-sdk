@@ -2,7 +2,11 @@
 // backend to pass on configuration when initializing the frontend.
 use std::{borrow::Cow, sync::Arc};
 
-use pyo3::{exceptions::PyValueError, prelude::*, types::PySet};
+use pyo3::{
+    exceptions::{PyRuntimeError, PyValueError},
+    prelude::*,
+    types::PySet,
+};
 
 use eppo_core::{ufc::UniversalFlagConfig, Configuration as CoreConfiguration};
 
@@ -67,6 +71,23 @@ impl Configuration {
     /// on frontend) for initialization.
     fn get_flags_configuration(&self) -> Cow<[u8]> {
         Cow::Borrowed(self.configuration.flags.to_json())
+    }
+
+    /// Return bytes representing bandits configuration.
+    ///
+    /// It should be treated as opaque and passed on to another Eppo client for initialization.
+    fn get_bandits_configuration(&self) -> PyResult<Option<Cow<[u8]>>> {
+        self.configuration
+            .bandits
+            .as_ref()
+            .map(|it| serde_json::to_vec(it).map(Cow::Owned))
+            .transpose()
+            .map_err(|err| {
+                // This should normally never happen.
+                PyRuntimeError::new_err(format!(
+                    "failed to serialize bandits configuration: {err:?}"
+                ))
+            })
     }
 }
 
