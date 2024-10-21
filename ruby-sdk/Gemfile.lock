@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    eppo-server-sdk (3.2.1)
+    eppo-server-sdk (3.2.2)
 
 GEM
   remote: https://rubygems.org/
