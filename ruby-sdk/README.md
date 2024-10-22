@@ -23,5 +23,6 @@ Make sure you remove the override before updating `Cargo.lock`. Otherwise, the l
 
 ## Releasing
 
-* Bump versions in `ruby-sdk/lib/eppo_client/version.rb` and `ruby-sdk/ext/eppo_client/Cargo.toml`.
-* Run `cargo update --workspace --verbose` to update `Cargo.lock` and `Gemfile.lock`.
+* Bump versions in `ruby-sdk/lib/eppo_client/version.rb` and `ruby-sdk/ext/eppo_client/Cargo.toml`
+* Run `cargo update --workspace --verbose` to update `Cargo.lock`
+* Run `bundle` to update `Gemfile.lock`
