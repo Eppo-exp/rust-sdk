@@ -4,7 +4,14 @@ require "singleton"
 require "logger"
 
 require_relative "config"
-require_relative "eppo_client"
+
+# Tries to require the extension for the current Ruby version first
+begin
+  RUBY_VERSION =~ /(\d+\.\d+)/
+  require_relative "#{Regexp.last_match(1)}/eppo_client"
+rescue LoadError
+  require_relative "eppo_client"
+end
 
 module EppoClient
   # The main client singleton
@@ -15,7 +22,7 @@ module EppoClient
     def init(config)
       config.validate
 
-      if !@core.nil? then
+      if !@core.nil?
         STDERR.puts "Eppo Warning: multiple initialization of the client"
         @core.shutdown
       end
