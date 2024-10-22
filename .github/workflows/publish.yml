@@ -179,7 +179,7 @@ jobs:
         run: |
           gem install pkg/eppo-server-sdk-*.gem --verbose
           script="puts EppoClient::Core::Client.new(EppoClient::Config.new('placeholder'))"
-          ruby -reppo_client -e "$script" | grep fetching new configuration
+          ruby -reppo_client -e "$script" | grep 'fetching new configuration'
           echo "✅ Successfully installed gem"
 
       - name: Set outputs
