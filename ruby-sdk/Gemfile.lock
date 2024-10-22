@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    eppo-server-sdk (3.2.5)
+    eppo-server-sdk (3.2.6)
       rb_sys (~> 0.9.102)
 
 GEM
