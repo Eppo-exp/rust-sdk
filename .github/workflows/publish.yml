@@ -175,7 +175,7 @@ jobs:
             -- ${{ matrix._.rb-sys-dock-setup }}
 
       - name: Smoke gem install
-        if: matrix.ruby-platform == 'x86_64-linux' # GitHub actions architecture
+        if: matrix._.platform == 'x86_64-linux' # GitHub actions architecture
         run: |
           gem install pkg/eppo-server-sdk-*.gem --verbose
           script="puts EppoClient::Core::Client.new(EppoClient::Config.new('placeholder'))"
