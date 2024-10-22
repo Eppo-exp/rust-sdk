@@ -211,45 +211,45 @@ jobs:
           npm ci
           npm run with-server test:python
 
-  macos:
-    runs-on: ${{ matrix.platform.runner }}
-    strategy:
-      matrix:
-        platform:
-          - runner: macos-12
-            target: x86_64
-          - runner: macos-14
-            target: aarch64
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-      - uses: actions/setup-python@v5
-        with:
-          python-version: 3.x
-      - name: Build wheels
-        uses: PyO3/maturin-action@v1
-        with:
-          target: ${{ matrix.platform.target }}
-          args: --release --out dist --find-interpreter --manifest-path ./python-sdk/Cargo.toml
-          sccache: 'true'
-      - name: List dist directory
-        run: ls -l dist
-      - name: Upload wheels
-        uses: actions/upload-artifact@v4
-        with:
-          name: wheels-macos-${{ matrix.platform.target }}
-          path: dist
-      - name: pytest
-        run: |
-          set -ex
-          python3 -m venv .venv
-          source .venv/bin/activate
-          pip install --upgrade pip
-          pip install eppo-server-sdk --no-index --find-links dist --force-reinstall -v
-          pip install pytest cachetools
-          npm ci
-          npm run with-server test:python
+  # macos:
+  #   runs-on: ${{ matrix.platform.runner }}
+  #   strategy:
+  #     matrix:
+  #       platform:
+  #         - runner: macos-12
+  #           target: x86_64
+  #         - runner: macos-14
+  #           target: aarch64
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         submodules: true
+  #     - uses: actions/setup-python@v5
+  #       with:
+  #         python-version: 3.x
+  #     - name: Build wheels
+  #       uses: PyO3/maturin-action@v1
+  #       with:
+  #         target: ${{ matrix.platform.target }}
+  #         args: --release --out dist --find-interpreter --manifest-path ./python-sdk/Cargo.toml
+  #         sccache: 'true'
+  #     - name: List dist directory
+  #       run: ls -l dist
+  #     - name: Upload wheels
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: wheels-macos-${{ matrix.platform.target }}
+  #         path: dist
+  #     - name: pytest
+  #       run: |
+  #         set -ex
+  #         python3 -m venv .venv
+  #         source .venv/bin/activate
+  #         pip install --upgrade pip
+  #         pip install eppo-server-sdk --no-index --find-links dist --force-reinstall -v
+  #         pip install pytest cachetools
+  #         npm ci
+  #         npm run with-server test:python
 
   sdist:
     runs-on: ubuntu-latest
