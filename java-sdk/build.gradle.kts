@@ -11,3 +11,8 @@ tasks.register<Exec>("buildRust") {
 tasks.named("build") {
     dependsOn("buildRust")
 }
+
+// Add Gradle wrapper task
+tasks.wrapper {
+    gradleVersion = "8.5"
+}
