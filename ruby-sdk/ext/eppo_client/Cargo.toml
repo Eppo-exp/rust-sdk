@@ -1,7 +1,7 @@
 [package]
 name = "eppo_client"
 # TODO: this version and lib/eppo_client/version.rb should be in sync
-version = "3.2.7"
+version = "3.2.8"
 edition = "2021"
 license = "MIT"
 publish = false
