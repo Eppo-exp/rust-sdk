@@ -1,0 +1,53 @@
+---
+name: Java SDK
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  java_test:
+    runs-on: ${{ matrix.os }}-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu, macos]
+        java: [11, 17, 21]  # Common Java LTS versions
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'  # Popular Java distribution
+          java-version: ${{ matrix.java }}
+          cache: 'maven'  # Cache Maven dependencies
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - run: npm ci
+
+      - name: Override eppo_core for testing
+        run: |
+          mkdir -p ~/.cargo/
+          echo "[patch.crates-io.eppo_core]" >> "${CARGO_HOME:-$HOME/.cargo}/config.toml"
+          echo "path = '$PWD/eppo_core'" >> "${CARGO_HOME:-$HOME/.cargo}/config.toml"
+
+      - name: Build with Maven
+        run: mvn -B package
+        working-directory: java-sdk
+
+      - name: Run tests
+        run: npm run with-server test:java

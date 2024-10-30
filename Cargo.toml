@@ -4,7 +4,8 @@ members = [
   "eppo_core",
   "rust-sdk",
   "python-sdk",
-  "ruby-sdk/ext/eppo_client",
+  "ruby-sdk/ext/eppo_client", 
+  "java-sdk/eppo_java",
 ]
 
 [patch.crates-io]
