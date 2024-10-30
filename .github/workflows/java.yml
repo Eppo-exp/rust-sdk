@@ -30,7 +30,7 @@ jobs:
         with:
           distribution: 'temurin'  # Popular Java distribution
           java-version: ${{ matrix.java }}
-          cache: 'maven'  # Cache Maven dependencies
+          cache: 'gradle'
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -45,8 +45,8 @@ jobs:
           echo "[patch.crates-io.eppo_core]" >> "${CARGO_HOME:-$HOME/.cargo}/config.toml"
           echo "path = '$PWD/eppo_core'" >> "${CARGO_HOME:-$HOME/.cargo}/config.toml"
 
-      - name: Build with Maven
-        run: mvn -B package
+      - name: Build with Gradle
+        run: ./gradlew build
         working-directory: java-sdk
 
       - name: Run tests
