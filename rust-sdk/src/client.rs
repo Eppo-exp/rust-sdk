@@ -49,7 +49,7 @@ impl<'a> Client<'a> {
         Client::new_with_configuration_store(config, Arc::new(ConfigurationStore::new()))
     }
 
-    fn new_with_configuration_store(
+    pub fn new_with_configuration_store(
         config: ClientConfig<'a>,
         configuration_store: Arc<ConfigurationStore>,
     ) -> Self {
