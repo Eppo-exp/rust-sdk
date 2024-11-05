@@ -1,0 +1,23 @@
+# This file describes a Fastly Compute package. To learn more visit:
+# https://www.fastly.com/documentation/reference/compute/fastly-toml
+
+authors = ["greg.huels@geteppo.com"]
+description = "Edge compute service for pre-computed Eppo flag assignments"
+language = "rust"
+manifest_version = 3
+name = "Eppo Assignments (Edge Compute)"
+service_id = "oRzRuv2vBf6blqas2CyA96"
+
+[scripts]
+build = "cargo build --bin fastly-compute-project --release --target wasm32-wasi --color always"
+
+[setup]
+[setup.backends]
+[setup.backends.eppo_cloud]
+address = "fscdn.eppo.cloud"
+port = 443
+
+[local_server]
+[local_server.backends]
+[local_server.backends.eppo_cloud]
+url = "https://fscdn.eppo.cloud"
