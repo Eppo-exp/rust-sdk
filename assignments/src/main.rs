@@ -1,74 +1,99 @@
-//! Default Compute template program.
+use eppo::ClientConfig;
+use eppo_core::ufc::UniversalFlagConfig;
+use eppo_core::{Configuration, SdkMetadata};
+use fastly::http::{Method, StatusCode};
+use fastly::{Error, Request, Response};
+use serde_json::{json, Value};
+use std::collections::HashMap;
+use std::sync::Arc;
+use std::time::Instant;
 
-use fastly::http::{header, Method, StatusCode};
-use fastly::{mime, Error, Request, Response};
+fn get_subject_attributes(req: &Request) -> Value {
+    req.get_query_parameter("subjectAttributes")
+        .and_then(|v| serde_json::from_str(v).ok())
+        .unwrap_or_else(|| json!({}))
+}
 
-/// The entry point for your application.
-///
-/// This function is triggered when your service receives a client request. It could be used to
-/// route based on the request properties (such as method or path), send the request to a backend,
-/// make completely new requests, and/or generate synthetic responses.
-///
-/// If `main` returns an error, a 500 error response will be delivered to the client.
+fn parse_ufc_configuration(ufc_config_json: Value) -> UniversalFlagConfig {
+    let config_json_bytes: Vec<u8> = serde_json::to_vec(&ufc_config_json).unwrap();
+    let ufc_config: UniversalFlagConfig = UniversalFlagConfig::from_json(
+        SdkMetadata {
+            name: "rust-sdk",
+            version: "4.0.1",
+        },
+        config_json_bytes,
+    )
+    .unwrap();
+    return ufc_config;
+}
+
+fn offline_init(api_key: &str, ufc_config: UniversalFlagConfig) -> eppo::Client {
+    let config = Configuration::from_server_response(ufc_config, None);
+    let config_store = eppo_core::configuration_store::ConfigurationStore::new();
+    config_store.set_configuration(Arc::new(config));
+    let client = eppo::Client::new_with_configuration_store(
+        ClientConfig::from_api_key(api_key),
+        config_store.into(),
+    );
+    return client;
+}
 
 #[fastly::main]
 fn main(req: Request) -> Result<Response, Error> {
-    // Log service version
-    println!(
-        "FASTLY_SERVICE_VERSION: {}",
-        std::env::var("FASTLY_SERVICE_VERSION").unwrap_or_else(|_| String::new())
-    );
+    let start_time: Instant = Instant::now();
 
-    // Filter request methods...
-    match req.get_method() {
-        // Block requests with unexpected methods
-        &Method::POST | &Method::PUT | &Method::PATCH | &Method::DELETE => {
-            return Ok(Response::from_status(StatusCode::METHOD_NOT_ALLOWED)
-                .with_header(header::ALLOW, "GET, HEAD, PURGE")
-                .with_body_text_plain("This method is not allowed\n"))
+    match (req.get_method(), req.get_path()) {
+        (&Method::GET, "/api/flag-config/v1/assignments") => {
+            let api_key = req.get_query_parameter("apiKey").unwrap_or_default();
+            let subject_key = req.get_query_parameter("subjectKey").unwrap_or_default();
+            let subject_attributes: Arc<HashMap<String, eppo::AttributeValue>> = Arc::new(
+                serde_json::from_value(get_subject_attributes(&req))
+                    .unwrap_or_else(|_| HashMap::new()),
+            );
+
+            let url = format!(
+                "https://fscdn.eppo.cloud/api/flag-config/v1/config?apiKey={}",
+                api_key
+            );
+            let mut response: Response = Request::get(url).send("eppo_cloud").unwrap();
+            if response.get_status() != StatusCode::OK {
+                let error_body: Value = response.take_body_json()?;
+                return Ok(Response::from_status(response.get_status())
+                    .with_body_json(&error_body)
+                    .unwrap());
+            }
+
+            let ufc_config_json: Value = response.take_body_json()?;
+            let ufc_config = parse_ufc_configuration(ufc_config_json.clone());
+            let client = offline_init(api_key, ufc_config);
+
+            let flag_keys: Vec<String> = ufc_config_json["flags"]
+                .as_object()
+                .unwrap()
+                .keys()
+                .cloned()
+                .collect();
+
+            let mut assignment_cache = HashMap::new();
+
+            for flag_key in &flag_keys {
+                let subject_key = eppo_core::Str::from(subject_key);
+                let assignment = client.get_assignment(flag_key, &subject_key, &subject_attributes);
+                let variation_value: eppo::AssignmentValue = match assignment {
+                    Ok(Some(value)) => value.clone(),
+                    Ok(None) => eppo::AssignmentValue::Json(Arc::new(json!(null))),
+                    Err(_) => eppo::AssignmentValue::Json(Arc::new(json!(null))),
+                };
+                assignment_cache.insert(flag_key.to_string(), variation_value);
+            }
+
+            let cpu_time_used = start_time.elapsed().as_millis();
+            println!("CPU time used: {} ms", cpu_time_used);
+
+            Ok(Response::new()
+                .with_status(200)
+                .with_body_json(&assignment_cache)?)
         }
-
-        // Let any other requests through
-        _ => (),
-    };
-
-    // Pattern match on the path...
-    match req.get_path() {
-        // If request is to the `/` path...
-        "/" => {
-            // Below are some common patterns for Compute services using Rust.
-            // Head to https://developer.fastly.com/learning/compute/rust/ to discover more.
-
-            // Create a new request.
-            // let mut bereq = Request::get("http://httpbin.org/headers")
-            //     .with_header("X-Custom-Header", "Welcome to Compute!")
-            //     .with_ttl(60);
-
-            // Add request headers.
-            // bereq.set_header(
-            //     "X-Another-Custom-Header",
-            //     "Recommended reading: https://developer.fastly.com/learning/compute",
-            // );
-
-            // Forward the request to a backend.
-            // let mut beresp = bereq.send("backend_name")?;
-
-            // Remove response headers.
-            // beresp.remove_header("X-Another-Custom-Header");
-
-            // Log to a Fastly endpoint.
-            // use std::io::Write;
-            // let mut endpoint = fastly::log::Endpoint::from_name("my_endpoint");
-            // writeln!(endpoint, "Hello from the edge!").unwrap();
-
-            // Send a default synthetic response.
-            Ok(Response::from_status(StatusCode::OK)
-                .with_content_type(mime::TEXT_HTML_UTF_8)
-                .with_body(include_str!("welcome-to-compute.html")))
-        }
-
-        // Catch all other requests and return a 404.
-        _ => Ok(Response::from_status(StatusCode::NOT_FOUND)
-            .with_body_text_plain("The page you requested could not be found\n")),
+        _ => Ok(Response::from_status(StatusCode::NOT_FOUND)),
     }
 }
