@@ -1,3 +1,15 @@
+## Eppo Multiplatform: SDKs and Artifacts to support Flagging and Experimentation
+
+Eppo is a modular flagging and experimentation analysis tool. Eppo's SDKs are built to make assignments in multi-user server-side and client-side contexts. Before proceeding you'll need an Eppo account.
+
+**Features**
+* Feature gates
+* Kill switches
+* Progressive rollouts
+* A/B/n experiments
+* Mutually exclusive experiments (Layers)
+* Dynamic configuration
+
 ## Contributing
 
 ### Preparing your environment
