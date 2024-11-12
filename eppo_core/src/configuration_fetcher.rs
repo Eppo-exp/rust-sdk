@@ -71,13 +71,12 @@ impl ConfigurationFetcher {
 
         let response = response.error_for_status().map_err(|err| {
             if err.status() == Some(StatusCode::UNAUTHORIZED) {
-                    log::warn!(target: "eppo", "client is not authorized. Check your API key");
-                    self.unauthorized = true;
-                    return Error::Unauthorized;
-                } else {
-                    log::warn!(target: "eppo", "received non-200 response while fetching new configuration: {:?}", err);
-                    return Error::from(err);
-
+                log::warn!(target: "eppo", "client is not authorized. Check your API key");
+                self.unauthorized = true;
+                Error::Unauthorized
+            } else {
+                log::warn!(target: "eppo", "received non-200 response while fetching new configuration: {:?}", err);
+                Error::from(err)
             }
         })?;
 
