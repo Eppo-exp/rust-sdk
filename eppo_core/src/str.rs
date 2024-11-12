@@ -106,7 +106,7 @@ mod pyo3_impl {
 
     impl ToPyObject for Str {
         fn to_object(&self, py: Python<'_>) -> PyObject {
-            PyString::new_bound(py, &self).into()
+            PyString::new_bound(py, self).into()
         }
     }
 }
