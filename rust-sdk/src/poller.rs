@@ -46,7 +46,7 @@ impl PollerThread {
         let fetcher = ConfigurationFetcher::new(ConfigurationFetcherConfig {
             base_url: config.base_url,
             api_key: config.api_key,
-            sdk_metadata: SDK_METADATA.clone(),
+            sdk_metadata: SDK_METADATA,
         });
         let inner = PollerThreadImpl::start(fetcher, config.store)?;
         Ok(PollerThread(inner))
