@@ -139,10 +139,10 @@ impl EvalDetailsBuilder {
                 }
                 EvaluationFailure::Error(EvaluationError::UnexpectedConfigurationError)
                 | EvaluationFailure::Error(EvaluationError::UnexpectedConfigurationParseError) => {
-                    format!("Configuration error. This might indicate that you're using an outdated version of Eppo SDK")
+                    "Configuration error. This might indicate that you're using an outdated version of Eppo SDK".to_string()
                 }
                 EvaluationFailure::ConfigurationMissing => {
-                    format!("Configuration has not been fetched yet")
+                    "Configuration has not been fetched yet".to_string()
                 }
                 EvaluationFailure::FlagUnrecognizedOrDisabled => {
                     format!("Unrecognized or disabled flag: {}", self.flag_key)
@@ -150,22 +150,23 @@ impl EvalDetailsBuilder {
                 EvaluationFailure::FlagDisabled => {
                     format!("Unrecognized or disabled flag: {}", self.flag_key)
                 }
-                EvaluationFailure::DefaultAllocationNull => format!(
+                EvaluationFailure::DefaultAllocationNull => {
                     "No allocations matched. Falling back to \"Default Allocation\", serving NULL"
-                ),
+                        .to_string()
+                }
                 EvaluationFailure::NonBanditVariation => {
                     debug_assert!(
                         false,
                         "{failure:?} should never be emitted by flag evaluation"
                     );
-                    format!("Flag evaluated to a non-bandit allocation")
+                    "Flag evaluated to a non-bandit allocation".to_string()
                 }
                 EvaluationFailure::NoActionsSuppliedForBandit => {
                     debug_assert!(
                         false,
                         "{failure:?} should never be emitted by flag evaluation"
                     );
-                    format!("No actions were supplied for bandit evaluation")
+                    "No actions were supplied for bandit evaluation".to_string()
                 }
             };
         }
