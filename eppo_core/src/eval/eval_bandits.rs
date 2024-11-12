@@ -249,7 +249,7 @@ impl BanditModelData {
         // total_shards is not configurable at the moment.
         const TOTAL_SHARDS: u32 = 10_000;
 
-        if actions.len() == 0 {
+        if actions.is_empty() {
             return Err(EvaluationFailure::NoActionsSuppliedForBandit);
         }
 
