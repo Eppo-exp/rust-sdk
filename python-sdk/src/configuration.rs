@@ -33,7 +33,7 @@ impl Configuration {
                 PyValueError::new_err(format!("argument 'flags_configuration': {err:?}"))
             })?;
         let bandits_config = bandits_configuration
-            .map(|it| serde_json::from_slice(it))
+            .map(serde_json::from_slice)
             .transpose()
             .map_err(|err| {
                 PyValueError::new_err(format!("argument 'bandits_configuration': {err:?}"))

@@ -529,17 +529,15 @@ fn context_attributes_from_py<'py>(
     if let Ok(attrs) = Attributes::extract_bound(obj) {
         return Ok(RefOrOwned::Owned(attrs.into()));
     }
-    Err(PyTypeError::new_err(format!(
-        "attributes must be either ContextAttributes or Attributes"
-    )))
+    Err(PyTypeError::new_err("attributes must be either ContextAttributes or Attributes".to_string()))
 }
 
 fn actions_from_py(obj: &Bound<PyAny>) -> PyResult<HashMap<String, ContextAttributes>> {
-    if let Ok(result) = FromPyObject::extract_bound(&obj) {
+    if let Ok(result) = FromPyObject::extract_bound(obj) {
         return Ok(result);
     }
 
-    if let Ok(result) = HashMap::<String, Attributes>::extract_bound(&obj) {
+    if let Ok(result) = HashMap::<String, Attributes>::extract_bound(obj) {
         let result = result
             .into_iter()
             .map(|(name, attrs)| (name, ContextAttributes::from(attrs)))
@@ -547,9 +545,7 @@ fn actions_from_py(obj: &Bound<PyAny>) -> PyResult<HashMap<String, ContextAttrib
         return Ok(result);
     }
 
-    Err(PyTypeError::new_err(format!(
-        "action attributes must be either ContextAttributes or Attributes"
-    )))
+    Err(PyTypeError::new_err("action attributes must be either ContextAttributes or Attributes".to_string()))
 }
 
 // Rust-only methods
@@ -599,7 +595,7 @@ impl EppoClient {
                 .as_ref()
                 .ok_or_else(|| {
                     // This should never happen as assigment_logger setter requires a valid logger.
-                    PyRuntimeError::new_err(format!("Config.assignment_logger is None"))
+                    PyRuntimeError::new_err("Config.assignment_logger is None".to_string())
                 })?
                 .clone_ref(py),
             is_graceful_mode: AtomicBool::new(config.is_graceful_mode),
@@ -616,8 +612,8 @@ impl EppoClient {
         default: Py<PyAny>,
     ) -> PyResult<PyObject> {
         let result = self.evaluator.get_assignment(
-            &flag_key,
-            &subject_key.into(),
+            flag_key,
+            &subject_key,
             &subject_attributes.into(),
             expected_type,
         );
@@ -656,8 +652,8 @@ impl EppoClient {
         default: Py<PyAny>,
     ) -> PyResult<EvaluationResult> {
         let (result, event) = self.evaluator.get_assignment_details(
-            &flag_key,
-            &subject_key.into(),
+            flag_key,
+            &subject_key,
             &subject_attributes.into(),
             expected_type,
         );
