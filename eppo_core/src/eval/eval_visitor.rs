@@ -14,7 +14,7 @@ pub(super) trait EvalBanditVisitor {
     /// Called when (if) evaluation gets configuration.
     fn on_configuration(&mut self, configuration: &Configuration);
 
-    fn visit_assignment<'a>(&'a mut self) -> Self::AssignmentVisitor<'a>;
+    fn visit_assignment(&mut self) -> Self::AssignmentVisitor<'_>;
 
     /// Called when bandit key is known.
     fn on_bandit_key(&mut self, key: &str);
@@ -98,7 +98,7 @@ impl EvalBanditVisitor for NoopEvalVisitor {
     fn on_bandit_key(&mut self, _key: &str) {}
 
     #[inline]
-    fn visit_assignment<'a>(&'a mut self) -> NoopEvalVisitor {
+    fn visit_assignment(&mut self) -> NoopEvalVisitor {
         NoopEvalVisitor
     }
 
@@ -110,7 +110,7 @@ impl EvalAssignmentVisitor for NoopEvalVisitor {
     type AllocationVisitor<'a> = NoopEvalVisitor;
 
     #[inline]
-    fn visit_allocation<'a>(&'a mut self, _allocation: &Allocation) -> Self::AllocationVisitor<'a> {
+    fn visit_allocation(&mut self, _allocation: &Allocation) -> Self::AllocationVisitor<'_> {
         NoopEvalVisitor
     }
 

@@ -219,7 +219,7 @@ impl EvalBanditVisitor for EvalDetailsBuilder {
         self.bandit_key = Some(key.to_owned());
     }
 
-    fn visit_assignment<'a>(&'a mut self) -> Self::AssignmentVisitor<'a> {
+    fn visit_assignment(&mut self) -> Self::AssignmentVisitor<'_> {
         self
     }
 
@@ -234,7 +234,7 @@ impl<'b> EvalAssignmentVisitor for &'b mut EvalDetailsBuilder {
         <EvalDetailsBuilder as EvalAssignmentVisitor>::AllocationVisitor<'a>
     where Self: 'a;
 
-    fn visit_allocation<'a>(&'a mut self, allocation: &Allocation) -> Self::AllocationVisitor<'a> {
+    fn visit_allocation(&mut self, allocation: &Allocation) -> Self::AllocationVisitor<'_> {
         EvalAssignmentVisitor::visit_allocation(*self, allocation)
     }
 
@@ -256,7 +256,7 @@ impl EvalAssignmentVisitor for EvalDetailsBuilder {
     where
         Self: 'a;
 
-    fn visit_allocation<'a>(&'a mut self, allocation: &Allocation) -> Self::AllocationVisitor<'a> {
+    fn visit_allocation(&mut self, allocation: &Allocation) -> Self::AllocationVisitor<'_> {
         let order_position = self.allocation_eval_results.len() + 1;
         let result = self
             .allocation_eval_results
