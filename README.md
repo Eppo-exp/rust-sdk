@@ -11,6 +11,7 @@ Eppo is a modular flagging and experimentation analysis tool. Eppo's SDKs are bu
 * Dynamic configuration
 * Global holdouts
 * Contextual multi-armed bandits
+
 ## Contributing
 
 ### Preparing your environment
