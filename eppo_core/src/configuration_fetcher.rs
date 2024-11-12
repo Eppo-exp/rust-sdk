@@ -12,10 +12,9 @@ pub struct ConfigurationFetcherConfig {
     pub sdk_metadata: SdkMetadata,
 }
 
-pub const DEFAULT_BASE_URL: &'static str = "https://fscdn.eppo.cloud/api";
-
-const UFC_ENDPOINT: &'static str = "/flag-config/v1/config";
-const BANDIT_ENDPOINT: &'static str = "/flag-config/v1/bandits";
+pub const DEFAULT_BASE_URL: &str = "https://fscdn.eppo.cloud/api";
+const UFC_ENDPOINT: &str = "/flag-config/v1/config";
+const BANDIT_ENDPOINT: &str = "/flag-config/v1/bandits";
 
 /// A client that fetches Eppo configuration from the server.
 pub struct ConfigurationFetcher {
