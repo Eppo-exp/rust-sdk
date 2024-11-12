@@ -28,14 +28,21 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
+      with:
+        submodules: 'true'
+    - run: npm ci
     - name: Setup Rust Toolchain
       uses: actions-rust-lang/setup-rust-toolchain@v1
       with:
-        toolchain: stable, nightly
+        toolchain: stable
         components: clippy, rustfmt
+    - name: Cargo Build
+      run: cargo build --all-features --all-targets --verbose
     - name: Cargo Test
-      run: cargo test --all-features --workspace
+      run: cargo test --all-features --verbose
     - name: Cargo Fmt
       run: cargo +nightly fmt --check
     - name: Cargo Clippy
       run: cargo +nightly clippy --all-features --workspace -- -D warnings
+    - name: Cargo Doc
+      run: cargo doc --verbose
