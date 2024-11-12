@@ -41,9 +41,9 @@ impl Evaluator {
         let config = self.get_configuration();
         get_assignment(
             config.as_ref().map(AsRef::as_ref),
-            &flag_key,
-            &subject_key,
-            &subject_attributes,
+            flag_key,
+            subject_key,
+            subject_attributes,
             expected_type,
             Utc::now(),
         )
@@ -62,9 +62,9 @@ impl Evaluator {
         let config = self.get_configuration();
         get_assignment_details(
             config.as_ref().map(AsRef::as_ref),
-            &flag_key,
-            &subject_key,
-            &subject_attributes,
+            flag_key,
+            subject_key,
+            subject_attributes,
             expected_type,
             Utc::now(),
         )
