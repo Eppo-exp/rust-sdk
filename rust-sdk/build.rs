@@ -31,13 +31,7 @@ fn main() {
 
     let event = Event::default()
         .push(Push::default().add_branch("main"))
-        .pull_request_target(
-            PullRequestTarget::default()
-                .open()
-                .synchronize()
-                .reopen()
-                .add_branch("main"),
-        );
+        .pull_request(PullRequest::default());
 
     Workflow::new("Build and Test")
         .on(event)
