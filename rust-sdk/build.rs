@@ -21,15 +21,9 @@ fn main() {
                 .args("--all-features --verbose")
                 .name("Cargo Test"),
         )
-        .add_step(
-            Cargo::new("fmt")
-                .nightly()
-                .args("--check")
-                .name("Cargo Fmt"),
-        )
+        .add_step(Cargo::new("fmt").args("--check").name("Cargo Fmt"))
         .add_step(
             Cargo::new("clippy")
-                .nightly()
                 .args("--all-features --workspace -- -D warnings")
                 .name("Cargo Clippy"),
         )

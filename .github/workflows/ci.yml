@@ -41,8 +41,8 @@ jobs:
     - name: Cargo Test
       run: cargo test --all-features --verbose
     - name: Cargo Fmt
-      run: cargo +nightly fmt --check
+      run: cargo fmt --check
     - name: Cargo Clippy
-      run: cargo +nightly clippy --all-features --workspace -- -D warnings
+      run: cargo clippy --all-features --workspace -- -D warnings
     - name: Cargo Doc
       run: cargo doc --verbose
