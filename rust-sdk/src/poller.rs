@@ -66,7 +66,7 @@ impl PollerThread {
     /// This method can fail with the following errors:
     ///
     /// - [`Error::PollerThreadPanicked`]: If the poller thread panicked while waiting for
-    /// configuration.
+    ///   configuration.
     ///
     /// # Example
     ///
