@@ -98,7 +98,7 @@ impl ConfigurationFetcher {
                 ("coreVersion", env!("CARGO_PKG_VERSION")),
             ],
         )
-        .map_err(|err| Error::InvalidBaseUrl(err))?;
+        .map_err(Error::InvalidBaseUrl)?;
 
         log::debug!(target: "eppo", "fetching UFC bandits configuration");
         let response = self.client.get(url).send()?;
