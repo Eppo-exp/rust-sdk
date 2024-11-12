@@ -529,7 +529,9 @@ fn context_attributes_from_py<'py>(
     if let Ok(attrs) = Attributes::extract_bound(obj) {
         return Ok(RefOrOwned::Owned(attrs.into()));
     }
-    Err(PyTypeError::new_err("attributes must be either ContextAttributes or Attributes".to_string()))
+    Err(PyTypeError::new_err(
+        "attributes must be either ContextAttributes or Attributes".to_string(),
+    ))
 }
 
 fn actions_from_py(obj: &Bound<PyAny>) -> PyResult<HashMap<String, ContextAttributes>> {
@@ -545,7 +547,9 @@ fn actions_from_py(obj: &Bound<PyAny>) -> PyResult<HashMap<String, ContextAttrib
         return Ok(result);
     }
 
-    Err(PyTypeError::new_err("action attributes must be either ContextAttributes or Attributes".to_string()))
+    Err(PyTypeError::new_err(
+        "action attributes must be either ContextAttributes or Attributes".to_string(),
+    ))
 }
 
 // Rust-only methods
