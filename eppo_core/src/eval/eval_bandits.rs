@@ -363,7 +363,7 @@ impl BanditModelData {
 
         coefficients.intercept
             + score_attributes(
-                &action.attributes,
+                action.attributes,
                 &coefficients.action_numeric_coefficients,
                 &coefficients.action_categorical_coefficients,
             )
