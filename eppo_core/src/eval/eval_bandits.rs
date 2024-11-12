@@ -48,6 +48,7 @@ pub struct BanditResult {
 
 /// Evaluate the specified string feature flag for the given subject. If resulting variation is
 /// a bandit, evaluate the bandit to return the action.
+#[allow(clippy::too_many_arguments)]
 pub fn get_bandit_action(
     configuration: Option<&Configuration>,
     flag_key: &str,
@@ -73,6 +74,7 @@ pub fn get_bandit_action(
 
 /// Evaluate the specified string feature flag for the given subject. If resulting variation is
 /// a bandit, evaluate the bandit to return the action. In addition, return evaluation details.
+#[allow(clippy::too_many_arguments)]
 pub fn get_bandit_action_details(
     configuration: Option<&Configuration>,
     flag_key: &str,
@@ -232,7 +234,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
         bandit_event: Some(bandit_event),
     };
     visitor.on_result(Ok(()), &result);
-    return result;
+    result
 }
 
 impl BanditModelData {
