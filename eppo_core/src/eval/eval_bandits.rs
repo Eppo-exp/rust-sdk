@@ -108,6 +108,7 @@ pub fn get_bandit_action_details(
 
 /// Evaluate the specified string feature flag for the given subject. If resulting variation is
 /// a bandit, evaluate the bandit to return the action.
+#[allow(clippy::too_many_arguments)]
 fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     visitor: &mut V,
     configuration: Option<&Configuration>,
@@ -380,7 +381,7 @@ fn score_attributes(
     categorical_coefficients: &[BanditCategoricalAttributeCoefficient],
 ) -> f64 {
     numeric_coefficients
-        .into_iter()
+        .iter()
         .map(|coef| {
             attributes
                 .numeric
@@ -390,7 +391,7 @@ fn score_attributes(
                 .map(|value| value * coef.coefficient)
                 .unwrap_or(coef.missing_value_coefficient)
         })
-        .chain(categorical_coefficients.into_iter().map(|coef| {
+        .chain(categorical_coefficients.iter().map(|coef| {
             attributes
                 .categorical
                 .get(&coef.attribute_key)
