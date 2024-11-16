@@ -23,6 +23,8 @@ jobs:
           submodules: true
       - run: npm ci
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
-      - run: cargo build --verbose --all-targets
-      - run: cargo test --verbose
+      - run: rustup target add wasm32-wasi
+      - run: cargo build --verbose --all-targets --workspace --exclude fastly-edge-assignments
+      - run: cargo build --verbose -p fastly-edge-assignments --target wasm32-wasi
+      - run: cargo test --verbose --workspace --exclude fastly-edge-assignments
       - run: cargo doc --verbose
