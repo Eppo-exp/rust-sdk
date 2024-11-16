@@ -1,0 +1,11 @@
+# This file describes a Fastly Compute package. To learn more visit:
+# https://www.fastly.com/documentation/reference/compute/fastly-toml
+
+authors = ["engineering@geteppo.com"]
+name = "Eppo Assignments on Fastly Compute@Edge"
+description = "Edge compute service for pre-computed Eppo flag assignments"
+language = "rust"
+manifest_version = 3
+
+[scripts]
+build = "cargo build --bin fastly-compute-project --release --target wasm32-wasi --color always"
