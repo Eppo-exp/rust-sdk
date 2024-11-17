@@ -1,4 +1,5 @@
 use fastly::http::StatusCode;
+use fastly::kv_store::KVStoreError;
 use fastly::{Error, KVStore, Request, Response};
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -13,10 +14,13 @@ struct RequestBody {
 }
 
 const KV_STORE_NAME: &str = "edge-assignment-kv-store";
+const SDK_KEY_QUERY_PARAM: &str = "sdk_key";
 
 pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
     // Parse the apiKey from the request
-    let api_key = req.get_query_parameter("sdk_key").unwrap_or_default();
+    let api_key = req
+        .get_query_parameter(SDK_KEY_QUERY_PARAM)
+        .unwrap_or_default();
 
     // Parse the request body
     let body: RequestBody = serde_json::from_slice(&req.take_body_bytes())?;
@@ -25,10 +29,33 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
     let bandit_actions = body.bandit_actions;
 
     // Construct an KVStore instance which is connected to the KV Store named `my-store`
-    //[Documentation for the KVStore open method can be found here](https://docs.rs/fastly/latest/fastly/struct.KVStore.html#method.open)
-    let mut kv_store = KVStore::open(KV_STORE_NAME).map(|store| store.expect("KVStore exists"))?;
+    // [Documentation for the KVStore open method can be found here](https://docs.rs/fastly/latest/fastly/struct.KVStore.html#method.open)
+    let kv_store = KVStore::open(KV_STORE_NAME).map(|store| store.expect("KVStore exists"))?;
 
-    let mut kv_store_item = kv_store.lookup("my_key")?;
+    let kv_store_item = match kv_store.lookup("my_key") {
+        Ok(item) => item,
+        Err(e) => {
+            let (status, message) = match e {
+                // Return unauthorized if the key does not exist.
+                // Our protocol lets the client know that the SDK key has not had a UFC
+                // configuration pre-computed for it in the KV Store.
+                KVStoreError::ItemNotFound => (
+                    StatusCode::UNAUTHORIZED,
+                    "SDK key not found in KV store".to_string(),
+                ),
+                _ => {
+                    fastly::log::error!("KV Store error: {:?}", e);
+                    (
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        "Unexpected KV Store error".to_string(),
+                    )
+                }
+            };
+
+            return Ok(Response::from_status(status).with_body_text_plain(&message));
+        }
+    };
+
     let kv_store_item_body = kv_store_item.take_body();
 
     // Parse the response from the KV store
