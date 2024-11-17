@@ -8,4 +8,4 @@ language = "rust"
 manifest_version = 3
 
 [scripts]
-build = "cargo build --bin fastly-compute-project --release --target wasm32-wasi --color always"
+build = "cargo build --bin fastly-edge-assignments --release --target wasm32-wasi --color always"
