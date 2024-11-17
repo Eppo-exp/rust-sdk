@@ -129,13 +129,13 @@ pub(super) fn get_assignments_with_visitor<V: EvalAssignmentVisitor>(
                 let result = get_assignment_with_visitor(
                     Some(&config),
                     visitor,
-                    flag_key.as_str(),
+                    flag_key,
                     subject_key,
                     subject_attributes,
                     None,
                     now,
                 );
-                (flag_key.to_string(), result)
+                (flag_key.clone(), result)
             })
             .collect()
     })
