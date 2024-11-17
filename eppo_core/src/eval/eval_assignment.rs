@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
 use chrono::{DateTime, Utc};
 
@@ -89,6 +89,56 @@ pub fn get_assignment_details(
     };
 
     (result_with_details, event)
+}
+
+pub fn get_subject_assignments(
+    configuration: Option<&Configuration>,
+    subject_key: &Str,
+    subject_attributes: &Arc<Attributes>,
+    now: DateTime<Utc>,
+) -> HashMap<String, Result<Option<Assignment>, EvaluationError>> {
+    get_assignments_with_visitor(
+        configuration,
+        &mut NoopEvalVisitor,
+        subject_key,
+        subject_attributes,
+        now,
+    )
+}
+
+/**
+ * Evaluate all flags for the given subject and return a map of flag keys to assignments.
+ *
+ * If an error occurs while evaluating a flag,
+ * it is returned for the resulting flag key.
+ */
+pub(super) fn get_assignments_with_visitor<V: EvalAssignmentVisitor>(
+    configuration: Option<&Configuration>,
+    visitor: &mut V,
+    subject_key: &Str,
+    subject_attributes: &Arc<Attributes>,
+    now: DateTime<Utc>,
+) -> HashMap<String, Result<Option<Assignment>, EvaluationError>> {
+    configuration.map_or_else(HashMap::new, |config| {
+        config
+            .flags
+            .compiled
+            .flags
+            .keys()
+            .map(|flag_key| {
+                let result = get_assignment_with_visitor(
+                    Some(&config),
+                    visitor,
+                    flag_key.as_str(),
+                    subject_key,
+                    subject_attributes,
+                    None,
+                    now,
+                );
+                (flag_key.to_string(), result)
+            })
+            .collect()
+    })
 }
 
 // Exposed for use in bandit evaluation.
@@ -317,7 +367,7 @@ mod tests {
             eval_details::{
                 AllocationEvaluationCode, AllocationEvaluationDetails, FlagEvaluationCode,
             },
-            get_assignment, get_assignment_details,
+            get_assignment, get_assignment_details, get_subject_assignments,
         },
         ufc::{RuleWire, UniversalFlagConfig, ValueWire, VariationType},
         Attributes, Configuration, SdkMetadata, Str,
@@ -451,6 +501,8 @@ mod tests {
 
             for subject in test_file.subjects {
                 print!("test subject {:?} ... ", subject.subject_key);
+
+                // Verify that get_assignment returns the desired result.
                 let result = get_assignment(
                     Some(&config),
                     &test_file.flag,
@@ -461,7 +513,7 @@ mod tests {
                 )
                 .unwrap_or(None);
 
-                let result_assingment = result
+                let result_assignment = result
                     .as_ref()
                     .map(|assignment| &assignment.value)
                     .unwrap_or(&default_assignment);
@@ -469,7 +521,25 @@ mod tests {
                     .into_assignment_value(test_file.variation_type)
                     .unwrap();
 
-                assert_eq!(result_assingment, &expected_assignment);
+                assert_eq!(result_assignment, &expected_assignment);
+
+                // Verify that get_subject_assignments returns the same result.
+                let subject_assignments = get_subject_assignments(
+                    Some(&config),
+                    &subject.subject_key,
+                    &subject.subject_attributes,
+                    now,
+                );
+                let subject_assignment_for_flag = subject_assignments
+                    .get(&test_file.flag)
+                    .and_then(|result| result.as_ref().ok())
+                    .and_then(|opt| opt.as_ref())
+                    .map(|a| &a.value)
+                    .unwrap_or(&default_assignment);
+
+                // Compare against the original expected assignment instead of result_assignment
+                assert_eq!(subject_assignment_for_flag, &expected_assignment);
+
                 println!("ok");
             }
         }
