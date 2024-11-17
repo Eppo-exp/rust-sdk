@@ -58,6 +58,7 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
             );
         }
     };
+
     let subject_key = body.subject_key;
     let subject_attributes = body.subject_attributes;
     let bandit_actions = body.bandit_actions;
