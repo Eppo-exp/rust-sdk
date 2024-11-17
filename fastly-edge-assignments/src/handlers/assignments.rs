@@ -1,15 +1,18 @@
+use eppo_core::configuration_store::ConfigurationStore;
+use eppo_core::eval::{Evaluator, EvaluatorConfig};
 use eppo_core::ufc::{AssignmentValue, UniversalFlagConfig};
-use eppo_core::SdkMetadata;
+use eppo_core::{Attributes, Configuration, SdkMetadata};
 use fastly::http::StatusCode;
 use fastly::kv_store::KVStoreError;
 use fastly::{Error, KVStore, Request, Response};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 #[derive(Debug, Deserialize)]
 struct RequestBody {
     subject_key: String,
-    subject_attributes: HashMap<String, serde_json::Value>,
+    subject_attributes: Arc<Attributes>,
     #[serde(rename = "banditActions")]
     #[serde(skip_serializing_if = "Option::is_none")]
     bandit_actions: Option<HashMap<String, serde_json::Value>>,
@@ -108,15 +111,42 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
         }
     };
 
+    let configuration = Configuration::from_server_response(ufc_config, None);
+    let configuration_store = ConfigurationStore::new();
+    configuration_store.set_configuration(Arc::new(configuration));
+    let evaluator = Evaluator::new(EvaluatorConfig {
+        configuration_store: Arc::new(configuration_store),
+        sdk_metadata: SdkMetadata {
+            name: "fastly-edge-assignments",
+            version: "0.1.0",
+        },
+    });
+
+    let subject_assignments = match evaluator
+        .get_subject_assignments(&eppo_core::Str::from(subject_key), &subject_attributes)
+        .into_iter()
+        .map(|(key, value)| value.map(|opt_assignment| (key, opt_assignment)))
+        .collect::<Result<Vec<_>, _>>()
+    {
+        Ok(assignments) => assignments
+            .into_iter()
+            .filter_map(|(key, opt_assignment)| {
+                opt_assignment.map(|assignment| (key, assignment.value))
+            })
+            .collect::<HashMap<_, _>>(),
+        Err(e) => {
+            // If we encounter an error in any of the assignments, return an internal server error.
+            //
+            // If any of the assignments produces an error during evaluation, the collection will short-circuit and return that first error.
+            // It won't continue processing the remaining assignments.
+            //fastly::log::error!("Assignment evaluation error: {:?}", e);
+            return Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
+                .with_body_text_plain(&format!("Failed to evaluate assignment: {}", e)));
+        }
+    };
+
     let assignments_response = AssignmentsResponse {
-        // todo: push this to eppo_core
-        assignments: HashMap::new(),
-        // assignments: ufc_config
-        //     .compiled
-        //     .flags
-        //     .keys()
-        //     .map(|flag_key| (flag_key.clone(), AssignmentValue::String("test".into())))
-        //     .collect(),
+        assignments: subject_assignments,
         timestamp: chrono::Utc::now().timestamp(),
     };
 
