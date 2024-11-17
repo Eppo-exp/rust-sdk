@@ -3,18 +3,6 @@ mod handlers;
 use fastly::http::{Method, StatusCode};
 use fastly::{Error, Request, Response};
 
-// fn parse_ufc_configuration(ufc_config_json: Vec<u8>) -> UniversalFlagConfig {
-//     //let config_json_bytes: Vec<u8> = serde_json::to_vec(&ufc_config_json).unwrap();
-//     UniversalFlagConfig::from_json(
-//         SdkMetadata {
-//             name: "rust-sdk",
-//             version: "4.0.1",
-//         },
-//         ufc_config_json,
-//     )
-//     .unwrap()
-// }
-
 // fn offline_init(api_key: &str, ufc_config: UniversalFlagConfig) -> eppo::Client {
 //     let config = Configuration::from_server_response(ufc_config, None);
 //     let config_store = eppo_core::configuration_store::ConfigurationStore::new();
