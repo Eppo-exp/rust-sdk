@@ -12,7 +12,7 @@ use crate::{
 use super::{
     eval_details::{EvaluationDetails, EvaluationResultWithDetails},
     get_assignment, get_assignment_details, get_bandit_action, get_bandit_action_details,
-    get_subject_assignments, BanditResult,
+    BanditResult,
 };
 
 pub struct EvaluatorConfig {
@@ -45,20 +45,6 @@ impl Evaluator {
             &subject_key,
             &subject_attributes,
             expected_type,
-            Utc::now(),
-        )
-    }
-
-    pub fn get_subject_assignments(
-        &self,
-        subject_key: &Str,
-        subject_attributes: &Arc<Attributes>,
-    ) -> HashMap<String, Result<Option<Assignment>, EvaluationError>> {
-        let config = self.get_configuration();
-        get_subject_assignments(
-            config.as_ref().map(AsRef::as_ref),
-            subject_key,
-            subject_attributes,
             Utc::now(),
         )
     }
