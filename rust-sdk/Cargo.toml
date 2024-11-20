@@ -11,7 +11,7 @@ categories = ["config"]
 rust-version = "1.71.1"
 
 [dependencies]
-eppo_core = { version = "=4.1.0", path = "../eppo_core" }
+eppo_core = { version = "=4.1.1", path = "../eppo_core" }
 log = { version = "0.4.21", features = ["kv", "kv_serde"] }
 serde_json = "1.0.116"
 
