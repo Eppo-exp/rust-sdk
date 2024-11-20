@@ -14,7 +14,18 @@ pub(crate) const SDK_METADATA: SdkMetadata = SdkMetadata {
 
 #[magnus::init]
 fn init(ruby: &Ruby) -> Result<(), Error> {
-    env_logger::Builder::from_env(env_logger::Env::new().default_filter_or("eppo=debug")).init();
+    let log_level = match config.log_level.as_str() {
+        "error" => log::LevelFilter::Error,
+        "warn" => log::LevelFilter::Warn,
+        "info" => log::LevelFilter::Info,
+        "debug" => log::LevelFilter::Debug,
+        "trace" => log::LevelFilter::Trace,
+        _ => log::LevelFilter::Info // default to info if invalid
+    };
+
+    env_logger::Builder::from_env(env_logger::Env::new().default_filter_or("eppo=info"))
+        .filter_level(log_level)
+        .init();
 
     let eppo_client = ruby.define_module("EppoClient")?;
     let core = eppo_client.define_module("Core")?;
