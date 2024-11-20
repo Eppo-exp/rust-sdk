@@ -131,9 +131,19 @@ impl PollerThread {
             std::thread::Builder::new()
                 .name("eppo-poller".to_owned())
                 .spawn(move || {
+                    let runtime = match tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build()
+                    {
+                        Ok(runtime) => runtime,
+                        Err(err) => {
+                            update_result(Err(Error::from(err)));
+                            return;
+                        }
+                    };
                     loop {
                         log::debug!(target: "eppo", "fetching new configuration");
-                        let result = fetcher.fetch_configuration();
+                        let result = runtime.block_on(fetcher.fetch_configuration());
                         match result {
                             Ok(configuration) => {
                                 store.set_configuration(Arc::new(configuration));

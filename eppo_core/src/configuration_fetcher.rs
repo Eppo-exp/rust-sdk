@@ -20,7 +20,7 @@ const BANDIT_ENDPOINT: &'static str = "/flag-config/v1/bandits";
 /// A client that fetches Eppo configuration from the server.
 pub struct ConfigurationFetcher {
     // Client holds a connection pool internally, so we're reusing the client between requests.
-    client: reqwest::blocking::Client,
+    client: reqwest::Client,
     config: ConfigurationFetcherConfig,
     /// If we receive a 401 Unauthorized error during a request, it means the API key is not
     /// valid. We cache this error so we don't issue additional requests to the server.
@@ -29,7 +29,7 @@ pub struct ConfigurationFetcher {
 
 impl ConfigurationFetcher {
     pub fn new(config: ConfigurationFetcherConfig) -> ConfigurationFetcher {
-        let client = reqwest::blocking::Client::new();
+        let client = reqwest::Client::new();
 
         ConfigurationFetcher {
             client,
@@ -38,24 +38,24 @@ impl ConfigurationFetcher {
         }
     }
 
-    pub fn fetch_configuration(&mut self) -> Result<Configuration> {
+    pub async fn fetch_configuration(&mut self) -> Result<Configuration> {
         if self.unauthorized {
             return Err(Error::Unauthorized);
         }
 
-        let ufc = self.fetch_ufc_configuration()?;
+        let ufc = self.fetch_ufc_configuration().await?;
 
         let bandits = if ufc.compiled.flag_to_bandit_associations.is_empty() {
             // We don't need bandits configuration if there are no bandits.
             None
         } else {
-            Some(self.fetch_bandits_configuration()?)
+            Some(self.fetch_bandits_configuration().await?)
         };
 
         Ok(Configuration::from_server_response(ufc, bandits))
     }
 
-    fn fetch_ufc_configuration(&mut self) -> Result<UniversalFlagConfig> {
+    async fn fetch_ufc_configuration(&mut self) -> Result<UniversalFlagConfig> {
         let url = Url::parse_with_params(
             &format!("{}{}", self.config.base_url, UFC_ENDPOINT),
             &[
@@ -68,7 +68,7 @@ impl ConfigurationFetcher {
         .map_err(|err| Error::InvalidBaseUrl(err))?;
 
         log::debug!(target: "eppo", "fetching UFC flags configuration");
-        let response = self.client.get(url).send()?;
+        let response = self.client.get(url).send().await?;
 
         let response = response.error_for_status().map_err(|err| {
             if err.status() == Some(StatusCode::UNAUTHORIZED) {
@@ -82,15 +82,17 @@ impl ConfigurationFetcher {
             }
         })?;
 
-        let configuration =
-            UniversalFlagConfig::from_json(self.config.sdk_metadata, response.bytes()?.into())?;
+        let configuration = UniversalFlagConfig::from_json(
+            self.config.sdk_metadata,
+            response.bytes().await?.into(),
+        )?;
 
         log::debug!(target: "eppo", "successfully fetched UFC flags configuration");
 
         Ok(configuration)
     }
 
-    fn fetch_bandits_configuration(&mut self) -> Result<BanditResponse> {
+    async fn fetch_bandits_configuration(&mut self) -> Result<BanditResponse> {
         let url = Url::parse_with_params(
             &format!("{}{}", self.config.base_url, BANDIT_ENDPOINT),
             &[
@@ -103,7 +105,7 @@ impl ConfigurationFetcher {
         .map_err(|err| Error::InvalidBaseUrl(err))?;
 
         log::debug!(target: "eppo", "fetching UFC bandits configuration");
-        let response = self.client.get(url).send()?;
+        let response = self.client.get(url).send().await?;
 
         let response = response.error_for_status().map_err(|err| {
             if err.status() == Some(StatusCode::UNAUTHORIZED) {
@@ -117,7 +119,7 @@ impl ConfigurationFetcher {
             }
         })?;
 
-        let configuration = response.json()?;
+        let configuration = response.json().await?;
 
         log::debug!(target: "eppo", "successfully fetched UFC bandits configuration");
 
