@@ -6,6 +6,7 @@ use fastly::http::StatusCode;
 use fastly::kv_store::KVStoreError;
 use fastly::{Error, KVStore, Request, Response};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -27,19 +28,24 @@ struct AssignmentsResponse {
 
 const KV_STORE_NAME: &str = "edge-assignment-kv-store";
 const SDK_KEY_QUERY_PARAM: &str = "apiKey"; // For legacy reasons this is named `apiKey`
-const SDK_KEY_PREFIX_LENGTH: usize = 8;
 
 const SDK_NAME: &str = "fastly-edge-assignments";
 const SDK_VERSION: &str = "0.1.0";
 
-fn kv_store_key(sdk_key_prefix: &str) -> String {
-    format!("ufc-by-sdk-key-prefix-{}", sdk_key_prefix)
+fn kv_store_key(token_hash: &str) -> String {
+    format!("ufc-by-sdk-key-token-hash-{}", token_hash)
+}
+
+fn token_hash(sdk_key: String) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(sdk_key.as_bytes());
+    base64_url::encode(&hasher.finalize())
 }
 
 pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
-    // Extract the SDK key prefix first before we consume the request
-    let sdk_key_prefix = match req.get_query_parameter(SDK_KEY_QUERY_PARAM) {
-        Some(key) if !key.is_empty() => key.chars().take(SDK_KEY_PREFIX_LENGTH).collect::<String>(),
+    // Extract the SDK key and generate a token hash matching the pre-defined encoding.
+    let token_hash = match req.get_query_parameter(SDK_KEY_QUERY_PARAM) {
+        Some(key) if !key.is_empty() => token_hash(key.to_string()),
         _ => {
             return Ok(
                 Response::from_status(StatusCode::BAD_REQUEST).with_body_text_plain(&format!(
@@ -77,12 +83,12 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
     // Open the KV store
     let kv_store = KVStore::open(KV_STORE_NAME).map(|store| store.expect("KVStore exists"))?;
 
-    let mut kv_store_item = match kv_store.lookup(&kv_store_key(&sdk_key_prefix)) {
+    let mut kv_store_item = match kv_store.lookup(&kv_store_key(&token_hash)) {
         Ok(item) => item,
         Err(e) => {
             let (status, message) = match e {
                 KVStoreError::ItemNotFound => {
-                    eprintln!("Missing configuration for SDK key: {}", sdk_key_prefix);
+                    eprintln!("Missing configuration for SDK key: {}", token_hash);
 
                     // Return unauthorized if the key does not exist.
                     // Our protocol lets the client know that the SDK key has not had a UFC
@@ -162,4 +168,20 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
         }
     };
     Ok(response)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_token_hash() {
+        // Test case with a known SDK key and its expected hash
+        let sdk_key = "5qCSVzH1lCI11.ZWg9ZDhlYnhsLmV2ZW50cy5lcHBvLmxvY2FsaG9zdA".to_string();
+        let expected_hash = "V--77TScV5Etm78nIMTSOdiroOh1__NsupwUwsetEVM";
+
+        let result = token_hash(sdk_key);
+
+        assert_eq!(result, expected_hash);
+    }
 }
