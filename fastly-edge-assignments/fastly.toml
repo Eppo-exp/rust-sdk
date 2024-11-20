@@ -13,5 +13,5 @@ build = "cargo build --bin fastly-edge-assignments --release --target wasm32-was
 [local_server]
   [local_server.kv_stores]
     [[local_server.kv_stores.edge-assignment-kv-store]]
-      key = "ufc-by-sdk-key-prefix-X47WxuYv"
+      key = "ufc-by-sdk-key-token-hash-V--77TScV5Etm78nIMTSOdiroOh1__NsupwUwsetEVM"
       file = "../sdk-test-data/ufc/flags-v1.json"
