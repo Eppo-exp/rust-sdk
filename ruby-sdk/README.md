@@ -7,6 +7,23 @@ Refer to our [SDK documentation](https://docs.geteppo.com/feature-flags/sdks/rub
 ## Supported Ruby Versions
 This version of the SDK is compatible with Ruby 3.0.6 and above.
 
+## Logging
+
+Ruby SDK uses [`env_logger`](https://docs.rs/env_logger/) for logging.
+
+Starting from version 3.3.0, the log level can be configured via `EPPO_LOG` environment variable using one of the following values:
+- `off`
+- `error`
+- `warn`
+- `info` (default)
+- `debug`
+- `trace`
+
+Alternatively, it can be configured using `log_level` parameter for `EppoClient::Config` constructor:
+```ruby
+config = EppoClient::Config.new("sdk-key", log_level: "debug")
+```
+
 # Contributing
 
 ## Testing with local version of `eppo_core`
