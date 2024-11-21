@@ -19,6 +19,7 @@ pub struct Config {
     base_url: String,
     poll_interval: Option<Duration>,
     poll_jitter: Duration,
+    log_level: String,
 }
 
 impl TryConvert for Config {
@@ -29,11 +30,13 @@ impl TryConvert for Config {
         let poll_interval_seconds =
             Option::<u64>::try_convert(val.funcall("poll_interval_seconds", ())?)?;
         let poll_jitter_seconds = u64::try_convert(val.funcall("poll_jitter_seconds", ())?)?;
+        let log_level = String::try_convert(val.funcall("log_level", ())?)?;
         Ok(Config {
             api_key,
             base_url,
             poll_interval: poll_interval_seconds.map(Duration::from_secs),
             poll_jitter: Duration::from_secs(poll_jitter_seconds),
+            log_level,
         })
     }
 }
@@ -52,6 +55,20 @@ pub struct Client {
 
 impl Client {
     pub fn new(config: Config) -> Client {
+        // Initialize logger
+        let log_level = match config.log_level.as_str() {
+            "error" => log::LevelFilter::Error,
+            "warn" => log::LevelFilter::Warn,
+            "info" => log::LevelFilter::Info,
+            "debug" => log::LevelFilter::Debug,
+            "trace" => log::LevelFilter::Trace,
+            _ => log::LevelFilter::Info // default to info if invalid
+        };
+
+        let _ = env_logger::Builder::from_env(env_logger::Env::new().default_filter_or("eppo=info"))
+            .filter_level(log_level)
+            .init();
+
         let configuration_store = Arc::new(ConfigurationStore::new());
 
         let poller_thread = if let Some(poll_interval) = config.poll_interval {
