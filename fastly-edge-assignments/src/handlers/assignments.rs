@@ -1,6 +1,6 @@
 use eppo_core::configuration_store::ConfigurationStore;
 use eppo_core::eval::{Evaluator, EvaluatorConfig};
-use eppo_core::ufc::{AssignmentValue, UniversalFlagConfig};
+use eppo_core::ufc::UniversalFlagConfig;
 use eppo_core::{Attributes, Configuration, SdkMetadata};
 use fastly::http::StatusCode;
 use fastly::kv_store::KVStoreError;
@@ -20,10 +20,37 @@ struct RequestBody {
     // bandit_actions: Option<HashMap<String, serde_json::Value>>,
 }
 
+// Response
+
 #[derive(Debug, Serialize)]
+#[serde(rename_all = "UPPERCASE")]
+enum AssignmentFormat {
+    Precomputed,
+}
+
+#[derive(Debug, Serialize)]
+struct Environment {
+    name: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FlagAssignment {
+    allocation_key: String,
+    variation_key: String,
+    variation_type: String,
+    variation_value: serde_json::Value,
+    extra_logging: HashMap<String, serde_json::Value>,
+    do_log: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 struct AssignmentsResponse {
-    assignments: HashMap<String, AssignmentValue>,
-    timestamp: i64,
+    created_at: i64,
+    format: AssignmentFormat,
+    environment: Environment,
+    flags: HashMap<String, FlagAssignment>,
 }
 
 const KV_STORE_NAME: &str = "edge-assignment-kv-store";
@@ -141,7 +168,28 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
         .iter()
         .filter_map(|key| {
             match evaluator.get_assignment(key, &subject_key, &subject_attributes, None) {
-                Ok(Some(assignment)) => Some((key.clone(), assignment.value)),
+                Ok(Some(assignment)) => {
+                    // Extract event data if available, otherwise skip this assignment
+                    assignment.event.as_ref().map(|event| {
+                        (
+                            key.clone(),
+                            FlagAssignment {
+                                allocation_key: event.base.allocation.to_string(),
+                                variation_key: event.base.variation.to_string(),
+                                // TODO: We need to get the variation type from the UFC config.
+                                variation_type: assignment.value.variation_type().to_string(),
+                                variation_value: assignment.value.variation_value(),
+                                extra_logging: event
+                                    .base
+                                    .extra_logging
+                                    .iter()
+                                    .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
+                                    .collect(),
+                                do_log: true,
+                            },
+                        )
+                    })
+                }
                 Ok(None) => None,
                 Err(e) => {
                     eprintln!("Failed to evaluate assignment for key {}: {:?}", key, e);
@@ -153,8 +201,14 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
 
     // Create the response
     let assignments_response = AssignmentsResponse {
-        assignments: subject_assignments,
-        timestamp: chrono::Utc::now().timestamp(),
+        created_at: chrono::Utc::now().timestamp(),
+        format: AssignmentFormat::Precomputed,
+        // TODO: Need to figure out how to access the environment name.
+        // from the UFC configuration but it's not public in the compiled config.
+        environment: Environment {
+            name: "UNKNOWN".to_string(),
+        },
+        flags: subject_assignments,
     };
 
     // Create an HTTP OK response with the assignments
