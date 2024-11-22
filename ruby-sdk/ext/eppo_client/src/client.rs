@@ -1,4 +1,4 @@
-use std::{cell::RefCell, sync::Arc, time::Duration};
+use std::{cell::RefCell, str::FromStr, sync::Arc, time::Duration};
 
 use eppo_core::{
     configuration_fetcher::{ConfigurationFetcher, ConfigurationFetcherConfig},
@@ -19,6 +19,7 @@ pub struct Config {
     base_url: String,
     poll_interval: Option<Duration>,
     poll_jitter: Duration,
+    log_level: Option<log::LevelFilter>,
 }
 
 impl TryConvert for Config {
@@ -29,11 +30,22 @@ impl TryConvert for Config {
         let poll_interval_seconds =
             Option::<u64>::try_convert(val.funcall("poll_interval_seconds", ())?)?;
         let poll_jitter_seconds = u64::try_convert(val.funcall("poll_jitter_seconds", ())?)?;
+
+        let log_level = {
+            let s = Option::<String>::try_convert(val.funcall("log_level", ())?)?;
+            s.map(|s| {
+                log::LevelFilter::from_str(&s)
+                    .map_err(|err| Error::new(exception::runtime_error(), err.to_string()))
+            })
+            .transpose()?
+        };
+
         Ok(Config {
             api_key,
             base_url,
             poll_interval: poll_interval_seconds.map(Duration::from_secs),
             poll_jitter: Duration::from_secs(poll_jitter_seconds),
+            log_level,
         })
     }
 }
@@ -52,6 +64,23 @@ pub struct Client {
 
 impl Client {
     pub fn new(config: Config) -> Client {
+        // Initialize logger
+        {
+            let mut builder = env_logger::Builder::from_env(
+                env_logger::Env::new()
+                    .filter_or("EPPO_LOG", "eppo=info")
+                    .write_style("EPPO_LOG_STYLE"),
+            );
+
+            if let Some(log_level) = config.log_level {
+                builder.filter_module("eppo", log_level);
+            }
+
+            // Logger can only be set once, so we ignore the initialization error here if client is
+            // re-initialized.
+            let _ = builder.try_init();
+        };
+
         let configuration_store = Arc::new(ConfigurationStore::new());
 
         let poller_thread = if let Some(poll_interval) = config.poll_interval {

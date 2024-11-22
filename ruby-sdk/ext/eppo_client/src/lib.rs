@@ -14,8 +14,6 @@ pub(crate) const SDK_METADATA: SdkMetadata = SdkMetadata {
 
 #[magnus::init]
 fn init(ruby: &Ruby) -> Result<(), Error> {
-    env_logger::Builder::from_env(env_logger::Env::new().default_filter_or("eppo=debug")).init();
-
     let eppo_client = ruby.define_module("EppoClient")?;
     let core = eppo_client.define_module("Core")?;
 
