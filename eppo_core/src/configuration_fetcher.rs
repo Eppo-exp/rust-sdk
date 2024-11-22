@@ -12,10 +12,9 @@ pub struct ConfigurationFetcherConfig {
     pub sdk_metadata: SdkMetadata,
 }
 
-pub const DEFAULT_BASE_URL: &'static str = "https://fscdn.eppo.cloud/api";
-
-const UFC_ENDPOINT: &'static str = "/flag-config/v1/config";
-const BANDIT_ENDPOINT: &'static str = "/flag-config/v1/bandits";
+pub const DEFAULT_BASE_URL: &str = "https://fscdn.eppo.cloud/api";
+const UFC_ENDPOINT: &str = "/flag-config/v1/config";
+const BANDIT_ENDPOINT: &str = "/flag-config/v1/bandits";
 
 /// A client that fetches Eppo configuration from the server.
 pub struct ConfigurationFetcher {
@@ -65,20 +64,19 @@ impl ConfigurationFetcher {
                 ("coreVersion", env!("CARGO_PKG_VERSION")),
             ],
         )
-        .map_err(|err| Error::InvalidBaseUrl(err))?;
+        .map_err(Error::InvalidBaseUrl)?;
 
         log::debug!(target: "eppo", "fetching UFC flags configuration");
         let response = self.client.get(url).send().await?;
 
         let response = response.error_for_status().map_err(|err| {
             if err.status() == Some(StatusCode::UNAUTHORIZED) {
-                    log::warn!(target: "eppo", "client is not authorized. Check your API key");
-                    self.unauthorized = true;
-                    return Error::Unauthorized;
-                } else {
-                    log::warn!(target: "eppo", "received non-200 response while fetching new configuration: {:?}", err);
-                    return Error::from(err);
-
+                log::warn!(target: "eppo", "client is not authorized. Check your API key");
+                self.unauthorized = true;
+                Error::Unauthorized
+            } else {
+                log::warn!(target: "eppo", "received non-200 response while fetching new configuration: {:?}", err);
+                Error::from(err)
             }
         })?;
 
@@ -102,20 +100,19 @@ impl ConfigurationFetcher {
                 ("coreVersion", env!("CARGO_PKG_VERSION")),
             ],
         )
-        .map_err(|err| Error::InvalidBaseUrl(err))?;
+        .map_err(Error::InvalidBaseUrl)?;
 
         log::debug!(target: "eppo", "fetching UFC bandits configuration");
         let response = self.client.get(url).send().await?;
 
         let response = response.error_for_status().map_err(|err| {
             if err.status() == Some(StatusCode::UNAUTHORIZED) {
-                    log::warn!(target: "eppo", "client is not authorized. Check your API key");
-                    self.unauthorized = true;
-                    return Error::Unauthorized;
-                } else {
-                    log::warn!(target: "eppo", "received non-200 response while fetching new configuration: {:?}", err);
-                    return Error::from(err);
-
+                log::warn!(target: "eppo", "client is not authorized. Check your API key");
+                self.unauthorized = true;
+                Error::Unauthorized
+            } else {
+                log::warn!(target: "eppo", "received non-200 response while fetching new configuration: {:?}", err);
+                Error::from(err)
             }
         })?;
 

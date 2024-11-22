@@ -21,7 +21,7 @@ pub fn init(config: Bound<ClientConfig>) -> PyResult<Py<EppoClient>> {
 
     let py = config.py();
 
-    let client = Bound::new(py, EppoClient::new(py, &*config.borrow())?)?.unbind();
+    let client = Bound::new(py, EppoClient::new(py, &config.borrow())?)?.unbind();
 
     // minimizing the scope of holding the write lock
     let existing = {
@@ -77,15 +77,13 @@ fn initialize_pyo3_log() {
                 // There's a previous handle. Logging is already initialized, but we reset
                 // caches.
                 previous_handle.reset();
+            } else if let Ok(new_handle) = pyo3_log::try_init() {
+                *reset_handle = Some(new_handle);
             } else {
-                if let Ok(new_handle) = pyo3_log::try_init() {
-                    *reset_handle = Some(new_handle);
-                } else {
-                    // This should not happen as initialization error signals that we already
-                    // initialized logging. (In which case, `LOG_RESET_HANDLE` should contain
-                    // `Some()`.)
-                    debug_assert!(false, "tried to initialize pyo3_log second time");
-                }
+                // This should not happen as initialization error signals that we already
+                // initialized logging. (In which case, `LOG_RESET_HANDLE` should contain
+                // `Some()`.)
+                debug_assert!(false, "tried to initialize pyo3_log second time");
             }
         } else {
             // This should normally never happen as it shows that another thread has panicked

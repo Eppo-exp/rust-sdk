@@ -106,9 +106,9 @@ pub(super) fn get_assignment_with_visitor<V: EvalAssignmentVisitor>(
 
         config.flags.compiled.eval_flag(
             visitor,
-            &flag_key,
-            &subject_key,
-            &subject_attributes,
+            flag_key,
+            subject_key,
+            subject_attributes,
             expected_type,
             now,
         )

@@ -87,7 +87,7 @@ impl Configuration {
 
     fn bandits_configuration(ruby: &Ruby, rb_self: &Self) -> Result<Option<RString>, Error> {
         let Some(bandits) = &rb_self.inner.bandits else {
-            return Ok(None)
+            return Ok(None);
         };
         let vec = serde_json::to_vec(bandits).map_err(|err| {
             // this should never happen

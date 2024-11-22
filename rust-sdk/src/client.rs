@@ -55,7 +55,7 @@ impl<'a> Client<'a> {
     ) -> Self {
         let evaluator = Evaluator::new(EvaluatorConfig {
             configuration_store: configuration_store.clone(),
-            sdk_metadata: SDK_METADATA.clone(),
+            sdk_metadata: SDK_METADATA,
         });
         Self {
             configuration_store,

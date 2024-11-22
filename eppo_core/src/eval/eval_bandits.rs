@@ -48,6 +48,7 @@ pub struct BanditResult {
 
 /// Evaluate the specified string feature flag for the given subject. If resulting variation is
 /// a bandit, evaluate the bandit to return the action.
+#[allow(clippy::too_many_arguments)]
 pub fn get_bandit_action(
     configuration: Option<&Configuration>,
     flag_key: &str,
@@ -73,6 +74,7 @@ pub fn get_bandit_action(
 
 /// Evaluate the specified string feature flag for the given subject. If resulting variation is
 /// a bandit, evaluate the bandit to return the action. In addition, return evaluation details.
+#[allow(clippy::too_many_arguments)]
 pub fn get_bandit_action_details(
     configuration: Option<&Configuration>,
     flag_key: &str,
@@ -106,6 +108,7 @@ pub fn get_bandit_action_details(
 
 /// Evaluate the specified string feature flag for the given subject. If resulting variation is
 /// a bandit, evaluate the bandit to return the action.
+#[allow(clippy::too_many_arguments)]
 fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     visitor: &mut V,
     configuration: Option<&Configuration>,
@@ -232,7 +235,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
         bandit_event: Some(bandit_event),
     };
     visitor.on_result(Ok(()), &result);
-    return result;
+    result
 }
 
 impl BanditModelData {
@@ -246,7 +249,7 @@ impl BanditModelData {
         // total_shards is not configurable at the moment.
         const TOTAL_SHARDS: u32 = 10_000;
 
-        if actions.len() == 0 {
+        if actions.is_empty() {
             return Err(EvaluationFailure::NoActionsSuppliedForBandit);
         }
 
@@ -360,7 +363,7 @@ impl BanditModelData {
 
         coefficients.intercept
             + score_attributes(
-                &action.attributes,
+                action.attributes,
                 &coefficients.action_numeric_coefficients,
                 &coefficients.action_categorical_coefficients,
             )
@@ -378,7 +381,7 @@ fn score_attributes(
     categorical_coefficients: &[BanditCategoricalAttributeCoefficient],
 ) -> f64 {
     numeric_coefficients
-        .into_iter()
+        .iter()
         .map(|coef| {
             attributes
                 .numeric
@@ -388,7 +391,7 @@ fn score_attributes(
                 .map(|value| value * coef.coefficient)
                 .unwrap_or(coef.missing_value_coefficient)
         })
-        .chain(categorical_coefficients.into_iter().map(|coef| {
+        .chain(categorical_coefficients.iter().map(|coef| {
             attributes
                 .categorical
                 .get(&coef.attribute_key)

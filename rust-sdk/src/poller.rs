@@ -46,7 +46,7 @@ impl PollerThread {
         let fetcher = ConfigurationFetcher::new(ConfigurationFetcherConfig {
             base_url: config.base_url,
             api_key: config.api_key,
-            sdk_metadata: SDK_METADATA.clone(),
+            sdk_metadata: SDK_METADATA,
         });
         let inner = PollerThreadImpl::start(fetcher, config.store)?;
         Ok(PollerThread(inner))
@@ -66,7 +66,7 @@ impl PollerThread {
     /// This method can fail with the following errors:
     ///
     /// - [`Error::PollerThreadPanicked`]: If the poller thread panicked while waiting for
-    /// configuration.
+    ///   configuration.
     ///
     /// # Example
     ///

@@ -139,10 +139,10 @@ impl EvalDetailsBuilder {
                 }
                 EvaluationFailure::Error(EvaluationError::UnexpectedConfigurationError)
                 | EvaluationFailure::Error(EvaluationError::UnexpectedConfigurationParseError) => {
-                    format!("Configuration error. This might indicate that you're using an outdated version of Eppo SDK")
+                    "Configuration error. This might indicate that you're using an outdated version of Eppo SDK".to_string()
                 }
                 EvaluationFailure::ConfigurationMissing => {
-                    format!("Configuration has not been fetched yet")
+                    "Configuration has not been fetched yet".to_string()
                 }
                 EvaluationFailure::FlagUnrecognizedOrDisabled => {
                     format!("Unrecognized or disabled flag: {}", self.flag_key)
@@ -150,22 +150,23 @@ impl EvalDetailsBuilder {
                 EvaluationFailure::FlagDisabled => {
                     format!("Unrecognized or disabled flag: {}", self.flag_key)
                 }
-                EvaluationFailure::DefaultAllocationNull => format!(
+                EvaluationFailure::DefaultAllocationNull => {
                     "No allocations matched. Falling back to \"Default Allocation\", serving NULL"
-                ),
+                        .to_string()
+                }
                 EvaluationFailure::NonBanditVariation => {
                     debug_assert!(
                         false,
                         "{failure:?} should never be emitted by flag evaluation"
                     );
-                    format!("Flag evaluated to a non-bandit allocation")
+                    "Flag evaluated to a non-bandit allocation".to_string()
                 }
                 EvaluationFailure::NoActionsSuppliedForBandit => {
                     debug_assert!(
                         false,
                         "{failure:?} should never be emitted by flag evaluation"
                     );
-                    format!("No actions were supplied for bandit evaluation")
+                    "No actions were supplied for bandit evaluation".to_string()
                 }
             };
         }
@@ -219,7 +220,7 @@ impl EvalBanditVisitor for EvalDetailsBuilder {
         self.bandit_key = Some(key.to_owned());
     }
 
-    fn visit_assignment<'a>(&'a mut self) -> Self::AssignmentVisitor<'a> {
+    fn visit_assignment(&mut self) -> Self::AssignmentVisitor<'_> {
         self
     }
 
@@ -234,7 +235,7 @@ impl<'b> EvalAssignmentVisitor for &'b mut EvalDetailsBuilder {
         <EvalDetailsBuilder as EvalAssignmentVisitor>::AllocationVisitor<'a>
     where Self: 'a;
 
-    fn visit_allocation<'a>(&'a mut self, allocation: &Allocation) -> Self::AllocationVisitor<'a> {
+    fn visit_allocation(&mut self, allocation: &Allocation) -> Self::AllocationVisitor<'_> {
         EvalAssignmentVisitor::visit_allocation(*self, allocation)
     }
 
@@ -256,7 +257,7 @@ impl EvalAssignmentVisitor for EvalDetailsBuilder {
     where
         Self: 'a;
 
-    fn visit_allocation<'a>(&'a mut self, allocation: &Allocation) -> Self::AllocationVisitor<'a> {
+    fn visit_allocation(&mut self, allocation: &Allocation) -> Self::AllocationVisitor<'_> {
         let order_position = self.allocation_eval_results.len() + 1;
         let result = self
             .allocation_eval_results
