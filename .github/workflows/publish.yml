@@ -181,6 +181,8 @@ jobs:
           script="puts EppoClient::Core::Client.new(EppoClient::Config.new('placeholder'))"
           ruby -reppo_client -e "$script" 2>&1 | grep 'fetching new configuration'
           echo "✅ Successfully installed gem"
+        env:
+          EPPO_LOG: "eppo=debug"
 
       - name: Set outputs
         id: set-outputs
