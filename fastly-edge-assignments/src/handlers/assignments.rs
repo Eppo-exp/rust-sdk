@@ -59,7 +59,7 @@ const SDK_KEY_QUERY_PARAM: &str = "apiKey"; // For legacy reasons this is named 
 const SDK_NAME: &str = "fastly-edge-assignments";
 const SDK_VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn kv_store_key(token_hash: &str) -> String {
+fn kv_store_key(token_hash: String) -> String {
     format!("ufc-by-sdk-key-token-hash-{}", token_hash)
 }
 
@@ -110,7 +110,7 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
     // Open the KV store
     let kv_store = KVStore::open(KV_STORE_NAME).map(|store| store.expect("KVStore exists"))?;
 
-    let mut kv_store_item = match kv_store.lookup(&kv_store_key(&token_hash)) {
+    let mut kv_store_item = match kv_store.lookup(&kv_store_key(token_hash.clone())) {
         Ok(item) => item,
         Err(e) => {
             let (status, message) = match e {
