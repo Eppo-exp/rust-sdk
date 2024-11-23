@@ -129,27 +129,8 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
         .iter()
         .filter_map(|key| {
             match evaluator.get_assignment(key, &subject_key, &subject_attributes, None) {
-                Ok(Some(assignment)) => {
-                    // Extract event data if available, otherwise skip this assignment
-                    assignment.event.as_ref().map(|event| {
-                        (
-                            key.clone(),
-                            FlagAssignment {
-                                allocation_key: event.base.allocation.to_string(),
-                                variation_key: event.base.variation.to_string(),
-                                variation_type: assignment.value.variation_type(),
-                                variation_value: assignment.value.variation_value(),
-                                extra_logging: event
-                                    .base
-                                    .extra_logging
-                                    .iter()
-                                    .map(|(k, v)| (k.clone(), v.clone()))
-                                    .collect(),
-                                do_log: true,
-                            },
-                        )
-                    })
-                }
+                Ok(Some(assignment)) => FlagAssignment::try_from_assignment(assignment)
+                    .map(|flag_assignment| (key.clone(), flag_assignment)),
                 Ok(None) => None,
                 Err(e) => {
                     eprintln!("Failed to evaluate assignment for key {}: {:?}", key, e);
