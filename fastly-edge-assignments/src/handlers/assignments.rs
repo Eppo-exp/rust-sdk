@@ -63,7 +63,7 @@ fn kv_store_key(token_hash: String) -> String {
     format!("ufc-by-sdk-key-token-hash-{}", token_hash)
 }
 
-fn token_hash(sdk_key: String) -> String {
+fn token_hash(sdk_key: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(sdk_key.as_bytes());
     base64_url::encode(&hasher.finalize())
@@ -72,7 +72,7 @@ fn token_hash(sdk_key: String) -> String {
 pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
     // Extract the SDK key and generate a token hash matching the pre-defined encoding.
     let token_hash = match req.get_query_parameter(SDK_KEY_QUERY_PARAM) {
-        Some(key) if !key.is_empty() => token_hash(key.to_string()),
+        Some(key) if !key.is_empty() => token_hash(key),
         _ => {
             return Ok(
                 Response::from_status(StatusCode::BAD_REQUEST).with_body_text_plain(&format!(
@@ -231,7 +231,7 @@ mod tests {
     #[test]
     fn test_token_hash() {
         // Test case with a known SDK key and its expected hash
-        let sdk_key = "5qCSVzH1lCI11.ZWg9ZDhlYnhsLmV2ZW50cy5lcHBvLmxvY2FsaG9zdA".to_string();
+        let sdk_key = "5qCSVzH1lCI11.ZWg9ZDhlYnhsLmV2ZW50cy5lcHBvLmxvY2FsaG9zdA";
         let expected_hash = "V--77TScV5Etm78nIMTSOdiroOh1__NsupwUwsetEVM";
 
         let result = token_hash(sdk_key);
