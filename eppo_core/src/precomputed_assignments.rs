@@ -1,4 +1,3 @@
-use crate::events::AssignmentEvent;
 use crate::ufc::{Assignment, AssignmentFormat, Environment, VariationType};
 use crate::{Attributes, Str};
 use serde::{Deserialize, Serialize};
@@ -20,8 +19,8 @@ pub struct PrecomputedAssignmentsServiceRequestBody {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FlagAssignment {
-    pub allocation_key: String,
-    pub variation_key: String,
+    pub allocation_key: Str,
+    pub variation_key: Str,
     pub variation_type: VariationType,
     pub variation_value: serde_json::Value,
     /// Additional user-defined logging fields for capturing extra information related to the
@@ -35,8 +34,8 @@ impl FlagAssignment {
     pub fn try_from_assignment(assignment: Assignment) -> Option<Self> {
         // Extract event data if available, otherwise return None
         assignment.event.as_ref().map(|event| Self {
-            allocation_key: event.base.allocation.to_string(),
-            variation_key: event.base.variation.to_string(),
+            allocation_key: event.base.allocation.clone(),
+            variation_key: event.base.variation.clone(),
             variation_type: assignment.value.variation_type(),
             variation_value: assignment.value.variation_value(),
             extra_logging: event
