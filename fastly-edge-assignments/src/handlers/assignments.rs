@@ -57,7 +57,7 @@ const KV_STORE_NAME: &str = "edge-assignment-kv-store";
 const SDK_KEY_QUERY_PARAM: &str = "apiKey"; // For legacy reasons this is named `apiKey`
 
 const SDK_NAME: &str = "fastly-edge-assignments";
-const SDK_VERSION: &str = "0.1.0";
+const SDK_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn kv_store_key(token_hash: &str) -> String {
     format!("ufc-by-sdk-key-token-hash-{}", token_hash)
