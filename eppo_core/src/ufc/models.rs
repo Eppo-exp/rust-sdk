@@ -549,6 +549,7 @@ mod tests {
             &r#"
               {
                 "createdAt": "2024-07-18T00:00:00Z",
+                "format": "SERVER",
                 "environment": {"name": "test"},
                 "flags": {
                   "success": {
