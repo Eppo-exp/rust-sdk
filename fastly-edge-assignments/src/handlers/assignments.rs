@@ -1,57 +1,16 @@
 use eppo_core::configuration_store::ConfigurationStore;
 use eppo_core::eval::{Evaluator, EvaluatorConfig};
-use eppo_core::ufc::{UniversalFlagConfig, VariationType};
-use eppo_core::{Attributes, Configuration, SdkMetadata};
+use eppo_core::precomputed_assignments::{
+    FlagAssignment, PrecomputedAssignmentsServiceRequestBody, PrecomputedAssignmentsServiceResponse,
+};
+use eppo_core::ufc::UniversalFlagConfig;
+use eppo_core::{Attributes, Configuration, SdkMetadata, Str};
 use fastly::http::StatusCode;
 use fastly::kv_store::KVStoreError;
 use fastly::{Error, KVStore, Request, Response};
-use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
-
-#[derive(Debug, Deserialize)]
-struct RequestBody {
-    subject_key: String,
-    subject_attributes: Arc<Attributes>,
-    // TODO: Add bandit actions
-    // #[serde(rename = "banditActions")]
-    // #[serde(skip_serializing_if = "Option::is_none")]
-    // bandit_actions: Option<HashMap<String, serde_json::Value>>,
-}
-
-// Response
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "UPPERCASE")]
-enum AssignmentFormat {
-    Precomputed,
-}
-
-#[derive(Debug, Serialize)]
-struct Environment {
-    name: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FlagAssignment {
-    allocation_key: String,
-    variation_key: String,
-    variation_type: VariationType,
-    variation_value: serde_json::Value,
-    extra_logging: HashMap<String, serde_json::Value>,
-    do_log: bool,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct AssignmentsResponse {
-    created_at: chrono::DateTime<chrono::Utc>,
-    format: AssignmentFormat,
-    environment: Environment,
-    flags: HashMap<String, FlagAssignment>,
-}
 
 const KV_STORE_NAME: &str = "edge-assignment-kv-store";
 const SDK_KEY_QUERY_PARAM: &str = "apiKey"; // For legacy reasons this is named `apiKey`
@@ -85,7 +44,9 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
 
     // Deserialize the request body into a struct
     let (subject_key, subject_attributes): (eppo_core::Str, Arc<Attributes>) =
-        match serde_json::from_slice::<RequestBody>(&req.take_body_bytes()) {
+        match serde_json::from_slice::<PrecomputedAssignmentsServiceRequestBody>(
+            &req.take_body_bytes(),
+        ) {
             Ok(body) => {
                 if body.subject_key.is_empty() {
                     return Ok(Response::from_status(StatusCode::BAD_REQUEST)
@@ -200,16 +161,10 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
         .collect::<HashMap<_, _>>();
 
     // Create the response
-    let assignments_response = AssignmentsResponse {
-        created_at: chrono::Utc::now(),
-        format: AssignmentFormat::Precomputed,
-        // TODO: Need to figure out how to access the environment name.
-        // from the UFC configuration but it's not public in the compiled config.
-        environment: Environment {
-            name: "UNKNOWN".to_string(),
-        },
-        flags: subject_assignments,
-    };
+    let assignments_response = PrecomputedAssignmentsServiceResponse::new(
+        Str::from_static_str("UNKNOWN"),
+        subject_assignments,
+    );
 
     // Create an HTTP OK response with the assignments
     let response = match Response::from_status(StatusCode::OK).with_body_json(&assignments_response)
