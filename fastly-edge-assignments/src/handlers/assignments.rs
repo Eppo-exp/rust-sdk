@@ -4,7 +4,7 @@ use eppo_core::precomputed_assignments::{
     FlagAssignment, PrecomputedAssignmentsServiceRequestBody, PrecomputedAssignmentsServiceResponse,
 };
 use eppo_core::ufc::UniversalFlagConfig;
-use eppo_core::{Attributes, Configuration, SdkMetadata, Str};
+use eppo_core::{Attributes, Configuration, SdkMetadata};
 use fastly::http::StatusCode;
 use fastly::kv_store::KVStoreError;
 use fastly::{Error, KVStore, Request, Response};
@@ -114,9 +114,10 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
     };
 
     let configuration = Configuration::from_server_response(ufc_config, None);
+    let configuration = Arc::new(configuration);
     let flag_keys = configuration.flag_keys();
     let configuration_store = ConfigurationStore::new();
-    configuration_store.set_configuration(Arc::new(configuration));
+    configuration_store.set_configuration(configuration.clone());
     let evaluator = Evaluator::new(EvaluatorConfig {
         configuration_store: Arc::new(configuration_store),
         sdk_metadata: SdkMetadata {
@@ -141,8 +142,8 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
         .collect::<HashMap<_, _>>();
 
     // Create the response
-    let assignments_response = PrecomputedAssignmentsServiceResponse::new(
-        Str::from_static_str("UNKNOWN"),
+    let assignments_response = PrecomputedAssignmentsServiceResponse::from_configuration(
+        configuration,
         subject_assignments,
     );
 

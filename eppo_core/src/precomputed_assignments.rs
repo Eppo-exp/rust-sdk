@@ -1,5 +1,5 @@
 use crate::ufc::{Assignment, AssignmentFormat, Environment, VariationType};
-use crate::{Attributes, Str};
+use crate::{Attributes, Configuration, Str};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -32,7 +32,16 @@ pub struct FlagAssignment {
 
 impl FlagAssignment {
     pub fn try_from_assignment(assignment: Assignment) -> Option<Self> {
-        // Extract event data if available, otherwise return None
+        // WARNING! There is a problem here. The event is only populated for splits
+        // that have `do_log` set to true in the wire format. This means that
+        // all the ones present here are logged, but any splits that are not
+        // logged are not present here.
+        //
+        // This is a problem for us because we want to be able to return
+        // precomputed assignments for any split, logged or not, since we
+        // want to be able to return them for all flags.
+        //
+        // We need to fix this.
         assignment.event.as_ref().map(|event| Self {
             allocation_key: event.base.allocation.clone(),
             variation_key: event.base.variation.clone(),
@@ -59,13 +68,16 @@ pub struct PrecomputedAssignmentsServiceResponse {
 }
 
 impl PrecomputedAssignmentsServiceResponse {
-    pub fn new(environment_name: Str, flags: HashMap<String, FlagAssignment>) -> Self {
+    pub fn from_configuration(
+        configuration: Arc<Configuration>,
+        flags: HashMap<String, FlagAssignment>,
+    ) -> Self {
         Self {
             created_at: chrono::Utc::now(),
             format: AssignmentFormat::Precomputed,
             environment: {
                 Environment {
-                    name: environment_name,
+                    name: configuration.flags.compiled.environment.name.clone(),
                 }
             },
             flags,
