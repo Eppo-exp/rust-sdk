@@ -7,7 +7,7 @@ use std::sync::Arc;
 // Request
 #[derive(Debug, Deserialize)]
 pub struct PrecomputedAssignmentsServiceRequestBody {
-    pub subject_key: String,
+    pub subject_key: Str,
     pub subject_attributes: Arc<Attributes>,
     // TODO: Add bandit actions
     // #[serde(rename = "banditActions")]

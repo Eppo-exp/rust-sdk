@@ -53,10 +53,7 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
                     return Ok(Response::from_status(StatusCode::BAD_REQUEST)
                         .with_body_text_plain("subject_key is required and cannot be empty"));
                 }
-                (
-                    eppo_core::Str::from(body.subject_key),
-                    body.subject_attributes,
-                )
+                (body.subject_key, body.subject_attributes)
             }
             Err(e) => {
                 let error_message = if e.to_string().contains("subject_key") {
