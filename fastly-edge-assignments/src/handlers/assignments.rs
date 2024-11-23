@@ -47,7 +47,7 @@ struct FlagAssignment {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct AssignmentsResponse {
-    created_at: i64,
+    created_at: chrono::DateTime<chrono::Utc>,
     format: AssignmentFormat,
     environment: Environment,
     flags: HashMap<String, FlagAssignment>,
@@ -201,7 +201,7 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
 
     // Create the response
     let assignments_response = AssignmentsResponse {
-        created_at: chrono::Utc::now().timestamp(),
+        created_at: chrono::Utc::now(),
         format: AssignmentFormat::Precomputed,
         // TODO: Need to figure out how to access the environment name.
         // from the UFC configuration but it's not public in the compiled config.
