@@ -8,6 +8,7 @@ from .util import init
 FLAGS_CONFIG = json.dumps(
     {
         "createdAt": "2024-09-09T10:18:15.988Z",
+        "format": "SERVER",
         "environment": {"name": "test"},
         "flags": {},
     }
@@ -16,6 +17,7 @@ FLAGS_CONFIG = json.dumps(
 FLAGS_CONFIG_WITH_BANDITS = json.dumps(
     {
         "createdAt": "2024-09-09T10:18:15.988Z",
+        "format": "SERVER",
         "environment": {"name": "test"},
         "flags": {},
         "bandits": {
@@ -112,7 +114,7 @@ class TestConfiguration:
         """flags is specified as array instead of object"""
         with pytest.raises(Exception):
             Configuration(
-                flags_configuration=b'{"createdAt":"2024-09-09T10:18:15.988Z","environment":{"name":"test"},"flags":[]}'
+                flags_configuration=b'{"createdAt":"2024-09-09T10:18:15.988Z","format":"SERVER","environment":{"name":"test"},"flags":[]}'
             )
 
     def test_get_bandits_configuration(self):
@@ -145,5 +147,6 @@ def test_configuration_some():
     flag_config = configuration.get_flags_configuration()
 
     result = json.loads(flag_config)
+    assert result["format"] == "SERVER"
     assert result["environment"] == {"name": "Test"}
     assert "numeric_flag" in result["flags"]

@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{events::AssignmentEvent, Str};
 
+use crate::ufc::VariationType;
+
 /// Result of assignment evaluation.
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -229,6 +231,52 @@ impl AssignmentValue {
         match self {
             Self::Json(v) => Some(v),
             _ => None,
+        }
+    }
+
+    /// Returns the type of the variation as a string.
+    ///
+    /// # Returns
+    /// - A string representing the type of the variation ("STRING", "INTEGER", "NUMERIC", "BOOLEAN", or "JSON").
+    ///
+    /// # Examples
+    /// ```
+    /// # use eppo_core::ufc::AssignmentValue;
+    /// # use eppo_core::ufc::VariationType;
+    /// let value = AssignmentValue::String("example".into());
+    /// assert_eq!(value.variation_type(), VariationType::String);
+    /// ```
+    pub fn variation_type(&self) -> VariationType {
+        match self {
+            AssignmentValue::String(_) => VariationType::String,
+            AssignmentValue::Integer(_) => VariationType::Integer,
+            AssignmentValue::Numeric(_) => VariationType::Numeric,
+            AssignmentValue::Boolean(_) => VariationType::Boolean,
+            AssignmentValue::Json(_) => VariationType::Json,
+        }
+    }
+
+    /// Returns the raw value of the variation.
+    ///
+    /// # Returns
+    /// - A JSON Value containing the variation value.
+    ///
+    /// # Examples
+    /// ```
+    /// # use eppo_core::ufc::AssignmentValue;
+    /// # use serde_json::json;
+    /// let value = AssignmentValue::String("example".into());
+    /// assert_eq!(value.variation_value(), json!("example"));
+    /// ```
+    pub fn variation_value(&self) -> serde_json::Value {
+        match self {
+            AssignmentValue::String(s) => serde_json::Value::String(s.to_string()),
+            AssignmentValue::Integer(i) => serde_json::Value::Number((*i).into()),
+            AssignmentValue::Numeric(n) => serde_json::Value::Number(
+                serde_json::Number::from_f64(*n).unwrap_or_else(|| serde_json::Number::from(0)),
+            ),
+            AssignmentValue::Boolean(b) => serde_json::Value::Bool(*b),
+            AssignmentValue::Json(j) => j.as_ref().clone(),
         }
     }
 }

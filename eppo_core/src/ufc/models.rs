@@ -18,6 +18,7 @@ pub type Timestamp = chrono::DateTime<chrono::Utc>;
 pub(crate) struct UniversalFlagConfigWire {
     /// When configuration was last updated.
     pub created_at: Timestamp,
+    pub format: AssignmentFormat,
     /// Environment this configuration belongs to.
     pub environment: Environment,
     /// Flags configuration.
@@ -29,6 +30,14 @@ pub(crate) struct UniversalFlagConfigWire {
     /// served separately.
     #[serde(default)]
     pub bandits: HashMap<String, Vec<BanditVariationWire>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "UPPERCASE")]
+pub(crate) enum AssignmentFormat {
+    Client,
+    Precomputed,
+    Server,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -540,6 +549,7 @@ mod tests {
             &r#"
               {
                 "createdAt": "2024-07-18T00:00:00Z",
+                "format": "SERVER",
                 "environment": {"name": "test"},
                 "flags": {
                   "success": {

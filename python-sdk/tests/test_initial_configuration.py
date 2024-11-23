@@ -22,7 +22,7 @@ def test_with_initial_configuration():
             base_url="http://localhost:8378/api",
             assignment_logger=AssignmentLogger(),
             initial_configuration=Configuration(
-                flags_configuration=b'{"createdAt":"2024-09-09T10:18:15.988Z","environment":{"name":"test"},"flags":{}}'
+                flags_configuration=b'{"createdAt":"2024-09-09T10:18:15.988Z","format":"SERVER","environment":{"name":"test"},"flags":{}}'
             ),
         )
     )
@@ -40,7 +40,7 @@ def test_update_configuration():
 
     client.set_configuration(
         Configuration(
-            flags_configuration=b'{"createdAt":"2024-09-09T10:18:15.988Z","environment":{"name":"test"},"flags":{}}'
+            flags_configuration=b'{"createdAt":"2024-09-09T10:18:15.988Z","format":"SERVER","environment":{"name":"test"},"flags":{}}'
         )
     )
 
