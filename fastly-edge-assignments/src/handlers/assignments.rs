@@ -30,17 +30,18 @@ fn token_hash(sdk_key: &str) -> String {
 
 pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
     // Extract the SDK key and generate a token hash matching the pre-defined encoding.
-    let token_hash = match req.get_query_parameter(SDK_KEY_QUERY_PARAM) {
-        Some(key) if !key.is_empty() => token_hash(key),
-        _ => {
-            return Ok(
-                Response::from_status(StatusCode::BAD_REQUEST).with_body_text_plain(&format!(
-                    "Missing required query parameter: {}",
-                    SDK_KEY_QUERY_PARAM
-                )),
-            );
-        }
+    let Some(token) = req
+        .get_query_parameter(SDK_KEY_QUERY_PARAM)
+        .filter(|it| !it.is_empty())
+    else {
+        return Ok(
+            Response::from_status(StatusCode::BAD_REQUEST).with_body_text_plain(&format!(
+                "Missing required query parameter: {}",
+                SDK_KEY_QUERY_PARAM
+            )),
+        );
     };
+    let token_hash = token_hash(token);
 
     // Deserialize the request body into a struct
     let (subject_key, subject_attributes): (eppo_core::Str, Arc<Attributes>) =
