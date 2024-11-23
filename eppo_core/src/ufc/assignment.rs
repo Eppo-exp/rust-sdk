@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::{events::AssignmentEvent, Str};
 
+use crate::ufc::VariationType;
+
 /// Result of assignment evaluation.
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -240,16 +242,17 @@ impl AssignmentValue {
     /// # Examples
     /// ```
     /// # use eppo_core::ufc::AssignmentValue;
+    /// # use eppo_core::ufc::VariationType;
     /// let value = AssignmentValue::String("example".into());
-    /// assert_eq!(value.variation_type(), "STRING");
+    /// assert_eq!(value.variation_type(), VariationType::String);
     /// ```
-    pub fn variation_type(&self) -> &'static str {
+    pub fn variation_type(&self) -> VariationType {
         match self {
-            AssignmentValue::String(_) => "STRING",
-            AssignmentValue::Integer(_) => "INTEGER",
-            AssignmentValue::Numeric(_) => "NUMERIC",
-            AssignmentValue::Boolean(_) => "BOOLEAN",
-            AssignmentValue::Json(_) => "JSON",
+            AssignmentValue::String(_) => VariationType::String,
+            AssignmentValue::Integer(_) => VariationType::Integer,
+            AssignmentValue::Numeric(_) => VariationType::Numeric,
+            AssignmentValue::Boolean(_) => VariationType::Boolean,
+            AssignmentValue::Json(_) => VariationType::Json,
         }
     }
 

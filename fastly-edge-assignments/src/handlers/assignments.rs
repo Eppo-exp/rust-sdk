@@ -1,6 +1,6 @@
 use eppo_core::configuration_store::ConfigurationStore;
 use eppo_core::eval::{Evaluator, EvaluatorConfig};
-use eppo_core::ufc::UniversalFlagConfig;
+use eppo_core::ufc::{UniversalFlagConfig, VariationType};
 use eppo_core::{Attributes, Configuration, SdkMetadata};
 use fastly::http::StatusCode;
 use fastly::kv_store::KVStoreError;
@@ -38,7 +38,7 @@ struct Environment {
 struct FlagAssignment {
     allocation_key: String,
     variation_key: String,
-    variation_type: String,
+    variation_type: VariationType,
     variation_value: serde_json::Value,
     extra_logging: HashMap<String, serde_json::Value>,
     do_log: bool,
@@ -177,7 +177,7 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
                                 allocation_key: event.base.allocation.to_string(),
                                 variation_key: event.base.variation.to_string(),
                                 // TODO: We need to get the variation type from the UFC config.
-                                variation_type: assignment.value.variation_type().to_string(),
+                                variation_type: assignment.value.variation_type(),
                                 variation_value: assignment.value.variation_value(),
                                 extra_logging: event
                                     .base
