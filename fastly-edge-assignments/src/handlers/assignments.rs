@@ -137,14 +137,13 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
                             FlagAssignment {
                                 allocation_key: event.base.allocation.to_string(),
                                 variation_key: event.base.variation.to_string(),
-                                // TODO: We need to get the variation type from the UFC config.
                                 variation_type: assignment.value.variation_type(),
                                 variation_value: assignment.value.variation_value(),
                                 extra_logging: event
                                     .base
                                     .extra_logging
                                     .iter()
-                                    .map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone())))
+                                    .map(|(k, v)| (k.clone(), v.clone()))
                                     .collect(),
                                 do_log: true,
                             },

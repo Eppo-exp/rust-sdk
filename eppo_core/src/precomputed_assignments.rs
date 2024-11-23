@@ -23,7 +23,10 @@ pub struct FlagAssignment {
     pub variation_key: String,
     pub variation_type: VariationType,
     pub variation_value: serde_json::Value,
-    pub extra_logging: HashMap<String, serde_json::Value>,
+    /// Additional user-defined logging fields for capturing extra information related to the
+    /// assignment.
+    #[serde(flatten)]
+    pub extra_logging: HashMap<String, String>,
     pub do_log: bool,
 }
 
