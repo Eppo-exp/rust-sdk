@@ -3,6 +3,9 @@ mod handlers;
 use fastly::http::{Method, StatusCode};
 use fastly::{Error, Request, Response};
 
+#[cfg(test)]
+const TEST_HOST: &str = "test-host";
+
 fn main() -> Result<(), Error> {
     let ds_req = Request::from_client();
     let us_resp = handler(ds_req)?;
@@ -35,7 +38,7 @@ fn handler(req: Request) -> Result<Response, Error> {
 
 #[test]
 fn test_health() {
-    let req = fastly::Request::get("https://precompute-edge-assignments.eppo.testcloud/health");
+    let req = fastly::Request::get(&format!("https://{}/health", TEST_HOST));
     let resp = handler(req).expect("request succeeds");
     assert_eq!(resp.get_status(), StatusCode::OK);
     assert_eq!(resp.into_body_str(), "OK");
