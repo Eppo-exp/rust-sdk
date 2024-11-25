@@ -43,3 +43,36 @@ fn test_health() {
     assert_eq!(resp.get_status(), StatusCode::OK);
     assert_eq!(resp.into_body_str(), "OK");
 }
+
+#[test]
+fn test_cors_headers() {
+    let req = Request::get(&format!("https://{}/health", TEST_HOST));
+    let resp = handler(req).expect("request succeeds");
+
+    assert_eq!(resp.get_header("Access-Control-Allow-Origin").unwrap(), "*");
+    assert_eq!(
+        resp.get_header("Access-Control-Allow-Methods").unwrap(),
+        "GET, POST, OPTIONS"
+    );
+}
+
+#[test]
+fn test_options_request() {
+    let req = Request::new(
+        Method::OPTIONS,
+        &format!("https://{}/assignments", TEST_HOST),
+    );
+    let resp = handler(req).expect("request succeeds");
+
+    assert_eq!(resp.get_status(), StatusCode::NO_CONTENT);
+    assert_eq!(resp.get_header("Access-Control-Allow-Origin").unwrap(), "*");
+    assert_eq!(
+        resp.get_header("Access-Control-Allow-Methods").unwrap(),
+        "GET, POST, OPTIONS"
+    );
+    assert_eq!(
+        resp.get_header("Access-Control-Allow-Headers").unwrap(),
+        "Content-Type"
+    );
+    assert_eq!(resp.get_header("Access-Control-Max-Age").unwrap(), "86400");
+}
