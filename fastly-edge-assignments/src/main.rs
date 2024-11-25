@@ -3,8 +3,14 @@ mod handlers;
 use fastly::http::{Method, StatusCode};
 use fastly::{Error, Request, Response};
 
-#[fastly::main]
-fn main(req: Request) -> Result<Response, Error> {
+fn main() -> Result<(), Error> {
+    let ds_req = Request::from_client();
+    let us_resp = handler(ds_req)?;
+    us_resp.send_to_client();
+    Ok(())
+}
+
+fn handler(req: Request) -> Result<Response, Error> {
     // Handle CORS preflight requests
     if req.get_method() == Method::OPTIONS {
         return Ok(Response::from_status(StatusCode::NO_CONTENT)
@@ -25,4 +31,12 @@ fn main(req: Request) -> Result<Response, Error> {
     Ok(response
         .with_header("Access-Control-Allow-Origin", "*")
         .with_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS"))
+}
+
+#[test]
+fn test_health() {
+    let req = fastly::Request::get("https://precompute-edge-assignments.eppo.testcloud/health");
+    let resp = handler(req).expect("request succeeds");
+    assert_eq!(resp.get_status(), StatusCode::OK);
+    assert_eq!(resp.into_body_str(), "OK");
 }

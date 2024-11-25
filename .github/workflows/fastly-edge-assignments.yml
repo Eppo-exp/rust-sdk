@@ -1,0 +1,66 @@
+name: Fastly Edge Assignments
+
+on:
+  push:
+    branches:
+      - main
+  release:
+    types: [published]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cargo_build_and_test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fastly-edge-assignments
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # Cache Rust toolchain and dependencies
+      - uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            ~/.rustup/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+          target: wasm32-wasi
+
+      # Install tools only if not cached
+      - name: Install Tools
+        run: |
+          if ! command -v cargo-nextest &> /dev/null; then
+            cargo install cargo-nextest
+          fi
+          if ! command -v fastly &> /dev/null; then
+            wget https://github.com/fastly/cli/releases/download/v10.17.0/fastly_10.17.0_linux_amd64.deb
+            sudo apt install ./fastly_10.17.0_linux_amd64.deb
+          fi
+          if ! command -v viceroy &> /dev/null; then
+            cargo install viceroy
+          fi
+
+      # Build WASM target
+      - run: make build
+
+      # Run unit and integration tests
+      - run: make test

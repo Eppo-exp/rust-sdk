@@ -27,8 +27,6 @@ jobs:
       - run: rustup target add wasm32-wasi
       # Build non-WASM targets
       - run: cargo build --verbose --all-targets --workspace --exclude fastly-edge-assignments
-      # Build WASM target separately
-      - run: cargo build --verbose -p fastly-edge-assignments --target wasm32-wasi
       # Run tests (excluding WASM package)
       - run: cargo test --verbose --workspace --exclude fastly-edge-assignments
       - run: cargo doc --verbose
