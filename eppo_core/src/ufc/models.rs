@@ -18,7 +18,8 @@ pub type Timestamp = chrono::DateTime<chrono::Utc>;
 pub(crate) struct UniversalFlagConfigWire {
     /// When configuration was last updated.
     pub created_at: Timestamp,
-    pub format: AssignmentFormat,
+    #[serde(default)]
+    pub format: Option<AssignmentFormat>,
     /// Environment this configuration belongs to.
     pub environment: Environment,
     /// Flags configuration.
