@@ -11,3 +11,6 @@ members = [
 [patch.crates-io]
 # Local override for development.
 eppo_core = { path = './eppo_core' }
+
+# https://github.com/Jij-Inc/serde-pyobject/pull/13
+serde-pyobject = { git = 'https://github.com/rasendubi/serde-pyobject', branch = 'chore-bump-pyo3' }
