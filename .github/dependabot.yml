@@ -11,12 +11,7 @@ updates:
       interval: "daily"
 
   - package-ecosystem: cargo
-    directories:
-      - "/"
-      - "/eppo_core"
-      - "/rust-sdk"
-      - "/python-sdk"
-      - "/ruby-sdk/ext/eppo_client"
+    directory: "/"
     schedule:
       interval: "weekly"
 
