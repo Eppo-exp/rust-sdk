@@ -1,6 +1,6 @@
 ## Eppo Multiplatform: SDKs and Artifacts to support Flagging and Experimentation
 
-[![Test](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/ci.yml/badge.svg)](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/ci.yml)  
+[![Rust SDK](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/ci.yml/badge.svg)](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/ci.yml)  
 [![Python SDK](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/python.yml/badge.svg)](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/python.yml)  
 [![Ruby SDK](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/ruby.yml/badge.svg)](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/ruby.yml)  
 
