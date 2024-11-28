@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 const KV_STORE_NAME: &str = "edge-assignment-kv-store";
+// TODO: Migrate authorization to header `Authorization`.
 const SDK_KEY_QUERY_PARAM: &str = "apiKey"; // For legacy reasons this is named `apiKey`
 
 const SDK_NAME: &str = "fastly-edge-assignments";
@@ -177,7 +178,7 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
                 version: SDK_VERSION,
             },
         })
-        .get_precomputed_assignment(&subject_key, &subject_attributes, false)
+        .get_precomputed_assignments(&subject_key, &subject_attributes, false)
         .flags
         .into_iter()
         .map(|(k, v)| {

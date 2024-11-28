@@ -4,7 +4,7 @@ use chrono::Utc;
 
 use crate::{
     configuration_store::ConfigurationStore,
-    eval::eval_precomputed_assignment::PrecomputedConfiguration,
+    eval::eval_precomputed_assignments::PrecomputedConfiguration,
     events::AssignmentEvent,
     ufc::{Assignment, AssignmentValue, VariationType},
     Attributes, Configuration, ContextAttributes, EvaluationError, SdkMetadata, Str,
@@ -13,7 +13,7 @@ use crate::{
 use super::{
     eval_details::{EvaluationDetails, EvaluationResultWithDetails},
     get_assignment, get_assignment_details, get_bandit_action, get_bandit_action_details,
-    BanditResult,
+    get_precomputed_assignments, BanditResult,
 };
 
 pub struct EvaluatorConfig {
@@ -113,7 +113,7 @@ impl Evaluator {
         )
     }
 
-    pub fn get_precomputed_assignment(
+    pub fn get_precomputed_assignments(
         &self,
         subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
@@ -121,26 +121,13 @@ impl Evaluator {
     ) -> PrecomputedConfiguration {
         let config = self.get_configuration();
 
-        let mut flags = HashMap::new();
-
-        if let Some(config) = config {
-            for key in config.flags.compiled.flags.keys() {
-                match self.get_assignment(key, &subject_key, &subject_attributes, None) {
-                    Ok(Some(assignment)) => {
-                        flags.insert(key.clone(), Ok(assignment));
-                    }
-                    Ok(None) => continue,
-                    Err(e) => {
-                        eprintln!("Failed to evaluate assignment for key {}: {:?}", key, e);
-                        if early_exit {
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        PrecomputedConfiguration { flags }
+        get_precomputed_assignments(
+            config.as_ref().map(AsRef::as_ref),
+            &subject_key,
+            &subject_attributes,
+            early_exit,
+            Utc::now(),
+        )
     }
 
     fn get_configuration(&self) -> Option<Arc<Configuration>> {

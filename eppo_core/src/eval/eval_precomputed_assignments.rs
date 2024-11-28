@@ -1,10 +1,51 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
+use chrono::{DateTime, Utc};
+
+use crate::eval::get_assignment;
 use crate::{error::EvaluationFailure, ufc::Assignment};
+use crate::{Attributes, Configuration, Str};
 
 #[derive(Debug)]
 pub struct PrecomputedConfiguration {
     pub flags: HashMap<String, Result<Assignment, EvaluationFailure>>,
+}
+
+pub fn get_precomputed_assignments(
+    configuration: Option<&Configuration>,
+    subject_key: &Str,
+    subject_attributes: &Arc<Attributes>,
+    early_exit: bool,
+    now: DateTime<Utc>,
+) -> PrecomputedConfiguration {
+    let mut flags = HashMap::new();
+
+    if let Some(config) = configuration {
+        for key in config.flags.compiled.flags.keys() {
+            match get_assignment(
+                Some(config),
+                key,
+                &subject_key,
+                &subject_attributes,
+                None,
+                now,
+            ) {
+                Ok(Some(assignment)) => {
+                    flags.insert(key.clone(), Ok(assignment));
+                }
+                Ok(None) => continue,
+                Err(e) => {
+                    eprintln!("Failed to evaluate assignment for key {}: {:?}", key, e);
+                    if early_exit {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    PrecomputedConfiguration { flags }
 }
 
 #[cfg(test)]
@@ -12,8 +53,7 @@ mod tests {
     use chrono::Utc;
 
     use crate::{
-        configuration_store::ConfigurationStore,
-        eval::{Evaluator, EvaluatorConfig},
+        eval::get_precomputed_assignments,
         ufc::{UniversalFlagConfig, VariationType},
         Attributes, Configuration, SdkMetadata,
     };
@@ -38,24 +78,18 @@ mod tests {
     fn test_precomputed_assignment_basic() {
         let configuration = setup_test_config();
 
-        let configuration_store = Arc::new(ConfigurationStore::new());
-        configuration_store.set_configuration(Arc::new(configuration));
-
-        let evaluator = Evaluator::new(EvaluatorConfig {
-            configuration_store: configuration_store.clone(),
-            sdk_metadata: SdkMetadata {
-                name: "test",
-                version: "0.1.0",
-            },
-        });
-
         let subject_key = "test-subject-1".into();
         let subject_attributes = Arc::new(Attributes::new());
         let now = Utc::now();
 
         // Get precomputed assignments
-        let precomputed =
-            evaluator.get_precomputed_assignment(&subject_key, &subject_attributes, false);
+        let precomputed = get_precomputed_assignments(
+            Some(&configuration),
+            &subject_key,
+            &subject_attributes,
+            false,
+            now,
+        );
 
         assert!(
             !precomputed.flags.is_empty(),
@@ -86,24 +120,18 @@ mod tests {
             }),
         );
 
-        let configuration_store = Arc::new(ConfigurationStore::new());
-        configuration_store.set_configuration(Arc::new(configuration));
-
-        let evaluator = Evaluator::new(EvaluatorConfig {
-            configuration_store: configuration_store.clone(),
-            sdk_metadata: SdkMetadata {
-                name: "test",
-                version: "0.1.0",
-            },
-        });
-
         let subject_key = "test-subject-1".into();
         let subject_attributes = Arc::new(Attributes::new());
         let now = Utc::now();
 
         // Get assignments with early exit
-        let precomputed_with_early_exit =
-            evaluator.get_precomputed_assignment(&subject_key, &subject_attributes, true);
+        let precomputed_with_early_exit = get_precomputed_assignments(
+            Some(&configuration),
+            &subject_key,
+            &subject_attributes,
+            true,
+            now,
+        );
 
         // Verify we have fewer entries due to early exit
         assert!(
