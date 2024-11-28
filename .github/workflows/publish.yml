@@ -192,7 +192,7 @@ jobs:
           echo "gem-path=ruby-sdk/$(find pkg -name '*-${{ matrix._.platform }}.gem')" >> $GITHUB_OUTPUT
 
       - name: Upload the cross-compiled gems
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: cross-gem
           path: ${{ steps.set-outputs.outputs.gem-path }}
