@@ -4,6 +4,7 @@ use chrono::Utc;
 
 use crate::{
     configuration_store::ConfigurationStore,
+    error::EvaluationFailure,
     eval::eval_precomputed_assignments::PrecomputedConfiguration,
     events::AssignmentEvent,
     ufc::{Assignment, AssignmentValue, VariationType},
@@ -118,11 +119,10 @@ impl Evaluator {
         subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
         early_exit: bool,
-    ) -> PrecomputedConfiguration {
-        let config = self.get_configuration();
-
+    ) -> Result<PrecomputedConfiguration, EvaluationError> {
+        let configuration = self.get_configuration();
         get_precomputed_assignments(
-            config.as_ref().map(AsRef::as_ref),
+            configuration.as_ref().map(AsRef::as_ref),
             &subject_key,
             &subject_attributes,
             early_exit,

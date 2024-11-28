@@ -4,12 +4,29 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 
 use crate::eval::get_assignment;
+use crate::ufc::{AssignmentFormat, Environment};
 use crate::{error::EvaluationFailure, ufc::Assignment};
-use crate::{Attributes, Configuration, Str};
+use crate::{Attributes, Configuration, EvaluationError, Str};
 
 #[derive(Debug)]
 pub struct PrecomputedConfiguration {
+    pub created_at: DateTime<Utc>,
+    pub format: AssignmentFormat,
+    pub environment: Environment,
     pub flags: HashMap<String, Result<Assignment, EvaluationFailure>>,
+}
+
+impl PrecomputedConfiguration {
+    pub fn empty(environment_name: &str) -> Self {
+        Self {
+            created_at: Utc::now(),
+            format: AssignmentFormat::Precomputed,
+            environment: Environment {
+                name: environment_name.into(),
+            },
+            flags: HashMap::new(),
+        }
+    }
 }
 
 pub fn get_precomputed_assignments(
@@ -18,10 +35,10 @@ pub fn get_precomputed_assignments(
     subject_attributes: &Arc<Attributes>,
     early_exit: bool,
     now: DateTime<Utc>,
-) -> PrecomputedConfiguration {
-    let mut flags = HashMap::new();
+) -> Result<PrecomputedConfiguration, EvaluationError> {
+    let result = if let Some(config) = configuration {
+        let mut flags = HashMap::new();
 
-    if let Some(config) = configuration {
         for key in config.flags.compiled.flags.keys() {
             match get_assignment(
                 Some(config),
@@ -43,9 +60,51 @@ pub fn get_precomputed_assignments(
                 }
             }
         }
-    }
 
-    PrecomputedConfiguration { flags }
+        Ok(PrecomputedConfiguration {
+            created_at: now,
+            format: AssignmentFormat::Precomputed,
+            environment: {
+                Environment {
+                    name: config.flags.compiled.environment.name.clone(),
+                }
+            },
+            flags,
+        })
+    } else {
+        Err(EvaluationFailure::ConfigurationMissing)
+    };
+
+    match result {
+        Ok(config) => {
+            log::trace!(target: "eppo",
+                subject_key,
+                assignments:serde = config.flags;
+                "evaluated precomputed assignments");
+            Ok(config)
+        }
+        Err(EvaluationFailure::ConfigurationMissing) => {
+            log::warn!(target: "eppo",
+                           subject_key;
+                           "evaluating a flag before Eppo configuration has been fetched");
+            Ok(PrecomputedConfiguration::empty("unknown"))
+        }
+        Err(EvaluationFailure::Error(err)) => {
+            log::warn!(target: "eppo",
+                       subject_key;
+                       "error occurred while evaluating a flag: {err}",
+            );
+            Err(err)
+        }
+        // Non-Error failures are considered normal conditions and usually don't need extra
+        // attention, so we remap them to Ok(None) before returning to the user.
+        Err(err) => {
+            log::trace!(target: "eppo",
+                           subject_key;
+                           "returning default assignment because of: {err}");
+            Ok(PrecomputedConfiguration::empty("unknown"))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -53,7 +112,9 @@ mod tests {
     use chrono::Utc;
 
     use crate::{
-        eval::get_precomputed_assignments,
+        eval::{
+            eval_precomputed_assignments::PrecomputedConfiguration, get_precomputed_assignments,
+        },
         ufc::{UniversalFlagConfig, VariationType},
         Attributes, Configuration, SdkMetadata,
     };
@@ -89,7 +150,8 @@ mod tests {
             &subject_attributes,
             false,
             now,
-        );
+        )
+        .unwrap_or_else(|_| PrecomputedConfiguration::empty("test"));
 
         assert!(
             !precomputed.flags.is_empty(),
@@ -131,7 +193,8 @@ mod tests {
             &subject_attributes,
             true,
             now,
-        );
+        )
+        .unwrap_or_else(|_| PrecomputedConfiguration::empty("test"));
 
         // Verify we have fewer entries due to early exit
         assert!(

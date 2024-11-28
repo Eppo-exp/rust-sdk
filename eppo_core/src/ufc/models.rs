@@ -35,7 +35,7 @@ pub(crate) struct UniversalFlagConfigWire {
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "UPPERCASE")]
-pub(crate) enum AssignmentFormat {
+pub enum AssignmentFormat {
     Client,
     Precomputed,
     Server,
@@ -43,7 +43,7 @@ pub(crate) enum AssignmentFormat {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct Environment {
+pub struct Environment {
     /// Name of the environment.
     pub name: Str,
 }

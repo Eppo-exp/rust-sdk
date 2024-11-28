@@ -1,6 +1,8 @@
 use eppo_core::configuration_store::ConfigurationStore;
-use eppo_core::eval::{Evaluator, EvaluatorConfig};
-use eppo_core::ufc::{Assignment, UniversalFlagConfig, VariationType};
+use eppo_core::eval::{Evaluator, EvaluatorConfig, PrecomputedConfiguration};
+use eppo_core::ufc::{
+    Assignment, AssignmentFormat, Environment, UniversalFlagConfig, VariationType,
+};
 use eppo_core::{Attributes, Configuration, SdkMetadata, Str};
 use fastly::http::StatusCode;
 use fastly::kv_store::KVStoreError;
@@ -76,9 +78,32 @@ impl FlagAssignment {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 struct PrecomputedAssignmentsResponse {
+    created_at: chrono::DateTime<chrono::Utc>,
+    format: AssignmentFormat,
+    environment: Environment,
     flags: HashMap<String, FlagAssignment>,
+}
+
+impl PrecomputedAssignmentsResponse {
+    fn from_precomputed_assignments(assignments: PrecomputedConfiguration) -> Self {
+        Self {
+            created_at: assignments.created_at,
+            format: assignments.format,
+            environment: assignments.environment,
+            flags: assignments
+                .flags
+                .into_iter()
+                .map(|(k, v)| {
+                    v.ok()
+                        .and_then(|assignment| FlagAssignment::try_from_assignment(assignment))
+                        .map(|flag_assignment| (k, flag_assignment))
+                })
+                .flatten()
+                .collect(),
+        }
+    }
 }
 
 pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
@@ -169,30 +194,26 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
     let configuration_store = ConfigurationStore::new();
     configuration_store.set_configuration(configuration.clone());
 
-    // Create the response
-    let assignments_response = PrecomputedAssignmentsResponse {
-        flags: Evaluator::new(EvaluatorConfig {
-            configuration_store: Arc::new(configuration_store),
-            sdk_metadata: SdkMetadata {
-                name: SDK_NAME,
-                version: SDK_VERSION,
-            },
-        })
-        .get_precomputed_assignments(&subject_key, &subject_attributes, false)
-        .flags
-        .into_iter()
-        .map(|(k, v)| {
-            v.ok()
-                .and_then(|assignment| FlagAssignment::try_from_assignment(assignment))
-                .map(|flag_assignment| (k, flag_assignment))
-        })
-        .flatten()
-        .collect(),
+    let evaluator = Evaluator::new(EvaluatorConfig {
+        configuration_store: Arc::new(configuration_store),
+        sdk_metadata: SdkMetadata {
+            name: SDK_NAME,
+            version: SDK_VERSION,
+        },
+    });
+
+    let precomputed_assignments = if let Ok(assignments) =
+        evaluator.get_precomputed_assignments(&subject_key, &subject_attributes, false)
+    {
+        PrecomputedAssignmentsResponse::from_precomputed_assignments(assignments)
+    } else {
+        return Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
+            .with_body_text_plain("Failed to get precomputed assignments"));
     };
 
     // Create an HTTP OK response with the assignments
     let response =
-        match Response::from_status(StatusCode::OK).with_body_json(&assignments_response.flags) {
+        match Response::from_status(StatusCode::OK).with_body_json(&precomputed_assignments) {
             Ok(response) => response,
             Err(e) => {
                 eprintln!("Failed to serialize response: {:?}", e);
