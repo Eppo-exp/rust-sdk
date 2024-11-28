@@ -1,0 +1,32 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: gitsubmodule
+    directory: "/"
+    schedule:
+      interval: "daily"
+
+  - package-ecosystem: cargo
+    directories:
+      - "/"
+      - "/eppo_core"
+      - "/rust-sdk"
+      - "/python-sdk"
+      - "/ruby-sdk/ext/eppo_client"
+    schedule:
+      interval: "weekly"
+
+
+  - package-ecosystem: pip
+    directory: "/python-sdk"
+    schedule:
+      interval: "weekly"
+
+  - package-ecosystem: bundler
+    directory: "/ruby-sdk"
+    schedule:
+      interval: "weekly"
