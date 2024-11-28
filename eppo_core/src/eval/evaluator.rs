@@ -4,6 +4,7 @@ use chrono::Utc;
 
 use crate::{
     configuration_store::ConfigurationStore,
+    eval::eval_precomputed_assignment::PrecomputedConfiguration,
     events::AssignmentEvent,
     ufc::{Assignment, AssignmentValue, VariationType},
     Attributes, Configuration, ContextAttributes, EvaluationError, SdkMetadata, Str,
@@ -110,6 +111,36 @@ impl Evaluator {
             Utc::now(),
             &self.config.sdk_metadata,
         )
+    }
+
+    pub fn get_precomputed_assignment(
+        &self,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
+        early_exit: bool,
+    ) -> PrecomputedConfiguration {
+        let config = self.get_configuration();
+
+        let mut flags = HashMap::new();
+
+        if let Some(config) = config {
+            for key in config.flags.compiled.flags.keys() {
+                match self.get_assignment(key, &subject_key, &subject_attributes, None) {
+                    Ok(Some(assignment)) => {
+                        flags.insert(key.clone(), Ok(assignment));
+                    }
+                    Ok(None) => continue,
+                    Err(e) => {
+                        eprintln!("Failed to evaluate assignment for key {}: {:?}", key, e);
+                        if early_exit {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        PrecomputedConfiguration { flags }
     }
 
     fn get_configuration(&self) -> Option<Arc<Configuration>> {

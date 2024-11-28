@@ -1,6 +1,7 @@
 mod eval_assignment;
 mod eval_bandits;
 mod eval_details_builder;
+mod eval_precomputed_assignment;
 mod eval_rules;
 mod eval_visitor;
 mod evaluator;

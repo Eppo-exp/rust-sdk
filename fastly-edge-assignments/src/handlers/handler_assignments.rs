@@ -1,13 +1,11 @@
 use eppo_core::configuration_store::ConfigurationStore;
 use eppo_core::eval::{Evaluator, EvaluatorConfig};
-use eppo_core::precomputed_assignments::{
-    FlagAssignment, PrecomputedAssignmentsServiceRequestBody, PrecomputedAssignmentsServiceResponse,
-};
-use eppo_core::ufc::UniversalFlagConfig;
-use eppo_core::{Attributes, Configuration, SdkMetadata};
+use eppo_core::ufc::{Assignment, UniversalFlagConfig, VariationType};
+use eppo_core::{Attributes, Configuration, SdkMetadata, Str};
 use fastly::http::StatusCode;
 use fastly::kv_store::KVStoreError;
 use fastly::{Error, KVStore, Request, Response};
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -26,6 +24,60 @@ fn token_hash(sdk_key: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(sdk_key.as_bytes());
     base64_url::encode(&hasher.finalize())
+}
+
+// Request
+#[derive(Debug, Deserialize)]
+struct PrecomputedAssignmentsServiceRequestBody {
+    pub subject_key: Str,
+    pub subject_attributes: Arc<Attributes>,
+    // TODO: Add bandit actions
+    // #[serde(rename = "banditActions")]
+    // #[serde(skip_serializing_if = "Option::is_none")]
+    // bandit_actions: Option<HashMap<String, serde_json::Value>>,
+}
+
+// Response
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FlagAssignment {
+    pub allocation_key: Str,
+    pub variation_key: Str,
+    pub variation_type: VariationType,
+    pub variation_value: serde_json::Value,
+    /// Additional user-defined logging fields for capturing extra information related to the
+    /// assignment.
+    #[serde(flatten)]
+    pub extra_logging: HashMap<String, String>,
+    pub do_log: bool,
+}
+
+impl FlagAssignment {
+    pub fn try_from_assignment(assignment: Assignment) -> Option<Self> {
+        // WARNING! There is a problem here. The event is only populated for splits
+        // that have `do_log` set to true in the wire format. This means that
+        // all the ones present here are logged, but any splits that are not
+        // logged are not present here.
+        //
+        // This is a problem for us because we want to be able to return
+        // precomputed assignments for any split, logged or not, since we
+        // want to be able to return them for all flags.
+        //
+        // We need to fix this.
+        assignment.event.as_ref().map(|event| Self {
+            allocation_key: event.base.allocation.clone(),
+            variation_key: event.base.variation.clone(),
+            variation_type: assignment.value.variation_type(),
+            variation_value: assignment.value.variation_value(),
+            extra_logging: event.base.extra_logging.clone(),
+            do_log: true,
+        })
+    }
+}
+
+#[derive(Debug)]
+struct PrecomputedAssignmentsResponse {
+    flags: HashMap<String, FlagAssignment>,
 }
 
 pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
@@ -113,48 +165,40 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
 
     let configuration = Configuration::from_server_response(ufc_config, None);
     let configuration = Arc::new(configuration);
-    let flag_keys = configuration.flag_keys();
     let configuration_store = ConfigurationStore::new();
     configuration_store.set_configuration(configuration.clone());
-    let evaluator = Evaluator::new(EvaluatorConfig {
-        configuration_store: Arc::new(configuration_store),
-        sdk_metadata: SdkMetadata {
-            name: SDK_NAME,
-            version: SDK_VERSION,
-        },
-    });
-
-    let subject_assignments = flag_keys
-        .iter()
-        .filter_map(|key| {
-            match evaluator.get_assignment(key, &subject_key, &subject_attributes, None) {
-                Ok(Some(assignment)) => FlagAssignment::try_from_assignment(assignment)
-                    .map(|flag_assignment| (key.clone(), flag_assignment)),
-                Ok(None) => None,
-                Err(e) => {
-                    eprintln!("Failed to evaluate assignment for key {}: {:?}", key, e);
-                    None
-                }
-            }
-        })
-        .collect::<HashMap<_, _>>();
 
     // Create the response
-    let assignments_response = PrecomputedAssignmentsServiceResponse::from_configuration(
-        configuration,
-        subject_assignments,
-    );
+    let assignments_response = PrecomputedAssignmentsResponse {
+        flags: Evaluator::new(EvaluatorConfig {
+            configuration_store: Arc::new(configuration_store),
+            sdk_metadata: SdkMetadata {
+                name: SDK_NAME,
+                version: SDK_VERSION,
+            },
+        })
+        .get_precomputed_assignment(&subject_key, &subject_attributes, false)
+        .flags
+        .into_iter()
+        .map(|(k, v)| {
+            v.ok()
+                .and_then(|assignment| FlagAssignment::try_from_assignment(assignment))
+                .map(|flag_assignment| (k, flag_assignment))
+        })
+        .flatten()
+        .collect(),
+    };
 
     // Create an HTTP OK response with the assignments
-    let response = match Response::from_status(StatusCode::OK).with_body_json(&assignments_response)
-    {
-        Ok(response) => response,
-        Err(e) => {
-            eprintln!("Failed to serialize response: {:?}", e);
-            return Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
-                .with_body_text_plain("Failed to serialize response"));
-        }
-    };
+    let response =
+        match Response::from_status(StatusCode::OK).with_body_json(&assignments_response.flags) {
+            Ok(response) => response,
+            Err(e) => {
+                eprintln!("Failed to serialize response: {:?}", e);
+                return Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .with_body_text_plain("Failed to serialize response"));
+            }
+        };
     Ok(response)
 }
 
