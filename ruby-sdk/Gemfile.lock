@@ -20,7 +20,7 @@ GEM
     rake (13.2.1)
     rake-compiler (1.2.8)
       rake
-    rb_sys (0.9.102)
+    rb_sys (0.9.103)
     regexp_parser (2.9.2)
     rspec (3.13.0)
       rspec-core (~> 3.13.0)
@@ -59,7 +59,7 @@ DEPENDENCIES
   eppo-server-sdk!
   rake (~> 13.0)
   rake-compiler
-  rb_sys (~> 0.9.102)
+  rb_sys (~> 0.9.103)
   rspec (~> 3.0)
   rubocop (~> 1.69)
 

@@ -12,6 +12,6 @@ end
 group :development do
   gem "rake", "~> 13.0"
   gem "rake-compiler"
-  gem "rb_sys", "~> 0.9.102"
+  gem "rb_sys", "~> 0.9.103"
   gem "rubocop", "~> 1.69"
 end
