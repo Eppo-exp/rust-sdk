@@ -5,6 +5,17 @@ on:
     branches:
       - main
   pull_request:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      sdk_branch:
+        type: string
+        description: The branch of the SDK to test
+        required: false
+      test_data_branch:
+        type: string
+        description: The branch in sdk-test-data to target for testcase files
+        required: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -20,7 +31,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          repository: Eppo-exp/eppo-multiplatform
+          ref: ${{ inputs.sdk_branch || github.ref }}
           submodules: true
+
+      - uses: actions/checkout@v4
+        if: ${{ inputs.test_data_branch }}
+        with:
+          repository: Eppo-exp/sdk-test-data
+          ref: ${{ inputs.test_data_branch }}
+          path: sdk-test-data
+
       - run: npm ci
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       # Add WASM target
