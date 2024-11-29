@@ -7,7 +7,7 @@ edition = "2021"
 publish = false
 
 [dependencies]
-base64-url = "2.0.0"
+base64-url = "3.0.0"
 chrono = "0.4.19"
 eppo_core = { version = "=4.1.1", path = "../eppo_core" }
 fastly = "0.11.0"
