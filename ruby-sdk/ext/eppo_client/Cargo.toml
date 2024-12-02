@@ -5,7 +5,7 @@ version = "3.3.0"
 edition = "2021"
 license = "MIT"
 publish = false
-rust-version = "1.71.1"
+rust-version = "1.75.0"
 
 [lib]
 crate-type = ["cdylib"]
