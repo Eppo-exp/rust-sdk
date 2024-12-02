@@ -30,7 +30,7 @@ impl PollerThreadConfig {
     /// Default value for [`PollerThreadConfig::interval`].
     pub const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(30);
     /// Default value for [`PollerThreadConfig::jitter`].
-    pub const DEFAULT_POLL_JITTER: Duration = Duration::from_secs(30);
+    pub const DEFAULT_POLL_JITTER: Duration = Duration::from_secs(3);
 
     /// Create a new `PollerThreadConfig` using default configuration.
     pub fn new() -> PollerThreadConfig {
