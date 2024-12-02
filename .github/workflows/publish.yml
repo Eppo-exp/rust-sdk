@@ -192,9 +192,9 @@ jobs:
           echo "gem-path=ruby-sdk/$(find pkg -name '*-${{ matrix._.platform }}.gem')" >> $GITHUB_OUTPUT
 
       - name: Upload the cross-compiled gems
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: cross-gem
+          name: cross-gem-${{ matrix._.platform }}
           path: ${{ steps.set-outputs.outputs.gem-path }}
 
   publish_ruby:
@@ -217,9 +217,10 @@ jobs:
           ruby-version: '3.3'
 
       - name: Download the cross-compiled gems
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
-          name: cross-gem
+          pattern: cross-gem-*
+          merge-multiple: true
 
       - name: Check Cargo.lock
         # Ensure that Cargo.lock matches Cargo.toml
