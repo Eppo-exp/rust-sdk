@@ -1,5 +1,10 @@
 ## Eppo Multiplatform: SDKs and Artifacts to support Flagging and Experimentation
 
+[![Rust SDK](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/ci.yml/badge.svg)](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/ci.yml)  
+[![Python SDK](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/python.yml/badge.svg)](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/python.yml)  
+[![Ruby SDK](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/ruby.yml/badge.svg)](https://github.com/Eppo-exp/eppo-multiplatform/actions/workflows/ruby.yml)  
+
+
 Eppo is a modular flagging and experimentation analysis tool. Eppo's SDKs are built to make assignments in multi-user server-side and client-side contexts. Before proceeding you'll need an Eppo account.
 
 **Features**
