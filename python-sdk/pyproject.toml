@@ -8,7 +8,7 @@ description = "Eppo SDK for Python"
 readme = "README.md"
 authors = [{ name = "Eppo", email = "eppo-team@geteppo.com" }]
 license = { file = "LICENSE" }
-requires-python = ">=3.9"
+requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
