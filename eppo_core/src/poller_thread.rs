@@ -283,7 +283,7 @@ impl PollerThread {
 
 /// Apply randomized `jitter` to `interval`.
 fn jitter(interval: Duration, jitter: Duration) -> Duration {
-    Duration::saturating_sub(interval, thread_rng().gen_range(Duration::ZERO..jitter))
+    Duration::saturating_sub(interval, thread_rng().gen_range(Duration::ZERO..=jitter))
 }
 
 #[cfg(test)]
@@ -308,5 +308,15 @@ mod jitter_tests {
         let result = super::jitter(interval, jitter);
 
         assert_eq!(result, Duration::ZERO);
+    }
+
+    #[test]
+    fn jitter_works_with_zero_jitter() {
+        let interval = Duration::from_secs(30);
+        let jitter = Duration::ZERO;
+
+        let result = super::jitter(interval, jitter);
+
+        assert_eq!(result, Duration::from_secs(30));
     }
 }
