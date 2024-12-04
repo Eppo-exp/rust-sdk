@@ -1,6 +1,6 @@
 [package]
 name = "eppo_core"
-version = "4.2.0"
+version = "5.0.0"
 edition = "2021"
 description = "Eppo SDK core library"
 repository = "https://github.com/Eppo-exp/rust-sdk"
