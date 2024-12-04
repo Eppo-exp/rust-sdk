@@ -448,6 +448,14 @@ impl EppoClient {
         config.is_some()
     }
 
+    fn shutdown(&self) {
+        if let Some(poller) = &self.poller_thread {
+            // Using `.stop()` instead of `.shutdown()` here because we don't need to wait for the
+            // poller thread to exit.
+            poller.stop();
+        }
+    }
+
     /// Wait for configuration to get fetches.
     ///
     /// This method releases GIL, so other Python thread can make progress.
@@ -685,14 +693,6 @@ impl EppoClient {
         self.assignment_logger
             .call_method1(py, intern!(py, "log_bandit_action"), (event,))?;
         Ok(())
-    }
-
-    pub fn shutdown(&self) {
-        if let Some(poller) = &self.poller_thread {
-            // Using `.stop()` instead of `.shutdown()` here because we don't need to wait for the
-            // poller thread to exit.
-            poller.stop();
-        }
     }
 }
 
