@@ -448,7 +448,7 @@ impl EppoClient {
         config.is_some()
     }
 
-    fn shutdown(&self) {
+    pub fn shutdown(&self) {
         if let Some(poller) = &self.poller_thread {
             // Using `.stop()` instead of `.shutdown()` here because we don't need to wait for the
             // poller thread to exit.
