@@ -4,8 +4,8 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 
 use crate::eval::get_assignment;
+use crate::ufc::Assignment;
 use crate::ufc::{AssignmentFormat, Environment};
-use crate::{error::EvaluationFailure, ufc::Assignment};
 use crate::{Attributes, Configuration, EvaluationError, Str};
 
 #[derive(Debug)]
@@ -35,8 +35,8 @@ pub fn get_precomputed_assignments(
     subject_attributes: &Arc<Attributes>,
     early_exit: bool,
     now: DateTime<Utc>,
-) -> Result<PrecomputedConfiguration, EvaluationError> {
-    let result = if let Some(config) = configuration {
+) -> PrecomputedConfiguration {
+    if let Some(config) = configuration {
         let mut flags = HashMap::new();
 
         for key in config.flags.compiled.flags.keys() {
@@ -61,7 +61,11 @@ pub fn get_precomputed_assignments(
             }
         }
 
-        Ok(PrecomputedConfiguration {
+        log::trace!(target: "eppo",
+                      subject_key,
+                      assignments:serde = flags;
+                      "evaluated precomputed assignments");
+        PrecomputedConfiguration {
             created_at: now,
             format: AssignmentFormat::Precomputed,
             environment: {
@@ -70,40 +74,12 @@ pub fn get_precomputed_assignments(
                 }
             },
             flags,
-        })
+        }
     } else {
-        Err(EvaluationFailure::ConfigurationMissing)
-    };
-
-    match result {
-        Ok(config) => {
-            log::trace!(target: "eppo",
-                subject_key,
-                assignments:serde = config.flags;
-                "evaluated precomputed assignments");
-            Ok(config)
-        }
-        Err(EvaluationFailure::ConfigurationMissing) => {
-            log::warn!(target: "eppo",
-                           subject_key;
-                           "evaluating a flag before Eppo configuration has been fetched");
-            Ok(PrecomputedConfiguration::empty("unknown"))
-        }
-        Err(EvaluationFailure::Error(err)) => {
-            log::warn!(target: "eppo",
-                       subject_key;
-                       "error occurred while evaluating a flag: {err}",
-            );
-            Err(err)
-        }
-        // Non-Error failures are considered normal conditions and usually don't need extra
-        // attention, so we remap them to Ok(None) before returning to the user.
-        Err(err) => {
-            log::trace!(target: "eppo",
-                           subject_key;
-                           "returning default assignment because of: {err}");
-            Ok(PrecomputedConfiguration::empty("unknown"))
-        }
+        log::warn!(target: "eppo",
+                                 subject_key;
+                                 "evaluating a flag before Eppo configuration has been fetched");
+        PrecomputedConfiguration::empty("unknown")
     }
 }
 
