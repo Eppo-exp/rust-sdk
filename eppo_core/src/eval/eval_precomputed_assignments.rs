@@ -88,9 +88,7 @@ mod tests {
     use chrono::Utc;
 
     use crate::{
-        eval::{
-            eval_precomputed_assignments::PrecomputedConfiguration, get_precomputed_assignments,
-        },
+        eval::get_precomputed_assignments,
         ufc::{UniversalFlagConfig, VariationType},
         Attributes, Configuration, SdkMetadata,
     };
@@ -126,8 +124,7 @@ mod tests {
             &subject_attributes,
             false,
             now,
-        )
-        .unwrap_or_else(|_| PrecomputedConfiguration::empty("test"));
+        );
 
         assert!(
             !precomputed.flags.is_empty(),
@@ -169,8 +166,7 @@ mod tests {
             &subject_attributes,
             true,
             now,
-        )
-        .unwrap_or_else(|_| PrecomputedConfiguration::empty("test"));
+        );
 
         // Verify we have fewer entries due to early exit
         assert!(
