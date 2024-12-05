@@ -202,26 +202,20 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
         },
     });
 
-    let precomputed_assignments = if let Ok(assignments) =
-        evaluator.get_precomputed_assignments(&subject_key, &subject_attributes, false)
-    {
-        PrecomputedAssignmentsResponse::from_precomputed_assignments(assignments)
-    } else {
-        return Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
-            .with_body_text_plain("Failed to get precomputed assignments"));
-    };
+    let precomputed_assignments =
+        evaluator.get_precomputed_assignments(&subject_key, &subject_attributes, false);
+    let response =
+        PrecomputedAssignmentsResponse::from_precomputed_assignments(precomputed_assignments);
 
     // Create an HTTP OK response with the assignments
-    let response =
-        match Response::from_status(StatusCode::OK).with_body_json(&precomputed_assignments) {
-            Ok(response) => response,
-            Err(e) => {
-                eprintln!("Failed to serialize response: {:?}", e);
-                return Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
-                    .with_body_text_plain("Failed to serialize response"));
-            }
-        };
-    Ok(response)
+    match Response::from_status(StatusCode::OK).with_body_json(&response) {
+        Ok(response) => Ok(response),
+        Err(e) => {
+            eprintln!("Failed to serialize response: {:?}", e);
+            return Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
+                .with_body_text_plain("Failed to serialize response"));
+        }
+    }
 }
 
 #[cfg(test)]
