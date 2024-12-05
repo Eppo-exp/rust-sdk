@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use derive_more::From;
 use regex::Regex;
@@ -130,7 +130,11 @@ impl ValueWire {
             VariationType::Integer => AssignmentValue::Integer(self.as_integer()?),
             VariationType::Numeric => AssignmentValue::Numeric(self.as_number()?),
             VariationType::Boolean => AssignmentValue::Boolean(self.as_boolean()?),
-            VariationType::Json => AssignmentValue::Json(Arc::new(self.into_json()?)),
+            VariationType::Json => {
+                let raw = self.into_string()?;
+                let parsed = serde_json::from_str(&raw).ok()?;
+                AssignmentValue::Json { raw, parsed }
+            }
         })
     }
 
@@ -163,11 +167,6 @@ impl ValueWire {
             Self::String(value) => Some(value),
             _ => None,
         }
-    }
-
-    fn into_json(self) -> Option<serde_json::Value> {
-        let s = self.into_string()?;
-        serde_json::from_str(&s).ok()?
     }
 }
 
