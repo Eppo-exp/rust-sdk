@@ -30,7 +30,7 @@ impl PollerThreadConfig {
     /// Default value for [`PollerThreadConfig::interval`].
     pub const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(30);
     /// Default value for [`PollerThreadConfig::jitter`].
-    pub const DEFAULT_POLL_JITTER: Duration = Duration::from_secs(30);
+    pub const DEFAULT_POLL_JITTER: Duration = Duration::from_secs(3);
 
     /// Create a new `PollerThreadConfig` using default configuration.
     pub fn new() -> PollerThreadConfig {
@@ -283,7 +283,7 @@ impl PollerThread {
 
 /// Apply randomized `jitter` to `interval`.
 fn jitter(interval: Duration, jitter: Duration) -> Duration {
-    Duration::saturating_sub(interval, thread_rng().gen_range(Duration::ZERO..jitter))
+    Duration::saturating_sub(interval, thread_rng().gen_range(Duration::ZERO..=jitter))
 }
 
 #[cfg(test)]
@@ -308,5 +308,15 @@ mod jitter_tests {
         let result = super::jitter(interval, jitter);
 
         assert_eq!(result, Duration::ZERO);
+    }
+
+    #[test]
+    fn jitter_works_with_zero_jitter() {
+        let interval = Duration::from_secs(30);
+        let jitter = Duration::ZERO;
+
+        let result = super::jitter(interval, jitter);
+
+        assert_eq!(result, Duration::from_secs(30));
     }
 }
