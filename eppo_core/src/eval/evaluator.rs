@@ -4,7 +4,6 @@ use chrono::Utc;
 
 use crate::{
     configuration_store::ConfigurationStore,
-    error::EvaluationFailure,
     eval::eval_precomputed_assignments::PrecomputedConfiguration,
     events::AssignmentEvent,
     ufc::{Assignment, AssignmentValue, VariationType},

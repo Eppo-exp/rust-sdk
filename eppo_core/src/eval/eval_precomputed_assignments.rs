@@ -13,7 +13,7 @@ pub struct PrecomputedConfiguration {
     pub created_at: DateTime<Utc>,
     pub format: AssignmentFormat,
     pub environment: Environment,
-    pub flags: HashMap<String, Result<Assignment, EvaluationFailure>>,
+    pub flags: HashMap<String, Result<Assignment, EvaluationError>>,
 }
 
 impl PrecomputedConfiguration {
