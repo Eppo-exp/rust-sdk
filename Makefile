@@ -28,20 +28,22 @@ test: ${testDataDir}
 # Build the entire workspace excluding the `fastly-edge-assignments` package
 .PHONY: workspace-build
 workspace-build:
-	cargo build --workspace --exclude $(FASTLY_PACKAGE)
+	cargo build
 
 # Run tests for the entire workspace excluding the `fastly-edge-assignments` package
 .PHONY: workspace-test
 workspace-test:
-	cargo test --workspace --exclude $(FASTLY_PACKAGE)
+	cargo test
 
 # Build only the `fastly-edge-assignments` package for WASM
 .PHONY: fastly-edge-assignments-build
 fastly-edge-assignments-build:
 	rustup target add $(WASM_TARGET)
-	cargo build --release --target $(WASM_TARGET) --package $(FASTLY_PACKAGE)
+	cd fastly-edge-assignments
+	cargo build --release --target $(WASM_TARGET)
 
 # Test only the `fastly-edge-assignments` package
 .PHONY: fastly-edge-assignments-test
 fastly-edge-assignments-test:
-	cargo test --target $(WASM_TARGET) --package $(FASTLY_PACKAGE)
+	cd fastly-edge-assignments
+	cargo test --target $(WASM_TARGET)
