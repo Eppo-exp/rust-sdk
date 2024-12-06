@@ -25,6 +25,6 @@ WORKDIR $WORKDIR
 
 RUN gem install rb_sys
 
-COPY build.sh ./
+COPY . .
 
-CMD ["/bin/bash", "./build.sh"]
+CMD ["/bin/bash", "build.sh"]

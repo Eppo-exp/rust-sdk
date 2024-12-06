@@ -45,7 +45,7 @@ Make sure you remove the override before updating `Cargo.lock`. Otherwise, the l
 * Run `bundle` to update `Gemfile.lock`
 
 
-## Building native libs
+## Building Ruby native lib
 
 ```
 docker build --build-arg WORKDIR=$(pwd) -t ruby-sdk-builder .
