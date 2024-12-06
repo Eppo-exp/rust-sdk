@@ -43,3 +43,15 @@ Make sure you remove the override before updating `Cargo.lock`. Otherwise, the l
 * Bump versions in `ruby-sdk/lib/eppo_client/version.rb` and `ruby-sdk/ext/eppo_client/Cargo.toml`
 * Run `cargo update --workspace --verbose` to update `Cargo.lock`
 * Run `bundle` to update `Gemfile.lock`
+
+
+## Building native libs
+
+```
+docker build --build-arg WORKDIR=$(pwd) -t ruby-sdk-builder .
+mkdir -p rust/cargo/registry
+docker run --rm -it \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v /tmp:/tmp -v \
+  $(pwd)/rust:$(pwd)/rust ruby-sdk-builder
+```
