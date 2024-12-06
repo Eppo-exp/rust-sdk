@@ -1,15 +1,11 @@
-use eppo_core::configuration_store::ConfigurationStore;
-use eppo_core::eval::{Evaluator, EvaluatorConfig, PrecomputedConfiguration};
-use eppo_core::ufc::{
-    Assignment, AssignmentFormat, Environment, UniversalFlagConfig, VariationType,
-};
+use chrono::Utc;
+use eppo_core::ufc::UniversalFlagConfig;
 use eppo_core::{Attributes, Configuration, SdkMetadata, Str};
 use fastly::http::StatusCode;
 use fastly::kv_store::KVStoreError;
 use fastly::{Error, KVStore, Request, Response};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 const KV_STORE_NAME: &str = "edge-assignment-kv-store";
@@ -38,72 +34,6 @@ struct PrecomputedAssignmentsServiceRequestBody {
     // #[serde(rename = "banditActions")]
     // #[serde(skip_serializing_if = "Option::is_none")]
     // bandit_actions: Option<HashMap<String, serde_json::Value>>,
-}
-
-// Response
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct FlagAssignment {
-    pub allocation_key: Str,
-    pub variation_key: Str,
-    pub variation_type: VariationType,
-    pub variation_value: serde_json::Value,
-    /// Additional user-defined logging fields for capturing extra information related to the
-    /// assignment.
-    #[serde(flatten)]
-    pub extra_logging: HashMap<String, String>,
-    pub do_log: bool,
-}
-
-impl FlagAssignment {
-    pub fn try_from_assignment(assignment: Assignment) -> Option<Self> {
-        // WARNING! There is a problem here. The event is only populated for splits
-        // that have `do_log` set to true in the wire format. This means that
-        // all the ones present here are logged, but any splits that are not
-        // logged are not present here.
-        //
-        // This is a problem for us because we want to be able to return
-        // precomputed assignments for any split, logged or not, since we
-        // want to be able to return them for all flags.
-        //
-        // We need to fix this.
-        assignment.event.as_ref().map(|event| Self {
-            allocation_key: event.base.allocation.clone(),
-            variation_key: event.base.variation.clone(),
-            variation_type: assignment.value.variation_type(),
-            variation_value: assignment.value.variation_value(),
-            extra_logging: event.base.extra_logging.clone(),
-            do_log: true,
-        })
-    }
-}
-
-#[derive(Debug, Serialize)]
-struct PrecomputedAssignmentsResponse {
-    created_at: chrono::DateTime<chrono::Utc>,
-    format: AssignmentFormat,
-    environment: Environment,
-    flags: HashMap<String, FlagAssignment>,
-}
-
-impl PrecomputedAssignmentsResponse {
-    fn from_precomputed_assignments(assignments: PrecomputedConfiguration) -> Self {
-        Self {
-            created_at: assignments.created_at,
-            format: assignments.format,
-            environment: assignments.environment,
-            flags: assignments
-                .flags
-                .into_iter()
-                .map(|(k, v)| {
-                    v.ok()
-                        .and_then(|assignment| FlagAssignment::try_from_assignment(assignment))
-                        .map(|flag_assignment| (k, flag_assignment))
-                })
-                .flatten()
-                .collect(),
-        }
-    }
 }
 
 pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
@@ -190,32 +120,21 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
     };
 
     let configuration = Configuration::from_server_response(ufc_config, None);
-    let configuration = Arc::new(configuration);
-    let configuration_store = ConfigurationStore::new();
-    configuration_store.set_configuration(configuration.clone());
-
-    let evaluator = Evaluator::new(EvaluatorConfig {
-        configuration_store: Arc::new(configuration_store),
-        sdk_metadata: SdkMetadata {
-            name: SDK_NAME,
-            version: SDK_VERSION,
-        },
-    });
-
-    let precomputed_assignments =
-        evaluator.get_precomputed_assignments(&subject_key, &subject_attributes, false);
-    let response =
-        PrecomputedAssignmentsResponse::from_precomputed_assignments(precomputed_assignments);
+    let precomputed_configuration = eppo_core::eval::get_precomputed_assignments(
+        Some(&configuration),
+        &subject_key,
+        &subject_attributes,
+        Utc::now(),
+    );
 
     // Create an HTTP OK response with the assignments
-    match Response::from_status(StatusCode::OK).with_body_json(&response) {
-        Ok(response) => Ok(response),
-        Err(e) => {
+    Response::from_status(StatusCode::OK)
+        .with_body_json(&precomputed_configuration)
+        .or_else(|e| {
             eprintln!("Failed to serialize response: {:?}", e);
-            return Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
-                .with_body_text_plain("Failed to serialize response"));
-        }
-    }
+            Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
+                .with_body_text_plain("Failed to serialize response"))
+        })
 }
 
 #[cfg(test)]

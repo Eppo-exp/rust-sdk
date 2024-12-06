@@ -117,14 +117,12 @@ impl Evaluator {
         &self,
         subject_key: &Str,
         subject_attributes: &Arc<Attributes>,
-        early_exit: bool,
     ) -> PrecomputedConfiguration {
         let configuration = self.get_configuration();
         get_precomputed_assignments(
             configuration.as_ref().map(AsRef::as_ref),
             &subject_key,
             &subject_attributes,
-            early_exit,
             Utc::now(),
         )
     }
