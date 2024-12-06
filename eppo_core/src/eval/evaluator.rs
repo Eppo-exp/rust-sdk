@@ -4,6 +4,7 @@ use chrono::Utc;
 
 use crate::{
     configuration_store::ConfigurationStore,
+    eval::eval_precomputed_assignments::PrecomputedConfiguration,
     events::AssignmentEvent,
     ufc::{Assignment, AssignmentValue, VariationType},
     Attributes, Configuration, ContextAttributes, EvaluationError, SdkMetadata, Str,
@@ -12,7 +13,7 @@ use crate::{
 use super::{
     eval_details::{EvaluationDetails, EvaluationResultWithDetails},
     get_assignment, get_assignment_details, get_bandit_action, get_bandit_action_details,
-    BanditResult,
+    get_precomputed_assignments, BanditResult,
 };
 
 pub struct EvaluatorConfig {
@@ -109,6 +110,20 @@ impl Evaluator {
             default_variation,
             Utc::now(),
             &self.config.sdk_metadata,
+        )
+    }
+
+    pub fn get_precomputed_assignments(
+        &self,
+        subject_key: &Str,
+        subject_attributes: &Arc<Attributes>,
+    ) -> PrecomputedConfiguration {
+        let configuration = self.get_configuration();
+        get_precomputed_assignments(
+            configuration.as_ref().map(AsRef::as_ref),
+            &subject_key,
+            &subject_attributes,
+            Utc::now(),
         )
     }
 

@@ -55,7 +55,6 @@ pub mod configuration_store;
 pub mod eval;
 pub mod events;
 pub mod poller_thread;
-pub mod precomputed_assignments;
 #[cfg(feature = "pyo3")]
 pub mod pyo3;
 pub mod sharder;
