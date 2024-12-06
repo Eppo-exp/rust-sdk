@@ -10,7 +10,7 @@ use crate::{Error, EvaluationError, Str};
 use super::AssignmentValue;
 
 #[allow(missing_docs)]
-pub type Timestamp = chrono::DateTime<chrono::Utc>;
+pub type Timestamp = crate::timestamp::Timestamp;
 
 /// Universal Flag Configuration. This the response format from the UFC endpoint.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -19,7 +19,7 @@ pub(crate) struct UniversalFlagConfigWire {
     /// When configuration was last updated.
     pub created_at: Timestamp,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub format: Option<AssignmentFormat>,
+    pub format: Option<ConfigurationFormat>,
     /// Environment this configuration belongs to.
     pub environment: Environment,
     /// Flags configuration.
@@ -34,11 +34,11 @@ pub(crate) struct UniversalFlagConfigWire {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "UPPERCASE")]
-pub enum AssignmentFormat {
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ConfigurationFormat {
     Client,
-    Precomputed,
     Server,
+    Precomputed,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

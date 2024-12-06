@@ -4,8 +4,8 @@ use chrono::Utc;
 
 use crate::{
     configuration_store::ConfigurationStore,
-    eval::eval_precomputed_assignments::PrecomputedConfiguration,
     events::AssignmentEvent,
+    precomputed::PrecomputedConfiguration,
     ufc::{Assignment, AssignmentValue, VariationType},
     Attributes, Configuration, ContextAttributes, EvaluationError, SdkMetadata, Str,
 };
