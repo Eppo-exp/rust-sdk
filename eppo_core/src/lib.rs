@@ -58,12 +58,15 @@ pub mod poller_thread;
 #[cfg(feature = "pyo3")]
 pub mod pyo3;
 pub mod sharder;
+pub mod timestamp;
 pub mod ufc;
 
 mod attributes;
 mod configuration;
 mod context_attributes;
 mod error;
+mod obfuscation;
+mod precomputed;
 mod sdk_metadata;
 mod str;
 

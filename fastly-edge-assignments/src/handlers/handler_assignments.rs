@@ -129,7 +129,7 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
 
     // Create an HTTP OK response with the assignments
     Response::from_status(StatusCode::OK)
-        .with_body_json(&precomputed_configuration)
+        .with_body_json(&precomputed_configuration.obfuscate())
         .or_else(|e| {
             eprintln!("Failed to serialize response: {:?}", e);
             Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
