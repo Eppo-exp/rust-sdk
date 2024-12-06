@@ -2,7 +2,7 @@
 //!
 //! Moved into a separate module, so we could experiment with different representations.
 
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, string::FromUtf8Error, sync::Arc};
 
 use faststr::FastStr;
 
@@ -69,9 +69,23 @@ impl<'a> From<Cow<'a, str>> for Str {
     }
 }
 
+impl TryFrom<Vec<u8>> for Str {
+    type Error = FromUtf8Error;
+
+    fn try_from(value: Vec<u8>) -> Result<Self, Self::Error> {
+        String::from_utf8(value).map(Into::into)
+    }
+}
+
 impl AsRef<str> for Str {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+impl AsRef<[u8]> for Str {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_bytes()
     }
 }
 
