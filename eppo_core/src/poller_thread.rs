@@ -172,8 +172,7 @@ impl PollerThread {
                                 }
                                 Err(RecvTimeoutError::Disconnected) => {
                                     // The sender has disconnected.
-                                    // We simply sleep for the timeout duration and loop again.
-                                    std::thread::sleep(timeout);
+                                    return;
                                 }
                             }
                         }
@@ -325,5 +324,47 @@ mod jitter_tests {
         let result = super::jitter(interval, jitter);
 
         assert_eq!(result, Duration::from_secs(30));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::configuration_store::ConfigurationStore;
+    use crate::configuration_fetcher::ConfigurationFetcher;
+    use crate::{Error, Result};
+    use std::sync::Arc;
+    use std::pin::Pin;
+    use std::future::Future;
+
+    // A mock fetcher that panics when fetching configuration.
+    struct PanickingFetcher;
+
+    #[async_trait::async_trait]
+    impl super::ConfigurationFetcher for PanickingFetcher {
+        async fn fetch_configuration(&mut self) -> Result<Configuration> {
+            panic!("PanickingFetcher always panics");
+        }
+    }
+
+    #[test]
+    fn test_poller_thread_catches_panic() {
+        let store = Arc::new(ConfigurationStore::new());
+
+        // Start the poller with our panicking fetcher.
+        let poller_thread = PollerThread::start_with_config(
+            PanickingFetcher,
+            Arc::clone(&store),
+            PollerThreadConfig::default(),
+        ).expect("Failed to start poller thread");
+
+        // This call should return an error indicating the poller thread panicked,
+        // rather than crashing the entire test.
+        let result = poller_thread.wait_for_configuration();
+
+        assert!(
+            matches!(result, Err(Error::PollerThreadPanicked)),
+            "Expected PollerThreadPanicked error, got: {:?}", result
+        );
     }
 }
