@@ -171,9 +171,11 @@ impl PollerThread {
                                     return;
                                 }
                                 Err(RecvTimeoutError::Disconnected) => {
-                                    // The sender has disconnected.
-                                    // We simply sleep for the timeout duration and loop again.
-                                    std::thread::sleep(timeout);
+                                    // When the other end of channel disconnects, calls to
+                                    // .recv_timeout() return immediately.
+                                    // Stop the thread.
+                                    log::debug!(target: "eppo", "poller thread received disconnected");
+                                    return;
                                 }
                             }
                         }
