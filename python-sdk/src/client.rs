@@ -1,19 +1,18 @@
-use std::{
-    collections::HashMap,
-    ops::Deref,
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    time::Duration,
-};
-
 use pyo3::{
     exceptions::{PyRuntimeError, PyTypeError},
     intern,
     prelude::*,
     types::{PyBool, PyFloat, PyInt, PySet, PyString},
     PyTraverseError, PyVisit,
+};
+use std::{
+    collections::HashMap,
+    ops::Deref,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc, Mutex,
+    },
+    time::Duration,
 };
 
 use eppo_core::{
@@ -142,7 +141,7 @@ impl EvaluationResult {
 pub struct EppoClient {
     configuration_store: Arc<ConfigurationStore>,
     evaluator: Evaluator,
-    poller_thread: Option<PollerThread>,
+    poller_thread: Mutex<Option<PollerThread>>,
     assignment_logger: Py<AssignmentLogger>,
     is_graceful_mode: AtomicBool,
 }
@@ -452,12 +451,14 @@ impl EppoClient {
     ///
     /// This method releases GIL, so other Python thread can make progress.
     fn wait_for_initialization(&self, py: Python) -> PyResult<()> {
-        if let Some(poller) = &self.poller_thread {
-            py.allow_threads(|| poller.wait_for_configuration())
-                .map_err(|err| PyRuntimeError::new_err(err.to_string()))
-        } else {
-            Err(PyRuntimeError::new_err("poller is disabled"))
+        if let Ok(guard) = self.poller_thread.lock() {
+            if let Some(poller) = guard.as_ref() {
+                return py
+                    .allow_threads(|| poller.wait_for_configuration())
+                    .map_err(|err| PyRuntimeError::new_err(err.to_string()));
+            }
         }
+        Err(PyRuntimeError::new_err("poller is disabled"))
     }
 
     /// Returns a set of all flag keys that have been initialized.
@@ -593,7 +594,7 @@ impl EppoClient {
         Ok(EppoClient {
             configuration_store,
             evaluator,
-            poller_thread,
+            poller_thread: Mutex::new(poller_thread),
             assignment_logger: config
                 .assignment_logger
                 .as_ref()
@@ -688,10 +689,10 @@ impl EppoClient {
     }
 
     pub fn shutdown(&self) {
-        if let Some(poller) = &self.poller_thread {
-            // Using `.stop()` instead of `.shutdown()` here because we don't need to wait for the
-            // poller thread to exit.
-            poller.stop();
+        if let Ok(mut guard) = self.poller_thread.lock() {
+            if let Some(poller) = guard.take() {
+                let _ = poller.shutdown();
+            }
         }
     }
 }
