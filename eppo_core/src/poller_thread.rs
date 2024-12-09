@@ -114,19 +114,20 @@ impl PollerThread {
     ) -> std::io::Result<PollerThread> {
         // Using `sync_channel` here as it makes `stop_sender` `Sync` (shareable between
         // threads). Buffer size of 1 should be enough for our use case as we're sending a stop
-        // command and we can simply `try_send()` and ignore if the buffer is full (another thread
-        // has send a stop command already).
+        // command, and we can simply `try_send()` and ignore if the buffer is full (another thread
+        // has sent a stop command already).
         let (stop_sender, stop_receiver) = std::sync::mpsc::sync_channel::<()>(1);
 
         let result = Arc::new((Mutex::new(None), Condvar::new()));
 
         let join_handle = {
+            // Cloning Arc for move into thread
             let result = Arc::clone(&result);
             let update_result = move |value| {
                 *result.0.lock().unwrap() = Some(value);
                 result.1.notify_all();
             };
-        
+
             std::thread::Builder::new()
                 .name("eppo-poller".to_owned())
                 .spawn(move || {
@@ -141,7 +142,7 @@ impl PollerThread {
                                 return;
                             }
                         };
-        
+
                         loop {
                             log::debug!(target: "eppo", "fetching new configuration");
                             let result = runtime.block_on(fetcher.fetch_configuration());
@@ -156,10 +157,10 @@ impl PollerThread {
                                     return;
                                 }
                                 _ => {
-                                    // Other errors are retriable.
+                                    // Other errors are retrievable.
                                 }
                             };
-        
+
                             let timeout = jitter(config.interval, config.jitter);
                             match stop_receiver.recv_timeout(timeout) {
                                 Err(RecvTimeoutError::Timeout) => {
@@ -180,7 +181,7 @@ impl PollerThread {
                             }
                         }
                     }));
-        
+
                     // If catch_unwind returns Err, it means a panic occurred.
                     if let Err(_panic_info) = result {
                         // Handle the panic gracefully by updating the result with an error.
