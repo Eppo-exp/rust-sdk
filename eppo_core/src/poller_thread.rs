@@ -121,61 +121,68 @@ impl PollerThread {
         let result = Arc::new((Mutex::new(None), Condvar::new()));
 
         let join_handle = {
-            // Cloning Arc for move into thread
             let result = Arc::clone(&result);
             let update_result = move |value| {
                 *result.0.lock().unwrap() = Some(value);
                 result.1.notify_all();
             };
-
+        
             std::thread::Builder::new()
                 .name("eppo-poller".to_owned())
                 .spawn(move || {
-                    let runtime = match tokio::runtime::Builder::new_current_thread()
-                        .enable_all()
-                        .build()
-                    {
-                        Ok(runtime) => runtime,
-                        Err(err) => {
-                            update_result(Err(Error::from(err)));
-                            return;
-                        }
-                    };
-                    loop {
-                        log::debug!(target: "eppo", "fetching new configuration");
-                        let result = runtime.block_on(fetcher.fetch_configuration());
-                        match result {
-                            Ok(configuration) => {
-                                store.set_configuration(Arc::new(configuration));
-                                update_result(Ok(()))
-                            }
-                            Err(err @ (Error::Unauthorized | Error::InvalidBaseUrl(_))) => {
-                                // Unrecoverable errors
-                                update_result(Err(err));
+                    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        let runtime = match tokio::runtime::Builder::new_current_thread()
+                            .enable_all()
+                            .build()
+                        {
+                            Ok(runtime) => runtime,
+                            Err(err) => {
+                                update_result(Err(Error::from(err)));
                                 return;
-                            }
-                            _ => {
-                                // Other errors are retriable.
                             }
                         };
-
-                        let timeout = jitter(config.interval, config.jitter);
-                        match stop_receiver.recv_timeout(timeout) {
-                            Err(RecvTimeoutError::Timeout) => {
-                                // Timed out. Loop to fetch new configuration.
-                            }
-                            Ok(()) => {
-                                log::debug!(target: "eppo", "poller thread received stop command");
-                                // The other end asked us to stop the poller thread.
-                                return;
-                            }
-                            Err(RecvTimeoutError::Disconnected) => {
-                                // When the other end of channel disconnects, calls to
-                                // .recv_timeout() return immediately. Use normal thread sleep in
-                                // this case.
-                                std::thread::sleep(timeout);
+        
+                        loop {
+                            log::debug!(target: "eppo", "fetching new configuration");
+                            let result = runtime.block_on(fetcher.fetch_configuration());
+                            match result {
+                                Ok(configuration) => {
+                                    store.set_configuration(Arc::new(configuration));
+                                    update_result(Ok(()))
+                                }
+                                Err(err @ (Error::Unauthorized | Error::InvalidBaseUrl(_))) => {
+                                    // Unrecoverable errors
+                                    update_result(Err(err));
+                                    return;
+                                }
+                                _ => {
+                                    // Other errors are retriable.
+                                }
+                            };
+        
+                            let timeout = jitter(config.interval, config.jitter);
+                            match stop_receiver.recv_timeout(timeout) {
+                                Err(RecvTimeoutError::Timeout) => {
+                                    // Timed out. Loop back to fetch a new configuration.
+                                }
+                                Ok(()) => {
+                                    log::debug!(target: "eppo", "poller thread received stop command");
+                                    // Stop command received, break out of the loop to end the thread.
+                                    return;
+                                }
+                                Err(RecvTimeoutError::Disconnected) => {
+                                    // The sender has disconnected.
+                                    // We simply sleep for the timeout duration and loop again.
+                                    std::thread::sleep(timeout);
+                                }
                             }
                         }
+                    }));
+        
+                    // If catch_unwind returns Err, it means a panic occurred.
+                    if let Err(_panic_info) = result {
+                        // Handle the panic gracefully by updating the result with an error.
+                        update_result(Err(Error::PollerThreadPanicked));
                     }
                 })?
         };
