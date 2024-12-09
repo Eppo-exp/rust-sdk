@@ -1,18 +1,15 @@
-use eppo_core::configuration_store::ConfigurationStore;
-use eppo_core::eval::{Evaluator, EvaluatorConfig};
-use eppo_core::precomputed_assignments::{
-    FlagAssignment, PrecomputedAssignmentsServiceRequestBody, PrecomputedAssignmentsServiceResponse,
-};
+use chrono::Utc;
 use eppo_core::ufc::UniversalFlagConfig;
-use eppo_core::{Attributes, Configuration, SdkMetadata};
+use eppo_core::{Attributes, Configuration, SdkMetadata, Str};
 use fastly::http::StatusCode;
 use fastly::kv_store::KVStoreError;
 use fastly::{Error, KVStore, Request, Response};
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 const KV_STORE_NAME: &str = "edge-assignment-kv-store";
+// TODO: Migrate authorization to header `Authorization`.
 const SDK_KEY_QUERY_PARAM: &str = "apiKey"; // For legacy reasons this is named `apiKey`
 
 const SDK_NAME: &str = "fastly-edge-assignments";
@@ -26,6 +23,17 @@ fn token_hash(sdk_key: &str) -> String {
     let mut hasher = Sha256::new();
     hasher.update(sdk_key.as_bytes());
     base64_url::encode(&hasher.finalize())
+}
+
+// Request
+#[derive(Debug, Deserialize)]
+struct PrecomputedAssignmentsServiceRequestBody {
+    pub subject_key: Str,
+    pub subject_attributes: Arc<Attributes>,
+    // TODO: Add bandit actions
+    // #[serde(rename = "banditActions")]
+    // #[serde(skip_serializing_if = "Option::is_none")]
+    // bandit_actions: Option<HashMap<String, serde_json::Value>>,
 }
 
 pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
@@ -112,50 +120,21 @@ pub fn handle_assignments(mut req: Request) -> Result<Response, Error> {
     };
 
     let configuration = Configuration::from_server_response(ufc_config, None);
-    let configuration = Arc::new(configuration);
-    let flag_keys = configuration.flag_keys();
-    let configuration_store = ConfigurationStore::new();
-    configuration_store.set_configuration(configuration.clone());
-    let evaluator = Evaluator::new(EvaluatorConfig {
-        configuration_store: Arc::new(configuration_store),
-        sdk_metadata: SdkMetadata {
-            name: SDK_NAME,
-            version: SDK_VERSION,
-        },
-    });
-
-    let subject_assignments = flag_keys
-        .iter()
-        .filter_map(|key| {
-            match evaluator.get_assignment(key, &subject_key, &subject_attributes, None) {
-                Ok(Some(assignment)) => FlagAssignment::try_from_assignment(assignment)
-                    .map(|flag_assignment| (key.clone(), flag_assignment)),
-                Ok(None) => None,
-                Err(e) => {
-                    eprintln!("Failed to evaluate assignment for key {}: {:?}", key, e);
-                    None
-                }
-            }
-        })
-        .collect::<HashMap<_, _>>();
-
-    // Create the response
-    let assignments_response = PrecomputedAssignmentsServiceResponse::from_configuration(
-        configuration,
-        subject_assignments,
+    let precomputed_configuration = eppo_core::eval::get_precomputed_assignments(
+        Some(&configuration),
+        &subject_key,
+        &subject_attributes,
+        Utc::now(),
     );
 
     // Create an HTTP OK response with the assignments
-    let response = match Response::from_status(StatusCode::OK).with_body_json(&assignments_response)
-    {
-        Ok(response) => response,
-        Err(e) => {
+    Response::from_status(StatusCode::OK)
+        .with_body_json(&precomputed_configuration)
+        .or_else(|e| {
             eprintln!("Failed to serialize response: {:?}", e);
-            return Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
-                .with_body_text_plain("Failed to serialize response"));
-        }
-    };
-    Ok(response)
+            Ok(Response::from_status(StatusCode::INTERNAL_SERVER_ERROR)
+                .with_body_text_plain("Failed to serialize response"))
+        })
 }
 
 #[cfg(test)]

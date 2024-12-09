@@ -5,7 +5,10 @@ members = [
     "rust-sdk",
     "python-sdk",
     "ruby-sdk/ext/eppo_client",
-    "fastly-edge-assignments",
+]
+
+exclude = [
+  "fastly-edge-assignments",
 ]
 
 [patch.crates-io]
