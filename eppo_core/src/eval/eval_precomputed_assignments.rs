@@ -2,61 +2,11 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
 
 use crate::eval::get_assignment;
-use crate::ufc::{Assignment, AssignmentFormat, Environment, ValueWire, VariationType};
+use crate::precomputed::PrecomputedConfiguration;
+use crate::ufc::ConfigurationFormat;
 use crate::{Attributes, Configuration, Str};
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PrecomputedConfiguration {
-    created_at: DateTime<Utc>,
-    /// `format` is always `AssignmentFormat::Precomputed`.
-    format: AssignmentFormat,
-    // Environment might be missing if configuration was absent during evaluation.
-    environment: Option<Environment>,
-    flags: HashMap<String, PrecomputedAssignment>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct PrecomputedAssignment {
-    variation_type: VariationType,
-    variation_value: ValueWire,
-
-    do_log: bool,
-    // If `do_log` is false, the client doesn’t need the field below.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    allocation_key: Option<Str>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    variation_key: Option<Str>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    extra_logging: Option<HashMap<String, String>>,
-}
-
-impl From<Assignment> for PrecomputedAssignment {
-    fn from(assignment: Assignment) -> PrecomputedAssignment {
-        match assignment.event {
-            Some(event) => PrecomputedAssignment {
-                variation_type: assignment.value.variation_type(),
-                variation_value: assignment.value.variation_value(),
-                do_log: true,
-                allocation_key: Some(event.base.allocation.clone()),
-                variation_key: Some(event.base.variation.clone()),
-                extra_logging: Some(event.base.extra_logging.clone()),
-            },
-            None => PrecomputedAssignment {
-                variation_type: assignment.value.variation_type(),
-                variation_value: assignment.value.variation_value(),
-                do_log: false,
-                allocation_key: None,
-                variation_key: None,
-                extra_logging: None,
-            },
-        }
-    }
-}
 
 pub fn get_precomputed_assignments(
     configuration: Option<&Configuration>,
@@ -69,8 +19,9 @@ pub fn get_precomputed_assignments(
                    subject_key;
                    "evaluating a flag before Eppo configuration has been fetched");
         return PrecomputedConfiguration {
+            obfuscated: serde_bool::False,
+            format: ConfigurationFormat::Precomputed,
             created_at: now,
-            format: AssignmentFormat::Precomputed,
             environment: None,
             flags: HashMap::new(),
         };
@@ -98,12 +49,13 @@ pub fn get_precomputed_assignments(
     }
 
     log::trace!(target: "eppo",
-                    subject_key,
-                    assignments:serde = flags;
-                    "evaluated precomputed assignments");
+                subject_key,
+                assignments:serde = flags;
+                "evaluated precomputed assignments");
     PrecomputedConfiguration {
+        obfuscated: serde_bool::False,
         created_at: now,
-        format: AssignmentFormat::Precomputed,
+        format: ConfigurationFormat::Precomputed,
         environment: Some(configuration.flags.compiled.environment.clone()),
         flags,
     }
