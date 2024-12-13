@@ -13,4 +13,4 @@ echo "[patch.crates-io.eppo_core]" > "/.cargo/config.toml"
 echo "path = '$PWD/eppo_core'" >> "/.cargo/config.toml"
 cargo --config /.cargo/config.toml fetch
 cd ruby-sdk
-rb-sys-dock --platform aarch64-linux-musl --mount-toolchains --ruby-versions 3.3 --build -V
+rb-sys-dock --platform <platform> --mount-toolchains --ruby-versions 3.3 --build -V
