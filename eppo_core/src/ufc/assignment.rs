@@ -393,7 +393,7 @@ mod magnus_impl {
 
     impl IntoValue for Assignment {
         fn into_value_with(self, handle: &Ruby) -> magnus::Value {
-            let hash = handle.hash_new_capa(2);
+            let hash = handle.hash_new();
             let _ = hash.aset(handle.sym_new("value"), self.value);
             let _ = hash.aset(
                 handle.sym_new("event"),

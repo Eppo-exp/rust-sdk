@@ -278,7 +278,7 @@ mod magnus_impl {
 
     impl<T: IntoValue> IntoValue for EvaluationResultWithDetails<T> {
         fn into_value_with(self, handle: &magnus::Ruby) -> magnus::Value {
-            let hash = handle.hash_new_capa(3);
+            let hash = handle.hash_new();
             let _ = hash.aset(handle.sym_new("variation"), self.variation);
             let _ = hash.aset(handle.sym_new("action"), self.action);
             let _ = hash.aset(
