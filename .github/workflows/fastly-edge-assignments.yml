@@ -22,7 +22,7 @@ jobs:
           submodules: true
 
       # Cache Rust toolchain and dependencies
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/bin/
