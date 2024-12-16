@@ -49,7 +49,7 @@ Make sure you remove the override before updating `Cargo.lock`. Otherwise, the l
 
 1. Clone this repository at the desired Ruby SDK tag, eg.: `git clone --depth 1 --branch ruby-sdk@x.y.z https://github.com/Eppo-exp/eppo-multiplatform.git`
 2. Open `build.sh` and update `rb-sys-dock --platform <platform>` with the desired platform, eg.: `rb-sys-dock --platform x86_64-linux`
-3. Run `docker build --build-arg WORKDIR=$(pwd) -t ruby-sdk-builder .` to build the builder docker image
+3. Run `docker build --build-arg WORKDIR=$(pwd) -f Dockerfile.ruby.build -t ruby-sdk-builder .` to build the builder docker image
 4. Run the following command to build the gem with native lib:
 ```
 mkdir -p rust/cargo/registry && docker run --rm -it \
