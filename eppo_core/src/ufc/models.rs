@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::collections::HashMap;
 
 use derive_more::From;
 use regex::Regex;
@@ -10,7 +10,7 @@ use crate::{Error, EvaluationError, Str};
 use super::AssignmentValue;
 
 #[allow(missing_docs)]
-pub type Timestamp = chrono::DateTime<chrono::Utc>;
+pub type Timestamp = crate::timestamp::Timestamp;
 
 /// Universal Flag Configuration. This the response format from the UFC endpoint.
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -19,7 +19,7 @@ pub(crate) struct UniversalFlagConfigWire {
     /// When configuration was last updated.
     pub created_at: Timestamp,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub format: Option<AssignmentFormat>,
+    pub format: Option<ConfigurationFormat>,
     /// Environment this configuration belongs to.
     pub environment: Environment,
     /// Flags configuration.
@@ -34,16 +34,16 @@ pub(crate) struct UniversalFlagConfigWire {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(rename_all = "UPPERCASE")]
-pub(crate) enum AssignmentFormat {
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum ConfigurationFormat {
     Client,
-    Precomputed,
     Server,
+    Precomputed,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct Environment {
+pub struct Environment {
     /// Name of the environment.
     pub name: Str,
 }
@@ -130,7 +130,11 @@ impl ValueWire {
             VariationType::Integer => AssignmentValue::Integer(self.as_integer()?),
             VariationType::Numeric => AssignmentValue::Numeric(self.as_number()?),
             VariationType::Boolean => AssignmentValue::Boolean(self.as_boolean()?),
-            VariationType::Json => AssignmentValue::Json(Arc::new(self.into_json()?)),
+            VariationType::Json => {
+                let raw = self.into_string()?;
+                let parsed = serde_json::from_str(&raw).ok()?;
+                AssignmentValue::Json { raw, parsed }
+            }
         })
     }
 
@@ -163,11 +167,6 @@ impl ValueWire {
             Self::String(value) => Some(value),
             _ => None,
         }
-    }
-
-    fn into_json(self) -> Option<serde_json::Value> {
-        let s = self.into_string()?;
-        serde_json::from_str(&s).ok()?
     }
 }
 

@@ -6,6 +6,8 @@ use crate::{events::AssignmentEvent, Str};
 
 use crate::ufc::VariationType;
 
+use super::ValueWire;
+
 /// Result of assignment evaluation.
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -17,7 +19,7 @@ pub struct Assignment {
 }
 
 /// Enum representing values assigned to a subject as a result of feature flag evaluation.
-#[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(tag = "type", content = "value", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AssignmentValue {
     /// A string value.
@@ -29,10 +31,38 @@ pub enum AssignmentValue {
     /// A boolean value.
     Boolean(bool),
     /// Arbitrary JSON value.
-    Json(Arc<serde_json::Value>),
+    Json {
+        raw: Str,
+        parsed: Arc<serde_json::Value>,
+    },
+}
+
+impl PartialEq for AssignmentValue {
+    // Compare ignoring Json::raw.
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (AssignmentValue::String(v1), AssignmentValue::String(v2)) => v1 == v2,
+            (AssignmentValue::Integer(v1), AssignmentValue::Integer(v2)) => v1 == v2,
+            (AssignmentValue::Numeric(v1), AssignmentValue::Numeric(v2)) => v1 == v2,
+            (AssignmentValue::Boolean(v1), AssignmentValue::Boolean(v2)) => v1 == v2,
+            (
+                AssignmentValue::Json { parsed: v1, .. },
+                AssignmentValue::Json { parsed: v2, .. },
+            ) => v1 == v2,
+            _ => false,
+        }
+    }
 }
 
 impl AssignmentValue {
+    pub fn from_json(value: serde_json::Value) -> Result<AssignmentValue, serde_json::Error> {
+        let raw = serde_json::to_string(&value)?;
+        Ok(AssignmentValue::Json {
+            raw: raw.into(),
+            parsed: Arc::new(value),
+        })
+    }
+
     /// Checks if the assignment value is of type String.
     ///
     /// # Returns
@@ -189,7 +219,7 @@ impl AssignmentValue {
     /// # use eppo_core::ufc::AssignmentValue;
     /// use serde_json::json;
     ///
-    /// let value = AssignmentValue::Json(json!({ "key": "value" }).into());
+    /// let value = AssignmentValue::from_json(json!({ "key": "value" }).into()).unwrap();
     /// assert_eq!(value.is_json(), true);
     /// ```
     pub fn is_json(&self) -> bool {
@@ -205,12 +235,12 @@ impl AssignmentValue {
     /// # use eppo_core::ufc::AssignmentValue;
     /// use serde_json::json;
     ///
-    /// let value = AssignmentValue::Json(json!({ "key": "value" }).into());
+    /// let value = AssignmentValue::from_json(json!({ "key": "value" }).into()).unwrap();
     /// assert_eq!(value.as_json(), Some(&json!({ "key": "value" })));
     /// ```
     pub fn as_json(&self) -> Option<&serde_json::Value> {
         match self {
-            Self::Json(v) => Some(v),
+            Self::Json { raw: _, parsed } => Some(parsed),
             _ => None,
         }
     }
@@ -224,12 +254,12 @@ impl AssignmentValue {
     /// # use eppo_core::ufc::AssignmentValue;
     /// use serde_json::json;
     ///
-    /// let value = AssignmentValue::Json(json!({ "key": "value" }).into());
+    /// let value = AssignmentValue::from_json(json!({ "key": "value" }).into()).unwrap();
     /// assert_eq!(value.to_json(), Some(json!({ "key": "value" }).into()));
     /// ```
     pub fn to_json(self) -> Option<Arc<serde_json::Value>> {
         match self {
-            Self::Json(v) => Some(v),
+            Self::Json { raw: _, parsed } => Some(parsed),
             _ => None,
         }
     }
@@ -252,7 +282,7 @@ impl AssignmentValue {
             AssignmentValue::Integer(_) => VariationType::Integer,
             AssignmentValue::Numeric(_) => VariationType::Numeric,
             AssignmentValue::Boolean(_) => VariationType::Boolean,
-            AssignmentValue::Json(_) => VariationType::Json,
+            AssignmentValue::Json { .. } => VariationType::Json,
         }
     }
 
@@ -260,23 +290,13 @@ impl AssignmentValue {
     ///
     /// # Returns
     /// - A JSON Value containing the variation value.
-    ///
-    /// # Examples
-    /// ```
-    /// # use eppo_core::ufc::AssignmentValue;
-    /// # use serde_json::json;
-    /// let value = AssignmentValue::String("example".into());
-    /// assert_eq!(value.variation_value(), json!("example"));
-    /// ```
-    pub fn variation_value(&self) -> serde_json::Value {
+    pub(crate) fn variation_value(&self) -> ValueWire {
         match self {
-            AssignmentValue::String(s) => serde_json::Value::String(s.to_string()),
-            AssignmentValue::Integer(i) => serde_json::Value::Number((*i).into()),
-            AssignmentValue::Numeric(n) => serde_json::Value::Number(
-                serde_json::Number::from_f64(*n).unwrap_or_else(|| serde_json::Number::from(0)),
-            ),
-            AssignmentValue::Boolean(b) => serde_json::Value::Bool(*b),
-            AssignmentValue::Json(j) => j.as_ref().clone(),
+            AssignmentValue::String(s) => ValueWire::String(s.clone()),
+            AssignmentValue::Integer(i) => ValueWire::Number(*i as f64),
+            AssignmentValue::Numeric(n) => ValueWire::Number(*n),
+            AssignmentValue::Boolean(b) => ValueWire::Boolean(*b),
+            AssignmentValue::Json { raw, parsed: _ } => ValueWire::String(raw.clone()),
         }
     }
 }
@@ -296,10 +316,12 @@ mod pyo3_impl {
                 AssignmentValue::Integer(i) => i.to_object(py),
                 AssignmentValue::Numeric(n) => n.to_object(py),
                 AssignmentValue::Boolean(b) => b.to_object(py),
-                AssignmentValue::Json(j) => match serde_pyobject::to_pyobject(py, j) {
-                    Ok(it) => it.unbind(),
-                    Err(err) => return Err(err.0),
-                },
+                AssignmentValue::Json { raw: _, parsed } => {
+                    match serde_pyobject::to_pyobject(py, parsed) {
+                        Ok(it) => it.unbind(),
+                        Err(err) => return Err(err.0),
+                    }
+                }
             };
             Ok(obj)
         }
