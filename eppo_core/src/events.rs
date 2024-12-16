@@ -119,3 +119,24 @@ mod pyo3_impl {
         }
     }
 }
+
+#[cfg(feature = "magnus")]
+mod magnus_impl {
+    use magnus::IntoValue;
+
+    use super::{AssignmentEvent, BanditEvent};
+
+    impl IntoValue for AssignmentEvent {
+        fn into_value_with(self, _handle: &magnus::Ruby) -> magnus::Value {
+            serde_magnus::serialize(&self)
+                .expect("AssignmentEvent should always be serializable to Ruby")
+        }
+    }
+
+    impl IntoValue for BanditEvent {
+        fn into_value_with(self, _handle: &magnus::Ruby) -> magnus::Value {
+            serde_magnus::serialize(&self)
+                .expect("BanditEvent should always be serializable to Ruby")
+        }
+    }
+}

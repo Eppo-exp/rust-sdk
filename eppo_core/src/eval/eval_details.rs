@@ -262,3 +262,30 @@ mod pyo3_impl {
         }
     }
 }
+
+#[cfg(feature = "magnus")]
+mod magnus_impl {
+    use magnus::{prelude::*, IntoValue};
+
+    use super::{EvaluationDetails, EvaluationResultWithDetails};
+
+    impl IntoValue for &EvaluationDetails {
+        fn into_value_with(self, _handle: &magnus::Ruby) -> magnus::Value {
+            serde_magnus::serialize(self)
+                .expect("EvaluationDetails should always be serializable to Ruby")
+        }
+    }
+
+    impl<T: IntoValue> IntoValue for EvaluationResultWithDetails<T> {
+        fn into_value_with(self, handle: &magnus::Ruby) -> magnus::Value {
+            let hash = handle.hash_new_capa(3);
+            let _ = hash.aset(handle.sym_new("variation"), self.variation);
+            let _ = hash.aset(handle.sym_new("action"), self.action);
+            let _ = hash.aset(
+                handle.sym_new("evaluation_details"),
+                self.evaluation_details.as_ref(),
+            );
+            hash.as_value()
+        }
+    }
+}

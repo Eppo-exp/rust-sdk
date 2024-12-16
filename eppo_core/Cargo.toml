@@ -12,6 +12,8 @@ rust-version = "1.75.0"
 [features]
 # Add implementation of `FromPyObject`/`ToPyObject` for some types.
 pyo3 = ["dep:pyo3", "dep:serde-pyobject"]
+# Add implementation of `TryConvert`/`IntoValue` for some types.
+magnus = ["dep:magnus", "dep:serde_magnus"]
 # Vendor any external libraries that we need (OpenSSL on Linux), so we
 # don’t depend on shared libraries.
 #
@@ -39,6 +41,10 @@ url = "2.5.0"
 # pyo3 dependencies
 pyo3 = { version = "0.22.0", optional = true, default-features = false }
 serde-pyobject = { version = "0.4.0", optional = true}
+
+# magnus dependencies
+magnus = { version = "0.6.4", default-features = false, optional = true }
+serde_magnus = { version = "0.8.1", default-features = false, optional = true }
 
 # vendored dependencies
 [target.'cfg(all(target_os = "linux", target_arch = "s390x"))'.dependencies]

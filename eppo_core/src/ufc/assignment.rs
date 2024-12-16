@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
+use serde::ser::SerializeStruct;
+use serde::Serialize;
 
 use crate::{events::AssignmentEvent, Str};
 
@@ -19,8 +20,18 @@ pub struct Assignment {
 }
 
 /// Enum representing values assigned to a subject as a result of feature flag evaluation.
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "type", content = "value", rename_all = "SCREAMING_SNAKE_CASE")]
+///
+/// # Serialization
+///
+/// When serialized to JSON, serialized as a two-field object with `type` and `value`. Type is one
+/// of "STRING", "INTEGER", "NUMERIC", "BOOLEAN", or "JSON". Value is either string, number,
+/// boolean, or arbitrary JSON value.
+///
+/// Example:
+/// ```json
+/// {"type":"JSON","value":{"hello":"world"}}
+/// ```
+#[derive(Debug, Clone)]
 pub enum AssignmentValue {
     /// A string value.
     String(Str),
@@ -35,6 +46,38 @@ pub enum AssignmentValue {
         raw: Str,
         parsed: Arc<serde_json::Value>,
     },
+}
+
+impl Serialize for AssignmentValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut state = serializer.serialize_struct("AssignmentValue", 2)?;
+        match self {
+            AssignmentValue::String(s) => {
+                state.serialize_field("type", "STRING")?;
+                state.serialize_field("value", s)?;
+            }
+            AssignmentValue::Integer(i) => {
+                state.serialize_field("type", "INTEGER")?;
+                state.serialize_field("value", i)?;
+            }
+            AssignmentValue::Numeric(n) => {
+                state.serialize_field("type", "NUMERIC")?;
+                state.serialize_field("value", n)?;
+            }
+            AssignmentValue::Boolean(b) => {
+                state.serialize_field("type", "BOOLEAN")?;
+                state.serialize_field("value", b)?;
+            }
+            AssignmentValue::Json { raw: _, parsed } => {
+                state.serialize_field("type", "JSON")?;
+                state.serialize_field("value", parsed)?;
+            }
+        }
+        state.end()
+    }
 }
 
 impl PartialEq for AssignmentValue {
@@ -324,6 +367,40 @@ mod pyo3_impl {
                 }
             };
             Ok(obj)
+        }
+    }
+}
+
+#[cfg(feature = "magnus")]
+mod magnus_impl {
+    use magnus::prelude::*;
+    use magnus::{IntoValue, Ruby};
+
+    use super::*;
+
+    impl IntoValue for AssignmentValue {
+        fn into_value_with(self, handle: &Ruby) -> magnus::Value {
+            match self {
+                AssignmentValue::String(s) => s.into_value_with(handle),
+                AssignmentValue::Integer(i) => i.into_value_with(handle),
+                AssignmentValue::Numeric(n) => n.into_value_with(handle),
+                AssignmentValue::Boolean(b) => b.into_value_with(handle),
+                AssignmentValue::Json { raw: _, parsed } => serde_magnus::serialize(&parsed)
+                    .expect("JSON value should always be serializable to Ruby"),
+            }
+        }
+    }
+
+    impl IntoValue for Assignment {
+        fn into_value_with(self, handle: &Ruby) -> magnus::Value {
+            let hash = handle.hash_new_capa(2);
+            let _ = hash.aset(handle.sym_new("value"), self.value);
+            let _ = hash.aset(
+                handle.sym_new("event"),
+                serde_magnus::serialize::<_, magnus::Value>(&self.event)
+                    .expect("AssignmentEvent should always be serializable to Ruby"),
+            );
+            hash.as_value()
         }
     }
 }
