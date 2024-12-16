@@ -38,6 +38,23 @@ eppo_core = { path = '../eppo_core' }
 
 Make sure you remove the override before updating `Cargo.lock`. Otherwise, the lock file will be missing `eppo_core` checksum and will be unsuitable for release. (CI will warn you if you do this accidentally.)
 
+## Build locally
+
+Install all dependencies:
+```sh
+bundle install
+```
+
+Build native extension:
+```sh
+bundle exec rake build
+```
+
+Run tests:
+```sh
+bundle exec rspec
+```
+
 ## Releasing
 
 * Bump versions in `ruby-sdk/lib/eppo_client/version.rb` and `ruby-sdk/ext/eppo_client/Cargo.toml`
