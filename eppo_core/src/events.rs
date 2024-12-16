@@ -2,7 +2,11 @@ use std::{collections::HashMap, sync::Arc};
 
 use serde::Serialize;
 
-use crate::{eval::eval_details::EvaluationDetails, Attributes, SdkMetadata, Str};
+use crate::{
+    attributes::{Attributes, CategoricalAttribute, NumericAttribute},
+    eval::eval_details::EvaluationDetails,
+    SdkMetadata, Str,
+};
 
 /// Events that can be emitted during evaluation of assignment or bandit. They need to be logged to
 /// analytics storage and fed back to Eppo for analysis.
@@ -64,10 +68,10 @@ pub struct BanditEvent {
     pub optimality_gap: f64,
     pub model_version: String,
     pub timestamp: String,
-    pub subject_numeric_attributes: HashMap<String, f64>,
-    pub subject_categorical_attributes: HashMap<String, Str>,
-    pub action_numeric_attributes: HashMap<String, f64>,
-    pub action_categorical_attributes: HashMap<String, Str>,
+    pub subject_numeric_attributes: HashMap<String, NumericAttribute>,
+    pub subject_categorical_attributes: HashMap<String, CategoricalAttribute>,
+    pub action_numeric_attributes: HashMap<String, NumericAttribute>,
+    pub action_categorical_attributes: HashMap<String, CategoricalAttribute>,
     pub meta_data: EventMetaData,
 }
 

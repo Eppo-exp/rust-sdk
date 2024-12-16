@@ -2,7 +2,9 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::{AttributeValue, Attributes, Str};
+use super::{
+    AttributeValue, AttributeValueImpl, Attributes, CategoricalAttribute, NumericAttribute,
+};
 
 /// `ContextAttributes` are subject or action attributes split by their semantics.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -14,11 +16,11 @@ pub struct ContextAttributes {
     /// Not all numbers are numeric attributes. If a number is used to represent an enumeration or
     /// on/off values, it is a categorical attribute.
     #[serde(alias = "numericAttributes")]
-    pub numeric: HashMap<String, f64>,
+    pub numeric: HashMap<String, NumericAttribute>,
     /// Categorical attributes are attributes that have a finite set of values that are not directly
     /// comparable (i.e., enumeration).
     #[serde(alias = "categoricalAttributes")]
-    pub categorical: HashMap<String, Str>,
+    pub categorical: HashMap<String, CategoricalAttribute>,
 }
 
 impl From<Attributes> for ContextAttributes {
@@ -36,26 +38,13 @@ where
         iter.into_iter()
             .fold(ContextAttributes::default(), |mut acc, (key, value)| {
                 match value.to_owned() {
-                    AttributeValue::String(value) => {
+                    AttributeValue(AttributeValueImpl::Categorical(value)) => {
                         acc.categorical.insert(key.to_owned(), value);
                     }
-                    AttributeValue::Number(value) => {
+                    AttributeValue(AttributeValueImpl::Numeric(value)) => {
                         acc.numeric.insert(key.to_owned(), value);
                     }
-                    AttributeValue::Boolean(value) => {
-                        // One argument for including it here is that this basically guarantees that
-                        // assignment evaluation inside bandit evaluation works the same way as if
-                        // `get_assignment()` was called with generic `Attributes`.
-                        //
-                        // We can go a step further and remove `AttributeValue::Boolean` altogether
-                        // (from `eppo_core`), forcing it to be converted to a string before any
-                        // evaluation.
-                        acc.categorical.insert(
-                            key.to_owned(),
-                            Str::from_static_str(if value { "true" } else { "false" }),
-                        );
-                    }
-                    AttributeValue::Null => {
+                    AttributeValue(AttributeValueImpl::Null) => {
                         // Nulls are missing values and are ignored.
                     }
                 }
@@ -69,10 +58,10 @@ impl ContextAttributes {
     pub fn to_generic_attributes(&self) -> Attributes {
         let mut result = HashMap::with_capacity(self.numeric.len() + self.categorical.capacity());
         for (key, value) in self.numeric.iter() {
-            result.insert(key.clone(), AttributeValue::Number(*value));
+            result.insert(key.clone(), value.clone().into());
         }
         for (key, value) in self.categorical.iter() {
-            result.insert(key.clone(), AttributeValue::String(value.clone()));
+            result.insert(key.clone(), value.clone().into());
         }
         result
     }
@@ -84,7 +73,7 @@ mod pyo3_impl {
 
     use pyo3::prelude::*;
 
-    use crate::{Attributes, Str};
+    use crate::{Attributes, CategoricalAttribute, NumericAttribute};
 
     use super::ContextAttributes;
 
@@ -92,8 +81,8 @@ mod pyo3_impl {
     impl ContextAttributes {
         #[new]
         fn new(
-            numeric_attributes: HashMap<String, f64>,
-            categorical_attributes: HashMap<String, Str>,
+            numeric_attributes: HashMap<String, NumericAttribute>,
+            categorical_attributes: HashMap<String, CategoricalAttribute>,
         ) -> ContextAttributes {
             ContextAttributes {
                 numeric: numeric_attributes,

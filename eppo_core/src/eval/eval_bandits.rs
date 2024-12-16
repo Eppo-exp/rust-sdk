@@ -383,6 +383,8 @@ fn score_attributes(
             attributes
                 .numeric
                 .get(&coef.attribute_key)
+                .cloned()
+                .map(f64::from)
                 // fend against infinite/NaN attributes as they poison the calculation down the line
                 .filter(|n| n.is_finite())
                 .map(|value| value * coef.coefficient)
@@ -392,7 +394,7 @@ fn score_attributes(
             attributes
                 .categorical
                 .get(&coef.attribute_key)
-                .and_then(|value| coef.value_coefficients.get(value.as_str()))
+                .and_then(|value| coef.value_coefficients.get(value.to_str().as_ref()))
                 .copied()
                 .unwrap_or(coef.missing_value_coefficient)
         }))
@@ -410,8 +412,8 @@ mod tests {
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        eval::get_bandit_action, ufc::UniversalFlagConfig, Configuration, ContextAttributes,
-        SdkMetadata, Str,
+        eval::get_bandit_action, ufc::UniversalFlagConfig, CategoricalAttribute, Configuration,
+        ContextAttributes, NumericAttribute, SdkMetadata, Str,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -434,8 +436,8 @@ mod tests {
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
     struct TestContextAttributes {
-        numeric_attributes: HashMap<String, f64>,
-        categorical_attributes: HashMap<String, Str>,
+        numeric_attributes: HashMap<String, NumericAttribute>,
+        categorical_attributes: HashMap<String, CategoricalAttribute>,
     }
     impl From<TestContextAttributes> for ContextAttributes {
         fn from(value: TestContextAttributes) -> ContextAttributes {

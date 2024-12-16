@@ -5,6 +5,7 @@ mod eval_precomputed_assignments;
 mod eval_rules;
 mod eval_visitor;
 mod evaluator;
+mod subject;
 
 pub mod eval_details;
 

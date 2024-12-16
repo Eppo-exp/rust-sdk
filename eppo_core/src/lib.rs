@@ -49,6 +49,7 @@
 
 #![warn(rustdoc::missing_crate_level_docs)]
 
+pub mod attributes;
 pub mod bandits;
 pub mod configuration_fetcher;
 pub mod configuration_store;
@@ -61,9 +62,7 @@ pub mod sharder;
 pub mod timestamp;
 pub mod ufc;
 
-mod attributes;
 mod configuration;
-mod context_attributes;
 mod error;
 mod obfuscation;
 mod precomputed;
@@ -71,8 +70,9 @@ mod sdk_metadata;
 mod str;
 
 pub use crate::str::Str;
-pub use attributes::{AttributeValue, Attributes};
+pub use attributes::{
+    AttributeValue, Attributes, CategoricalAttribute, ContextAttributes, NumericAttribute,
+};
 pub use configuration::Configuration;
-pub use context_attributes::ContextAttributes;
 pub use error::{Error, EvaluationError, Result};
 pub use sdk_metadata::SdkMetadata;

@@ -26,6 +26,18 @@ def test_bool_as_numeric():
     assert attrs.numeric_attributes == {"true": 1.0, "false": 0.0}
 
 
+def test_preserves_types_for_categorical_attributes():
+    attrs = ContextAttributes(
+        numeric_attributes={},
+        categorical_attributes={"bool": True, "number": 42, "string": "hello"},
+    )
+    assert attrs.categorical_attributes == {
+        "bool": True,
+        "number": 42,
+        "string": "hello",
+    }
+
+
 def test_empty():
     attrs = ContextAttributes.empty()
 
@@ -56,7 +68,7 @@ def test_from_dict_bool():
     )
     assert attrs.numeric_attributes == {}
     assert attrs.categorical_attributes == {
-        "categorical": "true",
+        "categorical": True,
     }
 
 
