@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use base64::Engine;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -83,8 +84,7 @@ pub struct ObfuscatedPrecomputedConfiguration {
     /// `format` is always `AssignmentFormat::Precomputed`.
     format: ConfigurationFormat,
     /// Salt used for hashing md5-encoded strings.
-    #[serde_as(as = "serde_with::base64::Base64")]
-    salt: [u8; 16],
+    salt: Str,
     created_at: Timestamp,
     // Environment might be missing if configuration was absent during evaluation.
     environment: Option<Environment>,
@@ -130,11 +130,15 @@ impl PrecomputedConfiguration {
 
 impl From<PrecomputedConfiguration> for ObfuscatedPrecomputedConfiguration {
     fn from(config: PrecomputedConfiguration) -> Self {
-        let salt = rand::thread_rng().gen();
+        let salt: Str = {
+            let bytes = rand::thread_rng().gen::<[u8; 16]>();
+            base64::prelude::BASE64_STANDARD_NO_PAD
+                .encode(&bytes)
+                .into()
+        };
         ObfuscatedPrecomputedConfiguration {
             obfuscated: serde_bool::True,
             format: ConfigurationFormat::Precomputed,
-            salt,
             created_at: config.created_at,
             environment: config.environment,
             flags: config
@@ -142,7 +146,7 @@ impl From<PrecomputedConfiguration> for ObfuscatedPrecomputedConfiguration {
                 .into_iter()
                 .map(|(k, v)| {
                     (
-                        Md5HashedStr::new(&salt, k.as_bytes()),
+                        Md5HashedStr::new(salt.as_bytes(), k.as_bytes()),
                         ObfuscatedPrecomputedAssignment::from(v),
                     )
                 })
@@ -152,13 +156,16 @@ impl From<PrecomputedConfiguration> for ObfuscatedPrecomputedConfiguration {
                 .into_iter()
                 .map(|(k, v)| {
                     (
-                        Md5HashedStr::new(&salt, k.as_bytes()),
+                        Md5HashedStr::new(salt.as_bytes(), k.as_bytes()),
                         v.into_iter()
-                            .map(|(k, v)| (Md5HashedStr::new(&salt, k.as_bytes()), v.into()))
+                            .map(|(k, v)| {
+                                (Md5HashedStr::new(salt.as_bytes(), k.as_bytes()), v.into())
+                            })
                             .collect(),
                     )
                 })
                 .collect(),
+            salt,
         }
     }
 }
@@ -236,7 +243,7 @@ mod tests {
         };
 
         let obfuscated = configuration.obfuscate();
-        let flag_key = Md5HashedStr::new(&obfuscated.salt, b"test-flag");
+        let flag_key = Md5HashedStr::new(obfuscated.salt.as_bytes(), b"test-flag");
         let flag = obfuscated.flags.get(&flag_key);
 
         assert!(flag.is_some());
