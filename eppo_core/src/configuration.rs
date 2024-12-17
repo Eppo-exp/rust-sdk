@@ -5,6 +5,7 @@ use chrono::{DateTime, Utc};
 use crate::{
     bandits::{BanditConfiguration, BanditResponse},
     ufc::UniversalFlagConfig,
+    Str,
 };
 
 /// Remote configuration for the eppo client. It's a central piece that defines client behavior.
@@ -34,13 +35,13 @@ impl Configuration {
     }
 
     /// Return a bandit variant for the specified flag key and string flag variation.
-    pub(crate) fn get_bandit_key<'a>(&'a self, flag_key: &str, variation: &str) -> Option<&'a str> {
+    pub(crate) fn get_bandit_key<'a>(&'a self, flag_key: &str, variation: &str) -> Option<&'a Str> {
         self.flags
             .compiled
             .flag_to_bandit_associations
             .get(flag_key)
             .and_then(|x| x.get(variation))
-            .map(|variation| variation.key.as_str())
+            .map(|variation| &variation.key)
     }
 
     /// Return bandit configuration for the given key.
@@ -52,7 +53,7 @@ impl Configuration {
 
     /// Get a set of all available flags. Note that this may return both disabled flags and flags
     /// with bad configuration.
-    pub fn flag_keys(&self) -> HashSet<String> {
+    pub fn flag_keys(&self) -> HashSet<Str> {
         self.flags.compiled.flags.keys().cloned().collect()
     }
 }

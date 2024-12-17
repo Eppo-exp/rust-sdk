@@ -20,12 +20,12 @@ use super::eval_details_builder::EvalDetailsBuilder;
 use super::eval_visitor::{EvalBanditVisitor, NoopEvalVisitor};
 
 #[derive(Debug)]
-struct BanditEvaluationDetails {
+pub(super) struct BanditEvaluationDetails {
     /// Selected action.
-    action_key: String,
-    action_weight: f64,
+    pub(super) action_key: Str,
+    pub(super) action_weight: f64,
     /// Distance between best and selected actions' scores.
-    optimality_gap: f64,
+    pub(super) optimality_gap: f64,
 }
 
 struct Action<'a> {
@@ -39,7 +39,7 @@ pub struct BanditResult {
     /// Selected variation from the feature flag.
     pub variation: Str,
     /// Selected action if any.
-    pub action: Option<String>,
+    pub action: Option<Str>,
     /// Flag assignment event that needs to be logged to analytics storage.
     pub assignment_event: Option<AssignmentEvent>,
     /// Bandit assignment event that needs to be logged to analytics storage.
@@ -53,7 +53,7 @@ pub fn get_bandit_action(
     flag_key: &str,
     subject_key: &Str,
     subject_attributes: &ContextAttributes,
-    actions: &HashMap<String, ContextAttributes>,
+    actions: &HashMap<Str, ContextAttributes>,
     default_variation: &Str,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
@@ -78,7 +78,7 @@ pub fn get_bandit_action_details(
     flag_key: &str,
     subject_key: &Str,
     subject_attributes: &ContextAttributes,
-    actions: &HashMap<String, ContextAttributes>,
+    actions: &HashMap<Str, ContextAttributes>,
     default_variation: &Str,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
@@ -112,7 +112,7 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
     flag_key: &str,
     subject_key: &Str,
     subject_attributes: &ContextAttributes,
-    actions: &HashMap<String, ContextAttributes>,
+    actions: &HashMap<Str, ContextAttributes>,
     default_variation: &Str,
     now: DateTime<Utc>,
     sdk_meta: &SdkMetadata,
@@ -208,10 +208,10 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
             }
         };
 
-    let action_attributes = actions[&evaluation.action_key].clone();
+    let action_attributes = &actions[&evaluation.action_key];
     let bandit_event = BanditEvent {
-        flag_key: flag_key.to_owned(),
-        bandit_key: bandit_key.to_owned(),
+        flag_key: flag_key.into(),
+        bandit_key: bandit_key.clone(),
         subject: subject_key.clone(),
         action: evaluation.action_key.clone(),
         action_probability: evaluation.action_weight,
@@ -220,8 +220,8 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
         timestamp: now.to_rfc3339(),
         subject_numeric_attributes: subject_attributes.numeric.clone(),
         subject_categorical_attributes: subject_attributes.categorical.clone(),
-        action_numeric_attributes: action_attributes.numeric,
-        action_categorical_attributes: action_attributes.categorical,
+        action_numeric_attributes: action_attributes.numeric.clone(),
+        action_categorical_attributes: action_attributes.categorical.clone(),
         meta_data: sdk_meta.into(),
     };
 
@@ -236,12 +236,13 @@ fn get_bandit_action_with_visitor<V: EvalBanditVisitor>(
 }
 
 impl BanditModelData {
-    fn evaluate(
+    // Exported to super, so we can use it in precomputed evaluation.
+    pub(super) fn evaluate(
         &self,
         flag_key: &str,
         subject_key: &str,
         subject_attributes: &ContextAttributes,
-        actions: &HashMap<String, ContextAttributes>,
+        actions: &HashMap<Str, ContextAttributes>,
     ) -> Result<BanditEvaluationDetails, EvaluationFailure> {
         // total_shards is not configurable at the moment.
         const TOTAL_SHARDS: u32 = 10_000;
@@ -254,7 +255,7 @@ impl BanditModelData {
             .iter()
             .map(|(key, attributes)| {
                 (
-                    key.as_str(),
+                    key,
                     self.score_action(Action { key, attributes }, subject_attributes),
                 )
             })
@@ -287,7 +288,7 @@ impl BanditModelData {
         // the same other action (instead, if subject is pushed away from an action, it will get
         // assigned to a pseudo-random other action).
         let shuffled_actions = {
-            let mut shuffled_actions = actions.keys().map(|x| x.as_str()).collect::<Vec<_>>();
+            let mut shuffled_actions = actions.keys().collect::<Vec<_>>();
             // Sort actions by their shard value. Use action key as tie breaker.
             shuffled_actions.sort_by_cached_key(|&action_key| {
                 let hash =
@@ -329,10 +330,10 @@ impl BanditModelData {
     /// best action which receive the remainder weight.
     fn weigh_actions<'a>(
         &self,
-        scores: &HashMap<&'a str, f64>,
-        (best_action, best_score): (&'a str, f64),
-    ) -> HashMap<&'a str, f64> {
-        let mut weights = HashMap::<&str, f64>::new();
+        scores: &HashMap<&'a Str, f64>,
+        (best_action, best_score): (&'a Str, f64),
+    ) -> HashMap<&'a Str, f64> {
+        let mut weights = HashMap::<&Str, f64>::new();
 
         let n_actions = scores.len() as f64;
 
@@ -382,7 +383,7 @@ fn score_attributes(
         .map(|coef| {
             attributes
                 .numeric
-                .get(&coef.attribute_key)
+                .get(coef.attribute_key.as_str())
                 .cloned()
                 .map(f64::from)
                 // fend against infinite/NaN attributes as they poison the calculation down the line
@@ -393,7 +394,7 @@ fn score_attributes(
         .chain(categorical_coefficients.into_iter().map(|coef| {
             attributes
                 .categorical
-                .get(&coef.attribute_key)
+                .get(coef.attribute_key.as_str())
                 .and_then(|value| coef.value_coefficients.get(value.to_str().as_ref()))
                 .copied()
                 .unwrap_or(coef.missing_value_coefficient)
@@ -403,17 +404,14 @@ fn score_attributes(
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        collections::HashMap,
-        fs::{read_dir, File},
-    };
+    use std::fs::{read_dir, File};
 
     use chrono::Utc;
     use serde::{Deserialize, Serialize};
 
     use crate::{
-        eval::get_bandit_action, ufc::UniversalFlagConfig, CategoricalAttribute, Configuration,
-        ContextAttributes, NumericAttribute, SdkMetadata, Str,
+        eval::get_bandit_action, ufc::UniversalFlagConfig, Configuration, ContextAttributes,
+        SdkMetadata, Str,
     };
 
     #[derive(Debug, Serialize, Deserialize)]
@@ -428,39 +426,24 @@ mod tests {
     #[serde(rename_all = "camelCase")]
     struct TestSubject {
         subject_key: Str,
-        subject_attributes: TestContextAttributes,
+        subject_attributes: ContextAttributes,
         actions: Vec<TestAction>,
         assignment: TestAssignment,
     }
 
     #[derive(Debug, Serialize, Deserialize)]
     #[serde(rename_all = "camelCase")]
-    struct TestContextAttributes {
-        numeric_attributes: HashMap<String, NumericAttribute>,
-        categorical_attributes: HashMap<String, CategoricalAttribute>,
-    }
-    impl From<TestContextAttributes> for ContextAttributes {
-        fn from(value: TestContextAttributes) -> ContextAttributes {
-            ContextAttributes {
-                numeric: value.numeric_attributes,
-                categorical: value.categorical_attributes,
-            }
-        }
-    }
-
-    #[derive(Debug, Serialize, Deserialize)]
-    #[serde(rename_all = "camelCase")]
     struct TestAction {
-        action_key: String,
+        action_key: Str,
         #[serde(flatten)]
-        attributes: TestContextAttributes,
+        attributes: ContextAttributes,
     }
 
     #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
     #[serde(rename_all = "camelCase")]
     struct TestAssignment {
         variation: Str,
-        action: Option<String>,
+        action: Option<Str>,
     }
 
     #[test]

@@ -97,6 +97,12 @@ impl std::ops::Deref for Str {
     }
 }
 
+impl std::borrow::Borrow<str> for Str {
+    fn borrow(&self) -> &str {
+        self.as_str()
+    }
+}
+
 impl log::kv::ToValue for Str {
     fn to_value(&self) -> log::kv::Value {
         log::kv::Value::from_display(self)

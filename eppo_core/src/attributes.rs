@@ -17,12 +17,12 @@ pub use context_attributes::ContextAttributes;
 /// ```
 /// # use eppo_core::Attributes;
 /// let attributes = [
-///     ("age".to_owned(), 30.0.into()),
-///     ("is_premium_member".to_owned(), true.into()),
-///     ("username".to_owned(), "john_doe".into()),
+///     ("age".into(), 30.0.into()),
+///     ("is_premium_member".into(), true.into()),
+///     ("username".into(), "john_doe".into()),
 /// ].into_iter().collect::<Attributes>();
 /// ```
-pub type Attributes = HashMap<String, AttributeValue>;
+pub type Attributes = HashMap<Str, AttributeValue>;
 
 /// Attribute of a subject or action.
 ///
@@ -120,6 +120,12 @@ impl AttributeValue {
     Deserialize,
 )]
 pub struct NumericAttribute(f64);
+
+impl NumericAttribute {
+    pub(crate) fn to_f64(&self) -> f64 {
+        self.0
+    }
+}
 
 /// Categorical attributes are attributes that have a finite set of values that are not directly
 /// comparable (i.e., enumeration).

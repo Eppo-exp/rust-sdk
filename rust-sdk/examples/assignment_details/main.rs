@@ -27,7 +27,7 @@ pub fn main() -> eppo::Result<()> {
     let assignment_with_details = client.get_boolean_assignment_details(
         "a-boolean-flag",
         &"test-subject".into(),
-        &Arc::new([("name".to_owned(), AttributeValue::from("<your name>"))].into()),
+        &Arc::new([("name".into(), AttributeValue::from("<your name>"))].into()),
     );
 
     println!(

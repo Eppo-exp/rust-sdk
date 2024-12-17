@@ -1,7 +1,7 @@
 use crate::{
     error::EvaluationFailure,
     ufc::{Allocation, Assignment, Condition, Flag, RuleWire, Shard, Split},
-    AttributeValue, Configuration,
+    AttributeValue, Configuration, Str,
 };
 
 use super::{eval_assignment::AllocationNonMatchReason, eval_bandits::BanditResult};
@@ -17,7 +17,7 @@ pub(super) trait EvalBanditVisitor {
     fn visit_assignment<'a>(&'a mut self) -> Self::AssignmentVisitor<'a>;
 
     /// Called when bandit key is known.
-    fn on_bandit_key(&mut self, key: &str);
+    fn on_bandit_key(&mut self, key: &Str);
 
     /// Called when result of bandit evaluation is known.
     ///
@@ -95,7 +95,7 @@ impl EvalBanditVisitor for NoopEvalVisitor {
     fn on_configuration(&mut self, _configuration: &Configuration) {}
 
     #[inline]
-    fn on_bandit_key(&mut self, _key: &str) {}
+    fn on_bandit_key(&mut self, _key: &Str) {}
 
     #[inline]
     fn visit_assignment<'a>(&'a mut self) -> NoopEvalVisitor {

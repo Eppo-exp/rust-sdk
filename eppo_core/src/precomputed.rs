@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
+use base64::Engine;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
@@ -7,7 +9,7 @@ use serde_with::serde_as;
 use crate::obfuscation::{Base64Str, Md5HashedStr};
 use crate::timestamp::Timestamp;
 use crate::ufc::{Assignment, ConfigurationFormat, Environment, ValueWire, VariationType};
-use crate::Str;
+use crate::{CategoricalAttribute, NumericAttribute, Str};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -18,7 +20,9 @@ pub struct PrecomputedConfiguration {
     pub(crate) format: ConfigurationFormat,
     // Environment might be missing if configuration was absent during evaluation.
     pub(crate) environment: Option<Environment>,
-    pub(crate) flags: HashMap<String, PrecomputedAssignment>,
+    pub(crate) flags: HashMap</* flag_key: */ Str, PrecomputedAssignment>,
+    pub(crate) bandits:
+        HashMap</* flag_key: */ Str, HashMap</* variation_value: */ Str, PrecomputedBandit>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -35,6 +39,18 @@ pub(crate) struct PrecomputedAssignment {
     pub(crate) variation_key: Option<Str>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) extra_logging: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrecomputedBandit {
+    pub(crate) bandit_key: Str,
+    pub(crate) action: Str,
+    pub(crate) action_probability: f64,
+    pub(crate) optimality_gap: f64,
+    pub(crate) model_version: Str,
+    pub(crate) action_numeric_attributes: Arc<HashMap<Str, NumericAttribute>>,
+    pub(crate) action_categorical_attributes: Arc<HashMap<Str, CategoricalAttribute>>,
 }
 
 impl From<Assignment> for PrecomputedAssignment {
@@ -68,12 +84,15 @@ pub struct ObfuscatedPrecomputedConfiguration {
     /// `format` is always `AssignmentFormat::Precomputed`.
     format: ConfigurationFormat,
     /// Salt used for hashing md5-encoded strings.
-    #[serde_as(as = "serde_with::base64::Base64")]
-    salt: [u8; 16],
+    salt: Str,
     created_at: Timestamp,
     // Environment might be missing if configuration was absent during evaluation.
     environment: Option<Environment>,
     flags: HashMap<Md5HashedStr, ObfuscatedPrecomputedAssignment>,
+    bandits: HashMap<
+        /* flag_key: */ Md5HashedStr,
+        HashMap</* variation_value: */ Md5HashedStr, ObfuscatedPrecomputedBandit>,
+    >,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -91,6 +110,18 @@ pub(crate) struct ObfuscatedPrecomputedAssignment {
     extra_logging: Option<HashMap<Base64Str, Base64Str>>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ObfuscatedPrecomputedBandit {
+    bandit_key: Base64Str,
+    action: Base64Str,
+    action_probability: f64,
+    optimality_gap: f64,
+    model_version: Base64Str,
+    action_numeric_attributes: HashMap<Base64Str, Base64Str>,
+    action_categorical_attributes: HashMap<Base64Str, Base64Str>,
+}
+
 impl PrecomputedConfiguration {
     pub fn obfuscate(self) -> ObfuscatedPrecomputedConfiguration {
         self.into()
@@ -99,11 +130,15 @@ impl PrecomputedConfiguration {
 
 impl From<PrecomputedConfiguration> for ObfuscatedPrecomputedConfiguration {
     fn from(config: PrecomputedConfiguration) -> Self {
-        let salt = rand::thread_rng().gen();
+        let salt: Str = {
+            let bytes = rand::thread_rng().gen::<[u8; 16]>();
+            base64::prelude::BASE64_STANDARD_NO_PAD
+                .encode(&bytes)
+                .into()
+        };
         ObfuscatedPrecomputedConfiguration {
             obfuscated: serde_bool::True,
             format: ConfigurationFormat::Precomputed,
-            salt,
             created_at: config.created_at,
             environment: config.environment,
             flags: config
@@ -111,11 +146,26 @@ impl From<PrecomputedConfiguration> for ObfuscatedPrecomputedConfiguration {
                 .into_iter()
                 .map(|(k, v)| {
                     (
-                        Md5HashedStr::new(&salt, k.as_bytes()),
+                        Md5HashedStr::new(salt.as_bytes(), k.as_bytes()),
                         ObfuscatedPrecomputedAssignment::from(v),
                     )
                 })
                 .collect(),
+            bandits: config
+                .bandits
+                .into_iter()
+                .map(|(k, v)| {
+                    (
+                        Md5HashedStr::new(salt.as_bytes(), k.as_bytes()),
+                        v.into_iter()
+                            .map(|(k, v)| {
+                                (Md5HashedStr::new(salt.as_bytes(), k.as_bytes()), v.into())
+                            })
+                            .collect(),
+                    )
+                })
+                .collect(),
+            salt,
         }
     }
 }
@@ -137,6 +187,28 @@ impl From<PrecomputedAssignment> for ObfuscatedPrecomputedAssignment {
     }
 }
 
+impl From<PrecomputedBandit> for ObfuscatedPrecomputedBandit {
+    fn from(value: PrecomputedBandit) -> Self {
+        ObfuscatedPrecomputedBandit {
+            bandit_key: value.bandit_key.into(),
+            action: value.action.into(),
+            action_probability: value.action_probability,
+            optimality_gap: value.optimality_gap,
+            model_version: value.model_version.into(),
+            action_numeric_attributes: value
+                .action_numeric_attributes
+                .iter()
+                .map(|(k, v)| (k.clone().into(), v.to_f64().to_string().into()))
+                .collect(),
+            action_categorical_attributes: value
+                .action_categorical_attributes
+                .iter()
+                .map(|(k, v)| (k.clone().into(), v.to_str().into()))
+                .collect(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -151,7 +223,7 @@ mod tests {
                 name: "Test".into(),
             }),
             flags: [(
-                "test-flag".to_owned(),
+                "test-flag".into(),
                 PrecomputedAssignment {
                     variation_type: VariationType::String,
                     variation_value: ValueWire::String("hello, world!".into()),
@@ -167,10 +239,11 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+            bandits: HashMap::new(),
         };
 
         let obfuscated = configuration.obfuscate();
-        let flag_key = Md5HashedStr::new(&obfuscated.salt, b"test-flag");
+        let flag_key = Md5HashedStr::new(obfuscated.salt.as_bytes(), b"test-flag");
         let flag = obfuscated.flags.get(&flag_key);
 
         assert!(flag.is_some());

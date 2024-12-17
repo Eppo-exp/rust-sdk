@@ -60,18 +60,18 @@ pub struct AssignmentEvent {
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BanditEvent {
-    pub flag_key: String,
-    pub bandit_key: String,
+    pub flag_key: Str,
+    pub bandit_key: Str,
     pub subject: Str,
-    pub action: String,
+    pub action: Str,
     pub action_probability: f64,
     pub optimality_gap: f64,
-    pub model_version: String,
+    pub model_version: Str,
     pub timestamp: String,
-    pub subject_numeric_attributes: HashMap<String, NumericAttribute>,
-    pub subject_categorical_attributes: HashMap<String, CategoricalAttribute>,
-    pub action_numeric_attributes: HashMap<String, NumericAttribute>,
-    pub action_categorical_attributes: HashMap<String, CategoricalAttribute>,
+    pub subject_numeric_attributes: Arc<HashMap<Str, NumericAttribute>>,
+    pub subject_categorical_attributes: Arc<HashMap<Str, CategoricalAttribute>>,
+    pub action_numeric_attributes: Arc<HashMap<Str, NumericAttribute>>,
+    pub action_categorical_attributes: Arc<HashMap<Str, CategoricalAttribute>>,
     pub meta_data: EventMetaData,
 }
 

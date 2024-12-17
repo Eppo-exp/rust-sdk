@@ -13,7 +13,7 @@ use crate::{
 use super::{
     eval_details::{EvaluationDetails, EvaluationResultWithDetails},
     get_assignment, get_assignment_details, get_bandit_action, get_bandit_action_details,
-    get_precomputed_assignments, BanditResult,
+    get_precomputed_configuration, BanditResult,
 };
 
 pub struct EvaluatorConfig {
@@ -76,7 +76,7 @@ impl Evaluator {
         flag_key: &str,
         subject_key: &Str,
         subject_attributes: &ContextAttributes,
-        actions: &HashMap<String, ContextAttributes>,
+        actions: &HashMap<Str, ContextAttributes>,
         default_variation: &Str,
     ) -> BanditResult {
         let configuration = self.get_configuration();
@@ -97,7 +97,7 @@ impl Evaluator {
         flag_key: &str,
         subject_key: &Str,
         subject_attributes: &ContextAttributes,
-        actions: &HashMap<String, ContextAttributes>,
+        actions: &HashMap<Str, ContextAttributes>,
         default_variation: &Str,
     ) -> (BanditResult, EvaluationDetails) {
         let configuration = self.get_configuration();
@@ -113,16 +113,18 @@ impl Evaluator {
         )
     }
 
-    pub fn get_precomputed_assignments(
+    pub fn get_precomputed_configuration(
         &self,
         subject_key: &Str,
-        subject_attributes: &Arc<Attributes>,
+        subject_attributes: &Arc<ContextAttributes>,
+        actions: &HashMap<Str, ContextAttributes>,
     ) -> PrecomputedConfiguration {
         let configuration = self.get_configuration();
-        get_precomputed_assignments(
+        get_precomputed_configuration(
             configuration.as_ref().map(AsRef::as_ref),
-            &subject_key,
-            &subject_attributes,
+            subject_key,
+            subject_attributes,
+            actions,
             Utc::now(),
         )
     }

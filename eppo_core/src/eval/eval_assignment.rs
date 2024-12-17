@@ -363,8 +363,8 @@ mod tests {
         /// value is absent in configuration (configuration error).
         variation_value: serde_json::Value,
 
-        bandit_key: Option<String>,
-        bandit_action: Option<String>,
+        bandit_key: Option<Str>,
+        bandit_action: Option<Str>,
 
         matched_rule: Option<RuleWire>,
         matched_allocation: Option<TruncatedAllocationEvaluationDetails>,

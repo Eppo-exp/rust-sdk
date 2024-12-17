@@ -55,7 +55,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     {
         let mut group = c.benchmark_group("rollout");
         group.throughput(Throughput::Elements(1));
-        let attributes = Arc::new([("country".to_owned(), "US".into())].into());
+        let attributes = Arc::new([("country".into(), "US".into())].into());
         group.bench_function("get_assignment", |b| {
             b.iter(|| {
                 get_assignment(
@@ -117,7 +117,7 @@ fn criterion_benchmark(c: &mut Criterion) {
     {
         let mut group = c.benchmark_group("numeric-one-of");
         group.throughput(Throughput::Elements(1));
-        let attributes = Arc::new([("number".to_owned(), 2.0.into())].into());
+        let attributes = Arc::new([("number".into(), 2.0.into())].into());
         group.bench_function("get_assignment", |b| {
             b.iter(|| {
                 get_assignment(

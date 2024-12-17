@@ -21,6 +21,7 @@ magnus = ["dep:magnus", "dep:serde_magnus"]
 vendored = ["reqwest/native-tls-vendored"]
 
 [dependencies]
+base64 = "0.22.1"
 chrono = { version = "0.4.38", features = ["serde"] }
 derive_more = { version = "1.0.0", features = ["from", "into"] }
 faststr = { version = "0.2.23", features = ["serde"] }

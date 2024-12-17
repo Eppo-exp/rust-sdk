@@ -28,6 +28,10 @@ impl Subject {
         s
     }
 
+    /// Get subject attribute.
+    ///
+    /// If attribute `name` is `"id"` and there's no explicit attribute with this name, return
+    /// subject key instead. This is a standard Eppo behavior when evaluation rules.
     pub fn get_attribute(&self, name: &str) -> Option<&AttributeValue> {
         let value = self.attributes.get(name);
         if value.is_some() {
