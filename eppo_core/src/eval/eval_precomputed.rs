@@ -12,7 +12,7 @@ pub fn get_precomputed_configuration(
     configuration: Option<&Configuration>,
     subject_key: &Str,
     subject_attributes: &Arc<ContextAttributes>,
-    actions: &HashMap<Str, ContextAttributes>,
+    actions: &HashMap<Str, HashMap<Str, ContextAttributes>>,
     now: DateTime<Utc>,
 ) -> PrecomputedConfiguration {
     let Some(configuration) = configuration else {
@@ -76,6 +76,18 @@ pub fn get_precomputed_configuration(
                         return None;
                     }
 
+                    let flag_actions = if let Some(actions) = actions.get(flag_key) {
+                        actions
+                    } else {
+                        log::warn!(
+                            target: "eppo",
+                            subject_key,
+                            flag_key;
+                            "No actions provided for flag that requires them"
+                        );
+                        return None;
+                    };
+
                     let flag_bandits: HashMap</* variation_key: */ Str, PrecomputedBandit> =
                         if let Some(ValueWire::String(precomputed_variation_value)) = flags
                             .get(flag_key)
@@ -94,10 +106,10 @@ pub fn get_precomputed_configuration(
 
                             let bandit_evaluation = bandit_model
                                 .model_data
-                                .evaluate(flag_key, subject_key, subject_attributes, actions)
+                                .evaluate(flag_key, subject_key, subject_attributes, flag_actions)
                                 .ok()?;
 
-                            let selected_action = &actions[&bandit_evaluation.action_key];
+                            let selected_action = &flag_actions[&bandit_evaluation.action_key];
                             let precomputed_bandit = PrecomputedBandit {
                                 bandit_key: bandit_key.clone(),
                                 action: bandit_evaluation.action_key,
@@ -131,11 +143,12 @@ pub fn get_precomputed_configuration(
                                             flag_key,
                                             subject_key,
                                             subject_attributes,
-                                            actions,
+                                            flag_actions,
                                         )
                                         .ok()?;
 
-                                    let selected_action = &actions[&bandit_evaluation.action_key];
+                                    let selected_action =
+                                        &flag_actions[&bandit_evaluation.action_key];
                                     let precomputed_bandit = PrecomputedBandit {
                                         bandit_key: bandit_key.clone(),
                                         action: bandit_evaluation.action_key,
@@ -179,7 +192,9 @@ pub fn get_precomputed_configuration(
 
 #[cfg(test)]
 mod tests {
+    use crate::Str;
     use chrono::Utc;
+    use std::collections::HashMap;
 
     use crate::{
         eval::get_precomputed_configuration, ufc::UniversalFlagConfig, Configuration,
@@ -278,7 +293,10 @@ mod tests {
 
         let subject_key = "test-subject-1".into();
         let subject_attributes = Default::default();
-        let actions = [
+        let mut actions = HashMap::new();
+
+        // Add actions for car bandit flag
+        let car_actions: HashMap<Str, ContextAttributes> = [
             ("dodge".into(), Default::default()),
             ("mercedes".into(), Default::default()),
             (
@@ -291,6 +309,8 @@ mod tests {
         ]
         .into_iter()
         .collect();
+        actions.insert("car_bandit_flag".into(), car_actions);
+
         let now = Utc::now();
 
         // Get precomputed assignments
