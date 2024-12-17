@@ -117,7 +117,7 @@ impl Evaluator {
         &self,
         subject_key: &Str,
         subject_attributes: &Arc<ContextAttributes>,
-        actions: &HashMap<Str, ContextAttributes>,
+        actions: &HashMap<Str, HashMap<Str, ContextAttributes>>,
     ) -> PrecomputedConfiguration {
         let configuration = self.get_configuration();
         get_precomputed_configuration(
