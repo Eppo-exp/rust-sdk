@@ -1,14 +1,11 @@
-use std::borrow::Cow;
-
 use semver::Version;
 
 use crate::{
-    attributes::Subject,
     ufc::{Comparand, ComparisonOperator, Condition, ConditionCheck, RuleWire, TryParse},
     AttributeValue,
 };
 
-use super::eval_visitor::EvalRuleVisitor;
+use super::{eval_visitor::EvalRuleVisitor, subject::Subject};
 
 impl RuleWire {
     pub(super) fn eval<V: EvalRuleVisitor>(&self, visitor: &mut V, subject: &Subject) -> bool {
@@ -41,18 +38,14 @@ impl ConditionCheck {
                 operator,
                 comparand,
             } => {
-                let attribute = attribute?;
+                let attribute = attribute?.clone();
                 let ordering = match comparand {
                     Comparand::Version(comparand) => {
                         let attribute = Version::parse(attribute.as_str()?).ok()?;
                         attribute.cmp(comparand)
                     }
                     Comparand::Number(comparand) => {
-                        let attribute = match attribute {
-                            AttributeValue::Number(n) => *n,
-                            AttributeValue::String(s) => s.parse().ok()?,
-                            _ => return None,
-                        };
+                        let attribute = attribute.coerce_to_number()?;
                         attribute.partial_cmp(comparand)?
                     }
                 };
@@ -66,35 +59,18 @@ impl ConditionCheck {
             ConditionCheck::Regex {
                 expected_match,
                 regex,
-            } => {
-                let s = match attribute? {
-                    AttributeValue::String(s) => s.as_ref(),
-                    AttributeValue::Boolean(v) => {
-                        if *v {
-                            "true"
-                        } else {
-                            "false"
-                        }
-                    }
-                    _ => return None,
-                };
-                regex.is_match(s) == *expected_match
-            }
+            } => regex.is_match(attribute?.coerce_to_string()?.as_ref()) == *expected_match,
             ConditionCheck::Membership {
                 expected_membership,
                 values,
             } => {
-                let s = match attribute? {
-                    AttributeValue::String(s) => Cow::Borrowed(s.as_ref()),
-                    AttributeValue::Number(n) => Cow::Owned(n.to_string()),
-                    AttributeValue::Boolean(b) => Cow::Borrowed(if *b { "true" } else { "false" }),
-                    _ => return None,
-                };
+                let s = attribute?.coerce_to_string()?;
                 let s = s.as_ref();
                 values.into_iter().any(|it| it.as_ref() == s) == *expected_membership
             }
             ConditionCheck::Null { expected_null } => {
-                let is_null = attribute.is_none() || attribute == Some(&AttributeValue::Null);
+                let is_present = attribute.is_some_and(|it| !it.is_null());
+                let is_null = !is_present;
                 is_null == *expected_null
             }
         };
@@ -108,8 +84,7 @@ mod tests {
     use std::{collections::HashMap, sync::Arc};
 
     use crate::{
-        attributes::Subject,
-        eval::eval_visitor::NoopEvalVisitor,
+        eval::{eval_visitor::NoopEvalVisitor, subject::Subject},
         ufc::{Comparand, ComparisonOperator, Condition, ConditionCheck, RuleWire},
     };
 

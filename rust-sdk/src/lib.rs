@@ -64,7 +64,7 @@ use eppo_core::SdkMetadata;
 #[doc(inline)]
 pub use eppo_core::{
     eval::eval_details::*, events::AssignmentEvent, ufc::AssignmentValue, AttributeValue,
-    Attributes, Error, EvaluationError, Result,
+    Attributes, CategoricalAttribute, Error, EvaluationError, NumericAttribute, Result,
 };
 
 pub use assignment_logger::AssignmentLogger;

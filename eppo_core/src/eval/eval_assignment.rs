@@ -3,7 +3,6 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 
 use crate::{
-    attributes::Subject,
     error::{EvaluationError, EvaluationFailure},
     events::AssignmentEvent,
     ufc::{
@@ -20,6 +19,7 @@ use super::{
         EvalAllocationVisitor, EvalAssignmentVisitor, EvalRuleVisitor, EvalSplitVisitor,
         NoopEvalVisitor,
     },
+    subject::Subject,
 };
 
 /// Evaluate the specified feature flag for the given subject and return assigned variation and
