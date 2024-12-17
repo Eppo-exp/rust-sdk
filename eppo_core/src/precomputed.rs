@@ -89,6 +89,10 @@ pub struct ObfuscatedPrecomputedConfiguration {
     // Environment might be missing if configuration was absent during evaluation.
     environment: Option<Environment>,
     flags: HashMap<Md5HashedStr, ObfuscatedPrecomputedAssignment>,
+    bandits: HashMap<
+        /* flag_key: */ Md5HashedStr,
+        HashMap</* variation_value: */ Md5HashedStr, ObfuscatedPrecomputedBandit>,
+    >,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -104,6 +108,18 @@ pub(crate) struct ObfuscatedPrecomputedAssignment {
     variation_key: Option<Base64Str>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     extra_logging: Option<HashMap<Base64Str, Base64Str>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct ObfuscatedPrecomputedBandit {
+    bandit_key: Base64Str,
+    action: Base64Str,
+    action_probability: f64,
+    optimality_gap: f64,
+    model_version: Base64Str,
+    action_numeric_attributes: HashMap<Base64Str, Base64Str>,
+    action_categorical_attributes: HashMap<Base64Str, Base64Str>,
 }
 
 impl PrecomputedConfiguration {
@@ -131,6 +147,18 @@ impl From<PrecomputedConfiguration> for ObfuscatedPrecomputedConfiguration {
                     )
                 })
                 .collect(),
+            bandits: config
+                .bandits
+                .into_iter()
+                .map(|(k, v)| {
+                    (
+                        Md5HashedStr::new(&salt, k.as_bytes()),
+                        v.into_iter()
+                            .map(|(k, v)| (Md5HashedStr::new(&salt, k.as_bytes()), v.into()))
+                            .collect(),
+                    )
+                })
+                .collect(),
         }
     }
 }
@@ -148,6 +176,28 @@ impl From<PrecomputedAssignment> for ObfuscatedPrecomputedAssignment {
                     .map(|(k, v)| (Base64Str(Str::from(k)), Base64Str(Str::from(v))))
                     .collect()
             }),
+        }
+    }
+}
+
+impl From<PrecomputedBandit> for ObfuscatedPrecomputedBandit {
+    fn from(value: PrecomputedBandit) -> Self {
+        ObfuscatedPrecomputedBandit {
+            bandit_key: value.bandit_key.into(),
+            action: value.action.into(),
+            action_probability: value.action_probability,
+            optimality_gap: value.optimality_gap,
+            model_version: value.model_version.into(),
+            action_numeric_attributes: value
+                .action_numeric_attributes
+                .iter()
+                .map(|(k, v)| (k.clone().into(), v.to_f64().to_string().into()))
+                .collect(),
+            action_categorical_attributes: value
+                .action_categorical_attributes
+                .iter()
+                .map(|(k, v)| (k.clone().into(), v.to_str().into()))
+                .collect(),
         }
     }
 }

@@ -182,9 +182,10 @@ mod tests {
     use chrono::Utc;
 
     use crate::{
-        eval::get_precomputed_configuration, ufc::UniversalFlagConfig, Configuration, SdkMetadata,
+        eval::get_precomputed_configuration, ufc::UniversalFlagConfig, Configuration,
+        ContextAttributes, SdkMetadata,
     };
-    use std::fs;
+    use std::{fs, sync::Arc};
 
     fn setup_test_config() -> Configuration {
         let _ = env_logger::builder().is_test(true).try_init();
@@ -203,7 +204,20 @@ mod tests {
 
     #[test]
     fn test_precomputed_assignment_basic() {
-        let configuration = setup_test_config();
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let configuration = {
+            // Load test configuration
+            let ufc_config = UniversalFlagConfig::from_json(
+                SdkMetadata {
+                    name: "test",
+                    version: "0.1.0",
+                },
+                fs::read("../sdk-test-data/ufc/flags-v1.json").unwrap(),
+            )
+            .unwrap();
+            Configuration::from_server_response(ufc_config, None)
+        };
 
         let subject_key = "test-subject-1".into();
         let subject_attributes = Default::default();
@@ -233,10 +247,80 @@ mod tests {
             );
         }
 
-        eprintln!(
-            "{}",
-            serde_json::to_string_pretty(&precomputed.obfuscate()).unwrap()
+        // Uncomment next section to dump configuration to console.
+        // eprintln!(
+        //     "{}",
+        //     serde_json::to_string_pretty(&precomputed.obfuscate()).unwrap()
+        // );
+        // assert!(false);
+    }
+
+    #[test]
+    fn test_precomputed_assignment_bandits() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let configuration = {
+            // Load test configuration
+            let ufc_config = UniversalFlagConfig::from_json(
+                SdkMetadata {
+                    name: "test",
+                    version: "0.1.0",
+                },
+                fs::read("../sdk-test-data/ufc/bandit-flags-v1.json").unwrap(),
+            )
+            .unwrap();
+            let bandits_config = serde_json::from_slice(
+                &fs::read("../sdk-test-data/ufc/bandit-models-v1.json").unwrap(),
+            )
+            .unwrap();
+            Configuration::from_server_response(ufc_config, Some(bandits_config))
+        };
+
+        let subject_key = "test-subject-1".into();
+        let subject_attributes = Default::default();
+        let actions = [
+            ("dodge".into(), Default::default()),
+            ("mercedes".into(), Default::default()),
+            (
+                "toyota".into(),
+                ContextAttributes {
+                    numeric: Arc::new([("speed".into(), (1000.0).into())].into_iter().collect()),
+                    categorical: Default::default(),
+                },
+            ),
+        ]
+        .into_iter()
+        .collect();
+        let now = Utc::now();
+
+        // Get precomputed assignments
+        let precomputed = get_precomputed_configuration(
+            Some(&configuration),
+            &subject_key,
+            &subject_attributes,
+            &actions,
+            now,
         );
+
+        assert!(
+            !precomputed.flags.is_empty(),
+            "Should have precomputed flags"
+        );
+
+        // Each flag in the configuration should have an entry
+        for flag_key in precomputed.flags.keys() {
+            assert!(
+                precomputed.flags.contains_key(flag_key),
+                "Should have precomputed assignment for flag {}",
+                flag_key
+            );
+        }
+
+        // Uncomment next section to dump configuration to console.
+        // eprintln!(
+        //     "{}",
+        //     serde_json::to_string_pretty(&precomputed.obfuscate()).unwrap()
+        // );
         // assert!(false);
     }
 }

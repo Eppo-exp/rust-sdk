@@ -39,6 +39,7 @@ impl From<md5::Digest> for Md5HashedStr {
     derive_more::From,
     derive_more::Into,
 )]
+#[from(Str, String, std::borrow::Cow<'_, str>)]
 pub(crate) struct Base64Str(#[serde_as(as = "serde_with::base64::Base64")] pub(crate) Str);
 
 impl From<ValueWire> for Base64Str {

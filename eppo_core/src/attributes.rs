@@ -121,6 +121,12 @@ impl AttributeValue {
 )]
 pub struct NumericAttribute(f64);
 
+impl NumericAttribute {
+    pub(crate) fn to_f64(&self) -> f64 {
+        self.0
+    }
+}
+
 /// Categorical attributes are attributes that have a finite set of values that are not directly
 /// comparable (i.e., enumeration).
 #[derive(Debug, Clone, PartialEq, PartialOrd, derive_more::From, Serialize, Deserialize)]
