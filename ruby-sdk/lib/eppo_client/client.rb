@@ -122,7 +122,7 @@ module EppoClient
 
         log_assignment(assignment[:event])
 
-        return assignment[:value][:value]
+        return assignment[:value]
       rescue StandardError => error
         logger.debug("[Eppo SDK] Failed to get assignment: #{error}")
 
@@ -139,9 +139,6 @@ module EppoClient
 
       if not result[:variation] then
         result[:variation] = default_value
-      else
-        # unwrap from AssignmentValue to untyped value
-        result[:variation] = result[:variation][:value]
       end
 
       return result

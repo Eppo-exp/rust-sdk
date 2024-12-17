@@ -8,7 +8,7 @@ use eppo_core::{
     ufc::VariationType,
     Attributes, ContextAttributes,
 };
-use magnus::{error::Result, exception, prelude::*, Error, TryConvert, Value};
+use magnus::{error::Result, exception, prelude::*, Error, IntoValue, Ruby, TryConvert, Value};
 
 use crate::{configuration::Configuration, SDK_METADATA};
 
@@ -116,7 +116,8 @@ impl Client {
     }
 
     pub fn get_assignment(
-        &self,
+        ruby: &Ruby,
+        rb_self: &Self,
         flag_key: String,
         subject_key: String,
         subject_attributes: Value,
@@ -125,7 +126,7 @@ impl Client {
         let expected_type: VariationType = serde_magnus::deserialize(expected_type)?;
         let subject_attributes: Attributes = serde_magnus::deserialize(subject_attributes)?;
 
-        let result = self
+        let result = rb_self
             .evaluator
             .get_assignment(
                 &flag_key,
@@ -136,7 +137,7 @@ impl Client {
             // TODO: maybe expose possible errors individually.
             .map_err(|err| Error::new(exception::runtime_error(), err.to_string()))?;
 
-        Ok(serde_magnus::serialize(&result).expect("assignment value should be serializable"))
+        Ok(result.into_value_with(&ruby))
     }
 
     pub fn get_assignment_details(
@@ -146,6 +147,8 @@ impl Client {
         subject_attributes: Value,
         expected_type: Value,
     ) -> Result<Value> {
+        let ruby = Ruby::get_with(subject_attributes);
+
         let expected_type: VariationType = serde_magnus::deserialize(expected_type)?;
         let subject_attributes: Attributes = serde_magnus::deserialize(subject_attributes)?;
 
@@ -156,7 +159,7 @@ impl Client {
             Some(expected_type),
         );
 
-        Ok(serde_magnus::serialize(&result).expect("assignment value should be serializable"))
+        Ok(result.into_value_with(&ruby))
     }
 
     pub fn get_bandit_action(

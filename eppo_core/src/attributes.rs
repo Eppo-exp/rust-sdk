@@ -129,3 +129,32 @@ mod pyo3_impl {
         }
     }
 }
+
+#[cfg(feature = "magnus")]
+mod magnus_impl {
+    use magnus::{value::ReprValue, RString, Ruby, TryConvert};
+
+    use crate::AttributeValue;
+
+    impl TryConvert for AttributeValue {
+        fn try_convert(val: magnus::Value) -> Result<Self, magnus::Error> {
+            let ruby = Ruby::get_with(val);
+            if val.is_nil() {
+                Ok(Self::Null)
+            } else if let Some(s) = RString::from_value(val) {
+                Ok(Self::String(s.to_string()?.into()))
+            } else if let Ok(v) = f64::try_convert(val) {
+                Ok(Self::Number(v))
+            } else if val.is_kind_of(ruby.class_true_class()) {
+                Ok(Self::Boolean(true))
+            } else if val.is_kind_of(ruby.class_false_class()) {
+                Ok(Self::Boolean(false))
+            } else {
+                Err(magnus::Error::new(
+                    ruby.exception_type_error(),
+                    "AttributeValue must be one of Nil, String, Numeric, True, or False",
+                ))
+            }
+        }
+    }
+}
