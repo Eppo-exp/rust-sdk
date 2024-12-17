@@ -31,8 +31,8 @@ pub(crate) struct EvalDetailsBuilder {
     variation_value: Option<AssignmentValue>,
 
     bandit_evaluation_failure: Option<Result<(), EvaluationFailure>>,
-    bandit_key: Option<String>,
-    bandit_action: Option<String>,
+    bandit_key: Option<Str>,
+    bandit_action: Option<Str>,
 
     /// Matched details on allocation and split if any.
     matched_details: Option<MatchedDetails>,
@@ -215,8 +215,8 @@ impl EvalBanditVisitor for EvalDetailsBuilder {
         EvalAssignmentVisitor::on_configuration(self, configuration)
     }
 
-    fn on_bandit_key(&mut self, key: &str) {
-        self.bandit_key = Some(key.to_owned());
+    fn on_bandit_key(&mut self, key: &Str) {
+        self.bandit_key = Some(key.clone());
     }
 
     fn visit_assignment<'a>(&'a mut self) -> Self::AssignmentVisitor<'a> {

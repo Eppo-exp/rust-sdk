@@ -98,7 +98,7 @@ impl<'a> Client<'a> {
     ///         "a-boolean-flag",
     ///         &"user-id".into(),
     ///         &Arc::new(
-    ///             [("age".to_owned(), 42.0.into())]
+    ///             [("age".into(), 42.0.into())]
     ///                 .into_iter()
     ///                 .collect()
     ///         ),
@@ -222,7 +222,7 @@ impl<'a> Client<'a> {
     /// # fn test(client: &eppo::Client) {
     /// let assignment = client
     ///     .get_numeric_assignment("a-num-flag", &"user-id".into(), &Arc::new([
-    ///         ("age".to_owned(), 42.0.into())
+    ///         ("age".into(), 42.0.into())
     ///     ].iter().cloned().collect()))
     ///     .unwrap_or_default()
     ///     .unwrap_or(0.0);

@@ -368,7 +368,7 @@ impl EppoClient {
             ContextAttributes,
             PyRef<ContextAttributes>,
         >,
-        #[pyo3(from_py_with = "actions_from_py")] actions: HashMap<String, ContextAttributes>,
+        #[pyo3(from_py_with = "actions_from_py")] actions: HashMap<Str, ContextAttributes>,
         default: Str,
     ) -> PyResult<EvaluationResult> {
         let py = slf.py();
@@ -401,7 +401,7 @@ impl EppoClient {
             ContextAttributes,
             PyRef<ContextAttributes>,
         >,
-        #[pyo3(from_py_with = "actions_from_py")] actions: HashMap<String, ContextAttributes>,
+        #[pyo3(from_py_with = "actions_from_py")] actions: HashMap<Str, ContextAttributes>,
         default: Str,
     ) -> PyResult<EvaluationResult> {
         let py = slf.py();
@@ -534,12 +534,12 @@ fn context_attributes_from_py<'py>(
     )))
 }
 
-fn actions_from_py(obj: &Bound<PyAny>) -> PyResult<HashMap<String, ContextAttributes>> {
+fn actions_from_py(obj: &Bound<PyAny>) -> PyResult<HashMap<Str, ContextAttributes>> {
     if let Ok(result) = FromPyObject::extract_bound(&obj) {
         return Ok(result);
     }
 
-    if let Ok(result) = HashMap::<String, Attributes>::extract_bound(&obj) {
+    if let Ok(result) = HashMap::<Str, Attributes>::extract_bound(&obj) {
         let result = result
             .into_iter()
             .map(|(name, attrs)| (name, ContextAttributes::from(attrs)))

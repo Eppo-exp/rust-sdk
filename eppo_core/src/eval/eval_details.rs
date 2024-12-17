@@ -92,8 +92,8 @@ pub struct EvaluationDetails {
     /// value is absent in configuration (configuration error).
     pub variation_value: Option<AssignmentValue>,
 
-    pub bandit_key: Option<String>,
-    pub bandit_action: Option<String>,
+    pub bandit_key: Option<Str>,
+    pub bandit_action: Option<Str>,
 
     /// Evaluation details for all allocations.
     pub allocations: Vec<AllocationEvaluationDetails>,

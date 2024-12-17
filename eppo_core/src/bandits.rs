@@ -4,12 +4,12 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::timestamp::Timestamp;
+use crate::{timestamp::Timestamp, Str};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BanditResponse {
-    pub bandits: HashMap<String, BanditConfiguration>,
+    pub bandits: HashMap<Str, BanditConfiguration>,
     pub updated_at: Timestamp,
 }
 
@@ -18,7 +18,7 @@ pub struct BanditResponse {
 pub struct BanditConfiguration {
     pub bandit_key: String,
     pub model_name: String,
-    pub model_version: String,
+    pub model_version: Str,
     pub model_data: BanditModelData,
     pub updated_at: Timestamp,
 }

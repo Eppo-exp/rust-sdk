@@ -1,12 +1,18 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 
 use serde::{Deserialize, Serialize};
+
+use crate::Str;
 
 use super::{
     AttributeValue, AttributeValueImpl, Attributes, CategoricalAttribute, NumericAttribute,
 };
 
 /// `ContextAttributes` are subject or action attributes split by their semantics.
+// TODO(oleksii): I think we should hide fields of this type and maybe the whole type itself. Now
+// with `Attributes` being able to faithfully represent numeric and categorical attributes, there's
+// little reason for users of eppo_core to know about `ContextAttributes`, so it makes sense to hide
+// it and make it an internal type.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "pyo3", pyo3::pyclass(module = "eppo_client"))]
@@ -16,11 +22,11 @@ pub struct ContextAttributes {
     /// Not all numbers are numeric attributes. If a number is used to represent an enumeration or
     /// on/off values, it is a categorical attribute.
     #[serde(alias = "numericAttributes")]
-    pub numeric: HashMap<String, NumericAttribute>,
+    pub numeric: Arc<HashMap<Str, NumericAttribute>>,
     /// Categorical attributes are attributes that have a finite set of values that are not directly
     /// comparable (i.e., enumeration).
     #[serde(alias = "categoricalAttributes")]
-    pub categorical: HashMap<String, CategoricalAttribute>,
+    pub categorical: Arc<HashMap<Str, CategoricalAttribute>>,
 }
 
 impl From<Attributes> for ContextAttributes {
@@ -31,25 +37,31 @@ impl From<Attributes> for ContextAttributes {
 
 impl<K, V> FromIterator<(K, V)> for ContextAttributes
 where
-    K: ToOwned<Owned = String>,
-    V: ToOwned<Owned = AttributeValue>,
+    K: Into<Str>,
+    V: Into<AttributeValue>,
 {
     fn from_iter<T: IntoIterator<Item = (K, V)>>(iter: T) -> Self {
-        iter.into_iter()
-            .fold(ContextAttributes::default(), |mut acc, (key, value)| {
-                match value.to_owned() {
+        let (categorical, numeric) = iter.into_iter().fold(
+            (HashMap::new(), HashMap::new()),
+            |(mut categorical, mut numeric), (key, value)| {
+                match value.into() {
                     AttributeValue(AttributeValueImpl::Categorical(value)) => {
-                        acc.categorical.insert(key.to_owned(), value);
+                        categorical.insert(key.into(), value);
                     }
                     AttributeValue(AttributeValueImpl::Numeric(value)) => {
-                        acc.numeric.insert(key.to_owned(), value);
+                        numeric.insert(key.into(), value);
                     }
                     AttributeValue(AttributeValueImpl::Null) => {
                         // Nulls are missing values and are ignored.
                     }
                 }
-                acc
-            })
+                (categorical, numeric)
+            },
+        );
+        ContextAttributes {
+            numeric: Arc::new(numeric),
+            categorical: Arc::new(categorical),
+        }
     }
 }
 
@@ -69,11 +81,11 @@ impl ContextAttributes {
 
 #[cfg(feature = "pyo3")]
 mod pyo3_impl {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, sync::Arc};
 
     use pyo3::prelude::*;
 
-    use crate::{Attributes, CategoricalAttribute, NumericAttribute};
+    use crate::{Attributes, CategoricalAttribute, NumericAttribute, Str};
 
     use super::ContextAttributes;
 
@@ -81,12 +93,12 @@ mod pyo3_impl {
     impl ContextAttributes {
         #[new]
         fn new(
-            numeric_attributes: HashMap<String, NumericAttribute>,
-            categorical_attributes: HashMap<String, CategoricalAttribute>,
+            numeric_attributes: HashMap<Str, NumericAttribute>,
+            categorical_attributes: HashMap<Str, CategoricalAttribute>,
         ) -> ContextAttributes {
             ContextAttributes {
-                numeric: numeric_attributes,
-                categorical: categorical_attributes,
+                numeric: Arc::new(numeric_attributes),
+                categorical: Arc::new(categorical_attributes),
             }
         }
 

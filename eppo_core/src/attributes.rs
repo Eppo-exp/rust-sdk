@@ -17,12 +17,12 @@ pub use context_attributes::ContextAttributes;
 /// ```
 /// # use eppo_core::Attributes;
 /// let attributes = [
-///     ("age".to_owned(), 30.0.into()),
-///     ("is_premium_member".to_owned(), true.into()),
-///     ("username".to_owned(), "john_doe".into()),
+///     ("age".into(), 30.0.into()),
+///     ("is_premium_member".into(), true.into()),
+///     ("username".into(), "john_doe".into()),
 /// ].into_iter().collect::<Attributes>();
 /// ```
-pub type Attributes = HashMap<String, AttributeValue>;
+pub type Attributes = HashMap<Str, AttributeValue>;
 
 /// Attribute of a subject or action.
 ///

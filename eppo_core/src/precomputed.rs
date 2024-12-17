@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use rand::Rng;
 use serde::{Deserialize, Serialize};
@@ -7,7 +8,7 @@ use serde_with::serde_as;
 use crate::obfuscation::{Base64Str, Md5HashedStr};
 use crate::timestamp::Timestamp;
 use crate::ufc::{Assignment, ConfigurationFormat, Environment, ValueWire, VariationType};
-use crate::Str;
+use crate::{CategoricalAttribute, NumericAttribute, Str};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -18,7 +19,9 @@ pub struct PrecomputedConfiguration {
     pub(crate) format: ConfigurationFormat,
     // Environment might be missing if configuration was absent during evaluation.
     pub(crate) environment: Option<Environment>,
-    pub(crate) flags: HashMap<String, PrecomputedAssignment>,
+    pub(crate) flags: HashMap</* flag_key: */ Str, PrecomputedAssignment>,
+    pub(crate) bandits:
+        HashMap</* flag_key: */ Str, HashMap</* variation_value: */ Str, PrecomputedBandit>>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -35,6 +38,18 @@ pub(crate) struct PrecomputedAssignment {
     pub(crate) variation_key: Option<Str>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) extra_logging: Option<HashMap<String, String>>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct PrecomputedBandit {
+    pub(crate) bandit_key: Str,
+    pub(crate) action: Str,
+    pub(crate) action_probability: f64,
+    pub(crate) optimality_gap: f64,
+    pub(crate) model_version: Str,
+    pub(crate) action_numeric_attributes: Arc<HashMap<Str, NumericAttribute>>,
+    pub(crate) action_categorical_attributes: Arc<HashMap<Str, CategoricalAttribute>>,
 }
 
 impl From<Assignment> for PrecomputedAssignment {
@@ -151,7 +166,7 @@ mod tests {
                 name: "Test".into(),
             }),
             flags: [(
-                "test-flag".to_owned(),
+                "test-flag".into(),
                 PrecomputedAssignment {
                     variation_type: VariationType::String,
                     variation_value: ValueWire::String("hello, world!".into()),
@@ -167,6 +182,7 @@ mod tests {
             )]
             .into_iter()
             .collect(),
+            bandits: HashMap::new(),
         };
 
         let obfuscated = configuration.obfuscate();

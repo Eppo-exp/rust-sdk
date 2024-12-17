@@ -30,13 +30,11 @@ pub(crate) struct CompiledFlagsConfig {
     /// Flags configuration.
     ///
     /// For flags that failed to parse or are disabled, we store the evaluation failure directly.
-    pub flags: HashMap<String, Result<Flag, EvaluationFailure>>,
+    pub flags: HashMap<Str, Result<Flag, EvaluationFailure>>,
     /// Mapping from flag key to flag variation value to bandit variation. Cached from
     /// `UniversalFlagConfig::bandits`.
-    pub flag_to_bandit_associations: HashMap<
-        /* flag_key: */ String,
-        HashMap</* variation_key: */ String, BanditVariationWire>,
-    >,
+    pub flag_to_bandit_associations:
+        HashMap</* flag_key: */ Str, HashMap</* variation_value: */ Str, BanditVariationWire>>,
 }
 
 #[derive(Debug)]
@@ -121,8 +119,8 @@ fn compile_flag_configuration(
 }
 
 fn get_flag_to_bandit_associations(
-    bandits: HashMap<String, Vec<BanditVariationWire>>,
-) -> HashMap<String, HashMap<String, BanditVariationWire>> {
+    bandits: HashMap<Str, Vec<BanditVariationWire>>,
+) -> HashMap<Str, HashMap<Str, BanditVariationWire>> {
     bandits
         .into_iter()
         .flat_map(|(_, bandits)| bandits.into_iter())

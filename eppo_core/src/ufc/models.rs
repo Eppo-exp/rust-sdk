@@ -26,11 +26,11 @@ pub(crate) struct UniversalFlagConfigWire {
     ///
     /// Value is wrapped in `TryParse` so that if we fail to parse one flag (e.g., new server
     /// format), we can still serve other flags.
-    pub flags: HashMap<String, TryParse<FlagWire>>,
+    pub flags: HashMap<Str, TryParse<FlagWire>>,
     /// `bandits` field connects string feature flags to bandits. Actual bandits configuration is
     /// served separately.
     #[serde(default)]
-    pub bandits: HashMap<String, Vec<BanditVariationWire>>,
+    pub bandits: HashMap<Str, Vec<BanditVariationWire>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -521,13 +521,13 @@ impl ShardRange {
 #[derive(Debug, Serialize, Deserialize, Clone)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct BanditVariationWire {
-    pub key: String,
+    pub key: Str,
     /// Key of the flag.
-    pub flag_key: String,
+    pub flag_key: Str,
     /// Today it's the same as `variation_value`.
-    pub variation_key: String,
+    pub variation_key: Str,
     /// String variation value.
-    pub variation_value: String,
+    pub variation_value: Str,
 }
 
 #[cfg(test)]
