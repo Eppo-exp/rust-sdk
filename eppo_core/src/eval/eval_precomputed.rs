@@ -12,7 +12,10 @@ pub fn get_precomputed_configuration(
     configuration: Option<&Configuration>,
     subject_key: &Str,
     subject_attributes: &Arc<ContextAttributes>,
-    actions: &HashMap<Str, HashMap<Str, ContextAttributes>>,
+    flag_actions: &HashMap<
+        /* flag_key: */ Str,
+        HashMap</* action_key: */ Str, ContextAttributes>,
+    >,
     now: DateTime<Utc>,
 ) -> PrecomputedConfiguration {
     let Some(configuration) = configuration else {
@@ -63,30 +66,15 @@ pub fn get_precomputed_configuration(
         .bandits
         .as_ref()
         .map(|bandits| {
-            configuration
-                .flags
-                .compiled
-                .flags
+            flag_actions
                 .iter()
-                .filter_map(|(flag_key, flag)| {
-                    let flag = flag.as_ref().ok()?;
+                .filter_map(|(flag_key, actions)| {
+                    let flag = flags.get(flag_key)?;
 
                     // Skip non-string variations as they can't be bandits.
                     if flag.variation_type != VariationType::String {
                         return None;
                     }
-
-                    let flag_actions = if let Some(actions) = actions.get(flag_key) {
-                        actions
-                    } else {
-                        log::warn!(
-                            target: "eppo",
-                            subject_key,
-                            flag_key;
-                            "No actions provided for flag that requires them"
-                        );
-                        return None;
-                    };
 
                     let flag_bandits: HashMap</* variation_key: */ Str, PrecomputedBandit> =
                         if let Some(ValueWire::String(precomputed_variation_value)) = flags
@@ -106,10 +94,10 @@ pub fn get_precomputed_configuration(
 
                             let bandit_evaluation = bandit_model
                                 .model_data
-                                .evaluate(flag_key, subject_key, subject_attributes, flag_actions)
+                                .evaluate(flag_key, subject_key, subject_attributes, actions)
                                 .ok()?;
 
-                            let selected_action = &flag_actions[&bandit_evaluation.action_key];
+                            let selected_action = &actions[&bandit_evaluation.action_key];
                             let precomputed_bandit = PrecomputedBandit {
                                 bandit_key: bandit_key.clone(),
                                 action: bandit_evaluation.action_key,
@@ -143,12 +131,11 @@ pub fn get_precomputed_configuration(
                                             flag_key,
                                             subject_key,
                                             subject_attributes,
-                                            flag_actions,
+                                            actions,
                                         )
                                         .ok()?;
 
-                                    let selected_action =
-                                        &flag_actions[&bandit_evaluation.action_key];
+                                    let selected_action = &actions[&bandit_evaluation.action_key];
                                     let precomputed_bandit = PrecomputedBandit {
                                         bandit_key: bandit_key.clone(),
                                         action: bandit_evaluation.action_key,
@@ -201,21 +188,6 @@ mod tests {
         ContextAttributes, SdkMetadata,
     };
     use std::{fs, sync::Arc};
-
-    fn setup_test_config() -> Configuration {
-        let _ = env_logger::builder().is_test(true).try_init();
-
-        // Load test configuration
-        let ufc_config = UniversalFlagConfig::from_json(
-            SdkMetadata {
-                name: "test",
-                version: "0.1.0",
-            },
-            fs::read("../sdk-test-data/ufc/flags-v1.json").unwrap(),
-        )
-        .unwrap();
-        Configuration::from_server_response(ufc_config, None)
-    }
 
     #[test]
     fn test_precomputed_assignment_basic() {

@@ -117,14 +117,17 @@ impl Evaluator {
         &self,
         subject_key: &Str,
         subject_attributes: &Arc<ContextAttributes>,
-        actions: &HashMap<Str, HashMap<Str, ContextAttributes>>,
+        flag_actions: &HashMap<
+            /* flag_key: */ Str,
+            HashMap</* action_key: */ Str, ContextAttributes>,
+        >,
     ) -> PrecomputedConfiguration {
         let configuration = self.get_configuration();
         get_precomputed_configuration(
             configuration.as_ref().map(AsRef::as_ref),
             subject_key,
             subject_attributes,
-            actions,
+            flag_actions,
             Utc::now(),
         )
     }
