@@ -12,7 +12,10 @@ pub fn get_precomputed_configuration(
     configuration: Option<&Configuration>,
     subject_key: &Str,
     subject_attributes: &Arc<ContextAttributes>,
-    actions: &HashMap<Str, ContextAttributes>,
+    flag_actions: &HashMap<
+        /* flag_key: */ Str,
+        HashMap</* action_key: */ Str, ContextAttributes>,
+    >,
     now: DateTime<Utc>,
 ) -> PrecomputedConfiguration {
     let Some(configuration) = configuration else {
@@ -63,13 +66,10 @@ pub fn get_precomputed_configuration(
         .bandits
         .as_ref()
         .map(|bandits| {
-            configuration
-                .flags
-                .compiled
-                .flags
+            flag_actions
                 .iter()
-                .filter_map(|(flag_key, flag)| {
-                    let flag = flag.as_ref().ok()?;
+                .filter_map(|(flag_key, actions)| {
+                    let flag = flags.get(flag_key)?;
 
                     // Skip non-string variations as they can't be bandits.
                     if flag.variation_type != VariationType::String {
@@ -179,28 +179,15 @@ pub fn get_precomputed_configuration(
 
 #[cfg(test)]
 mod tests {
+    use crate::Str;
     use chrono::Utc;
+    use std::collections::HashMap;
 
     use crate::{
         eval::get_precomputed_configuration, ufc::UniversalFlagConfig, Configuration,
         ContextAttributes, SdkMetadata,
     };
     use std::{fs, sync::Arc};
-
-    fn setup_test_config() -> Configuration {
-        let _ = env_logger::builder().is_test(true).try_init();
-
-        // Load test configuration
-        let ufc_config = UniversalFlagConfig::from_json(
-            SdkMetadata {
-                name: "test",
-                version: "0.1.0",
-            },
-            fs::read("../sdk-test-data/ufc/flags-v1.json").unwrap(),
-        )
-        .unwrap();
-        Configuration::from_server_response(ufc_config, None)
-    }
 
     #[test]
     fn test_precomputed_assignment_basic() {
@@ -278,7 +265,10 @@ mod tests {
 
         let subject_key = "test-subject-1".into();
         let subject_attributes = Default::default();
-        let actions = [
+        let mut actions = HashMap::new();
+
+        // Add actions for car bandit flag
+        let car_actions: HashMap<Str, ContextAttributes> = [
             ("dodge".into(), Default::default()),
             ("mercedes".into(), Default::default()),
             (
@@ -291,6 +281,8 @@ mod tests {
         ]
         .into_iter()
         .collect();
+        actions.insert("car_bandit_flag".into(), car_actions);
+
         let now = Utc::now();
 
         // Get precomputed assignments
@@ -322,5 +314,123 @@ mod tests {
         //     serde_json::to_string_pretty(&precomputed.obfuscate()).unwrap()
         // );
         // assert!(false);
+    }
+
+    #[test]
+    fn test_precomputed_assignment_with_and_without_actions() {
+        let _ = env_logger::builder().is_test(true).try_init();
+
+        let configuration = {
+            let ufc_config = UniversalFlagConfig::from_json(
+                SdkMetadata {
+                    name: "test",
+                    version: "0.1.0",
+                },
+                fs::read("../sdk-test-data/ufc/bandit-flags-v1.json").unwrap(),
+            )
+            .unwrap();
+            let bandits_config = serde_json::from_slice(
+                &fs::read("../sdk-test-data/ufc/bandit-models-v1.json").unwrap(),
+            )
+            .unwrap();
+            Configuration::from_server_response(ufc_config, Some(bandits_config))
+        };
+
+        let subject_key = "test-subject-1".into();
+        let subject_attributes = Arc::new(ContextAttributes {
+            numeric: Default::default(),
+            categorical: Arc::new([("country".into(), "UK".into())].into_iter().collect()),
+        });
+        let now = Utc::now();
+
+        // Case 1: No actions provided
+        let precomputed_no_actions = get_precomputed_configuration(
+            Some(&configuration),
+            &subject_key,
+            &subject_attributes,
+            &HashMap::new(),
+            now,
+        );
+        // Validate Case 1
+        assert!(
+            precomputed_no_actions.bandits.is_empty(),
+            "Should have no bandit data when no actions provided"
+        );
+
+        // Case 2: Only car bandit actions provided
+        let mut car_only_actions = HashMap::new();
+        let car_actions: HashMap<Str, ContextAttributes> = [(
+            "toyota".into(),
+            ContextAttributes {
+                numeric: Arc::new([("speed".into(), (1000.0).into())].into_iter().collect()),
+                categorical: Default::default(),
+            },
+        )]
+        .into_iter()
+        .collect();
+        car_only_actions.insert("car_bandit_flag".into(), car_actions);
+
+        let precomputed_car_only = get_precomputed_configuration(
+            Some(&configuration),
+            &subject_key,
+            &subject_attributes,
+            &car_only_actions,
+            now,
+        );
+        // Validate Case 2
+        assert!(
+            precomputed_car_only.bandits.contains_key("car_bandit_flag"),
+            "Should have car bandit data when car actions provided"
+        );
+        assert!(
+            !precomputed_car_only
+                .bandits
+                .contains_key("banner_bandit_flag"),
+            "Should not have banner bandit data when only car actions provided"
+        );
+        assert!(
+            !precomputed_car_only
+                .bandits
+                .contains_key("banner_bandit_flag_uk_only"),
+            "Should not have UK banner bandit data when only car actions provided"
+        );
+
+        // Case 3: Only banner bandit actions provided
+        let mut banner_only_actions = HashMap::new();
+        let banner_actions: HashMap<Str, ContextAttributes> = [
+            ("nike".into(), Default::default()),
+            ("adidas".into(), Default::default()),
+        ]
+        .into_iter()
+        .collect();
+        banner_only_actions.insert("banner_bandit_flag".into(), banner_actions.clone());
+        banner_only_actions.insert("banner_bandit_flag_uk_only".into(), banner_actions);
+
+        let precomputed_banner_only = get_precomputed_configuration(
+            Some(&configuration),
+            &subject_key,
+            &subject_attributes,
+            &banner_only_actions,
+            now,
+        );
+        // Validate Case 3
+        assert!(
+            !precomputed_banner_only
+                .bandits
+                .contains_key("car_bandit_flag"),
+            "Should not have car bandit data when only banner actions provided"
+        );
+        assert!(
+            precomputed_banner_only
+                .bandits
+                .contains_key("banner_bandit_flag"),
+            "Should have banner bandit data when banner actions provided"
+        );
+        assert!(
+            precomputed_banner_only
+                .bandits
+                .contains_key("banner_bandit_flag_uk_only"),
+            "Should have UK banner bandit data when banner actions provided"
+        );
     }
 }
