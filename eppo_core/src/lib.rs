@@ -1,5 +1,5 @@
 //! `eppo_core` is a common library to build Eppo SDKs for different languages. If you're an Eppo
-//! user, you probably want to take a look at one of existing SDKs.
+//! user, you probably want to take a look at one of the existing SDKs.
 //!
 //! # Overview
 //!
@@ -7,9 +7,9 @@
 //! languages have different constraints. Some languages might use all building blocks and others
 //! might reimplement some pieces in the host language.
 //!
-//! [`Configuration`] is the heart of an SDK. It is an immutable structure that encapsulates all
+//! [`Configuration`] is the heart of the SDK. It is an immutable structure that encapsulates all
 //! server-provided configuration ([flag configurations](ufc::UniversalFlagConfig) and [bandit
-//! models](bandits::BanditResponse)) that describes how SDK should evaluate user requests.
+//! models](bandits::BanditResponse)) that describes how the SDK should evaluate user requests.
 //!
 //! [`ConfigurationStore`](configuration_store::ConfigurationStore) is a thread-safe multi-reader
 //! multi-writer in-memory manager for [`Configuration`]. The job of configuration store is to be a
@@ -24,7 +24,7 @@
 //!
 //! [`PollerThread`](poller_thread::PollerThread) launches a background thread that periodically
 //! fetches a new `Configuration` (using `ConfigurationFetcher`) and updates
-//! `ConfigurationStore`. This is the simplest way to keep SDK configuration up-to-date.
+//! `ConfigurationStore`. This is the simplest way to keep the SDK configuration up-to-date.
 //!
 //! [`eval`] module contains functions for flag and bandit evaluation. It also supports evaluation
 //! with [details](eval::eval_details::EvaluationDetails). These functions return evaluation results
@@ -36,7 +36,7 @@
 //! callback handling is currently too different between languages (e.g., in Ruby, it's too tedious
 //! to call from Rust into Ruby, so we return events into Ruby land where they get logged).
 //!
-//! Because evaluation functions are pure functions (they don't have side-effects and don't use any
+//! Because evaluation functions are pure functions (they don't have side effects and don't use any
 //! global state), they are a bit tedious to call directly. [`Evaluator`](eval::Evaluator) is a
 //! helper to simplify SDK code and pass repeated parameters automatically.
 //!

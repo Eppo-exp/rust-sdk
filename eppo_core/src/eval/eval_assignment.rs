@@ -179,7 +179,7 @@ impl CompiledFlagsConfig {
         flag.eval(visitor, subject_key, subject_attributes, now)
     }
 
-    fn get_flag<'a>(&'a self, flag_key: &str) -> Result<&'a Flag, EvaluationFailure> {
+    fn get_flag(&self, flag_key: &str) -> Result<&Flag, EvaluationFailure> {
         let flag = self
             .flags
             .get(flag_key)
@@ -484,7 +484,7 @@ mod tests {
                 name: "test",
                 version: "0.1.0",
             },
-            std::fs::read("../sdk-test-data/ufc/flags-v1.json").unwrap(),
+            fs::read("../sdk-test-data/ufc/flags-v1.json").unwrap(),
         )
         .unwrap();
         let config = Configuration::from_server_response(config, None);

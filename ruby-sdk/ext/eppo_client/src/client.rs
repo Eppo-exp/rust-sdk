@@ -176,7 +176,7 @@ impl Client {
         .map_err(|err| {
             Error::new(
                 exception::runtime_error(),
-                format!("enexpected value for subject_attributes: {err}"),
+                format!("Unexpected value for subject_attributes: {err}"),
             )
         })?;
         let actions = serde_magnus::deserialize(actions)?;
