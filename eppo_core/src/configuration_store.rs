@@ -1,5 +1,5 @@
 //! A thread-safe in-memory storage for currently active configuration. [`ConfigurationStore`]
-//! provides a concurrent access for readers (e.g., flag evaluation) and writers (e.g., periodic
+//! provides concurrent access for readers (e.g., flag evaluation) and writers (e.g., periodic
 //! configuration fetcher).
 use std::sync::{Arc, RwLock};
 

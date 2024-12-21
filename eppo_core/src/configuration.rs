@@ -47,7 +47,7 @@ impl Configuration {
     /// Return bandit configuration for the given key.
     ///
     /// Returns `None` if bandits are missing for bandit does not exist.
-    pub(crate) fn get_bandit<'a>(&'a self, bandit_key: &str) -> Option<&'a BanditConfiguration> {
+    pub(crate) fn get_bandit(&self, bandit_key: &str) -> Option<&BanditConfiguration> {
         self.bandits.as_ref()?.bandits.get(bandit_key)
     }
 
