@@ -36,4 +36,9 @@ impl BatchEventProcessor {
         }
         batch
     }
+
+    pub fn is_empty(&self) -> bool {
+        let queue = self.event_queue.lock().unwrap();
+        queue.is_empty()
+    }
 }

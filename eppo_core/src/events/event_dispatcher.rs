@@ -85,15 +85,16 @@ impl EventDispatcher {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use super::*;
     use tokio::time::Duration;
 
-    #[test]
+    #[tokio::test]
     async fn test_dispatch_starts_delivery() {
         let config = EventDispatcherConfig {
             sdk_key: "test-sdk-key".to_string(),
             ingestion_url: "http://example.com".to_string(),
-            delivery_interval_ms: 1000,
+            delivery_interval_ms: 100,
             retry_interval_ms: 1000,
             max_retry_delay_ms: 5000,
             max_retries: Some(3),
@@ -107,13 +108,13 @@ mod tests {
             uuid: "1".to_string(),
             timestamp: 123456,
             event_type: "test".to_string(),
-            payload: serde_json::json!({"key": "value"}),
+            payload: HashMap::from([(String::from("key"), serde_json::to_value("value").unwrap())]),
         });
 
         // Wait a short time to allow delivery task to execute
-        tokio::time::sleep(Duration::from_millis(1500)).await;
+        tokio::time::sleep(Duration::from_millis(120)).await;
 
         // Ensure the batch processor is empty after delivery
-        assert_eq!(batch_processor.queued_event_count(), 0);
+        assert_eq!(batch_processor.is_empty(), true);
     }
 }
